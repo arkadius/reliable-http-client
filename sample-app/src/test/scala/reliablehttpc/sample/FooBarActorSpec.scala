@@ -48,12 +48,22 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
     restoredActor ! "foo"
     restoredActor ! CurrentState
     expectMsg(FooState)
+    stopGraceful(restoredActor)
   }
 
   val id = new AtomicInteger(0)
 
   def withNextFooBar(test: ActorRef => Unit) = {
-    test(createFooBar(id.incrementAndGet().toString))
+    val fooBarACtor = createFooBar(id.incrementAndGet().toString)
+    test(fooBarACtor)
+    stopGraceful(fooBarACtor)
+  }
+
+  def stopGraceful(fooBarActor: ActorRef) {
+    val probe = TestProbe()
+    probe watch fooBarActor
+    fooBarActor ! StopYourself
+    probe.expectTerminated(fooBarActor)
   }
 
   def createFooBar(id: String): ActorRef = {

@@ -1,11 +1,11 @@
 package reliablehttpc.sample
 
+import akka.actor.FSM._
 import akka.actor._
 import akka.pattern._
 import akka.persistence._
 
 class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor with FSM[FooBarState, Unit.type] {
-  
   override def persistenceId: String = "foobar-" + id
 
   import context.dispatcher
@@ -41,6 +41,10 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor
       stay()
   }
 
+  whenUnhandled {
+    case Event(StopYourself, _) => stop()
+  }
+
   override def receiveRecover: Receive = {
     case SnapshotOffer(_, s: FooBarState) =>
       startWith(s, Unit)
@@ -51,7 +55,14 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor
   }
 
   onTransition {
-    case (_, to) => saveSnapshot(to)
+    case (_, to) =>
+      deleteSnapshots(SnapshotSelectionCriteria())
+      saveSnapshot(to)
+  }
+
+  onTermination {
+    case StopEvent(Normal, _, _) => deleteSnapshots(SnapshotSelectionCriteria())
+    case StopEvent(Failure(_), _, _) => deleteSnapshots(SnapshotSelectionCriteria())
   }
 }
 
@@ -64,3 +75,4 @@ case object BarState extends FooBarState
 
 case class SendMsg(msg: String)
 case object CurrentState
+case object StopYourself
