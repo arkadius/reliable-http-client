@@ -71,7 +71,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
   val id = new AtomicInteger(0)
 
   def withNextFooBar(test: ActorRef => Unit) = {
-    val fooBarACtor = createFooBar(id.incrementAndGet().toString)
+    val fooBarACtor = createFooBar(id.getAndIncrement().toString)
     test(fooBarACtor)
     gracefulStop(fooBarACtor)
   }

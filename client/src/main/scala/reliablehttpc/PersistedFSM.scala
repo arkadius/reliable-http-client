@@ -15,6 +15,8 @@
  */
 package reliablehttpc
 
+import java.io.{PrintWriter, StringWriter}
+
 import akka.actor.FSM
 import akka.actor.FSM._
 import akka.persistence._
@@ -37,8 +39,10 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
   }
 
   onTermination {
-    case StopEvent(Normal, _, _) => deleteSnapshots(SnapshotSelectionCriteria())
-    case StopEvent(Failure(_), _, _) => deleteSnapshots(SnapshotSelectionCriteria())
+    case StopEvent(Normal, _, _) =>
+      deleteSnapshots(SnapshotSelectionCriteria())
+    case StopEvent(Failure(_), _, _) =>
+      deleteSnapshots(SnapshotSelectionCriteria())
   }
 
   override def receive: Receive = logSnapshotEvents orElse super.receive
@@ -48,7 +52,10 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
       log.debug("State saved for " + persistenceId)
       stay()
     case SaveSnapshotFailure(metadata, cause) =>
-      log.error("State save failure for " + persistenceId, cause)
+      val stringWriter = new StringWriter()
+      val printWriter = new PrintWriter(stringWriter)
+      cause.printStackTrace(printWriter)
+      log.error(s"State save failure for $persistenceId.\nError: $stringWriter")
       stay()
   }
 }

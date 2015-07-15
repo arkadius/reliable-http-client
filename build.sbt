@@ -26,7 +26,8 @@ lazy val client = (project in file("client")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV
+        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
+        "org.json4s"              %% "json4s-native"                 % json4sV
       )
     }
   )
