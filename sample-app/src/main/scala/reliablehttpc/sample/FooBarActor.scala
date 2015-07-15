@@ -9,7 +9,7 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor
   override def persistenceId: String = "foobar-" + id
 
   import context.dispatcher
-  
+
   startWith(InitState, Unit)
 
   when(InitState) {
@@ -43,15 +43,15 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor
 
   override def receiveRecover: Receive = {
     case SnapshotOffer(_, s: FooBarState) =>
-      goto(s)
+      startWith(s, Unit)
   }
-  
+
   override def receiveCommand: Receive = {
     case _ => throw new IllegalArgumentException("Should be used receive of FSM")
   }
 
   onTransition {
-    case (_, to) => saveSnapshot(to) 
+    case (_, to) => saveSnapshot(to)
   }
 }
 
