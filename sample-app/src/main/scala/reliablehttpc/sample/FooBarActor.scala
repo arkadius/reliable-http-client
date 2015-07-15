@@ -1,68 +1,52 @@
+/*
+ * Copyright 2015 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package reliablehttpc.sample
 
-import akka.actor.FSM._
 import akka.actor._
 import akka.pattern._
-import akka.persistence._
+import reliablehttpc.PersistedFSM
 
-class FooBarActor(id: String, client: DelayedEchoClient) extends PersistentActor with FSM[FooBarState, Unit.type] {
+class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
   override def persistenceId: String = "foobar-" + id
 
   import context.dispatcher
 
-  startWith(InitState, Unit)
+  startWith(InitState, EmptyData)
 
   when(InitState) {
     case Event(SendMsg(msg), _) =>
       client.requestResponse(msg) pipeTo self
       goto(WaitingForResponseState)
-    case Event(CurrentState, _) =>
-      sender() ! InitState
-      stay()
   }
   
   when(WaitingForResponseState) {
     case Event("foo", _) => goto(FooState)
     case Event("bar", _) => goto(BarState)
-    case Event(CurrentState, _) =>
-      sender() ! WaitingForResponseState
-      stay()
   }
 
-  when(FooState) {
-    case Event(CurrentState, _) =>
-      sender() ! FooState
-      stay()
-  }
+  when(FooState)(PartialFunction.empty)
 
-  when(BarState) {
-    case Event(CurrentState, _) =>
-      sender() ! BarState
-      stay()
-  }
+  when(BarState)(PartialFunction.empty)
 
   whenUnhandled {
-    case Event(StopYourself, _) => stop()
-  }
-
-  override def receiveRecover: Receive = {
-    case SnapshotOffer(_, s: FooBarState) =>
-      startWith(s, Unit)
-  }
-
-  override def receiveCommand: Receive = {
-    case _ => throw new IllegalArgumentException("Should be used receive of FSM")
-  }
-
-  onTransition {
-    case (_, to) =>
-      deleteSnapshots(SnapshotSelectionCriteria())
-      saveSnapshot(to)
-  }
-
-  onTermination {
-    case StopEvent(Normal, _, _) => deleteSnapshots(SnapshotSelectionCriteria())
-    case StopEvent(Failure(_), _, _) => deleteSnapshots(SnapshotSelectionCriteria())
+    case Event(CurrentState, _) =>
+      sender() ! stateName
+      stay()
+    case Event(StopYourself, _) =>
+      stop()
   }
 }
 
@@ -72,6 +56,10 @@ case object InitState extends FooBarState
 case object WaitingForResponseState extends FooBarState
 case object FooState extends FooBarState
 case object BarState extends FooBarState
+
+sealed trait FooBarData
+
+case object EmptyData extends FooBarData
 
 case class SendMsg(msg: String)
 case object CurrentState
