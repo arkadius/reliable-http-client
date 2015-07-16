@@ -1,22 +1,22 @@
 package reliablehttpc.sample
 
-import akka.actor.{Props, ActorSystem}
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
-import akka.pattern._
 import akka.stream.ActorMaterializer
-import concurrent.duration._
+import dispatch.{Http => DispatchHttp, as => dispatchAs, _}
 
 import scala.concurrent.Future
 
 object SampleApp extends App with Directives {
-
   implicit val system = ActorSystem()
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
   val client = new DelayedEchoClient {
-    override def requestResponse(msg: String): Future[String] = after(5 seconds, system.scheduler)(Future.successful(msg))
+    override def requestResponse(msg: String): Future[String] = {
+      DispatchHttp(url("http://localhost:8082") << "foo" > dispatchAs.String)
+    }
   }
 
   val route = path(Segment) { id =>
