@@ -18,6 +18,8 @@ package reliablehttpc.sample
 import akka.actor._
 import akka.pattern._
 import reliablehttpc.PersistedFSM
+import concurrent.duration._
+import scala.language.postfixOps
 
 class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
   override def persistenceId: String = "foobar-" + id
@@ -37,9 +39,13 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[Fo
     case Event("bar", _) => goto(BarState)
   }
 
-  when(FooState)(PartialFunction.empty)
+  when(FooState, stateTimeout = 10 seconds) {
+    case Event(StateTimeout, _) => stop()
+  }
 
-  when(BarState)(PartialFunction.empty)
+  when(BarState, stateTimeout = 10 seconds) {
+    case Event(StateTimeout, _) => stop()
+  }
 
   whenUnhandled {
     case Event(CurrentState, _) =>
