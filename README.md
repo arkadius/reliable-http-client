@@ -19,7 +19,7 @@ system.actorOf(Props(new Actor {
 }))
 ```
 
-When given actor will be shutdowned e.g. because of system failure, the response message will be never deliver.
+When given actor will be shutdowned e.g. because of a system failure, the response message will never been delivered.
 
 Thanks to reliable-http-client the same execution cause that actor after restart will got the response message.
 
