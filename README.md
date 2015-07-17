@@ -23,7 +23,7 @@ When given actor will be shutdowned e.g. because of a system failure, the respon
 
 Thanks to reliable-http-client the same execution cause that actor after restart will got the response message.
 
-For actor persistence will be usage [Akka persistence](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html)
+For actor persistence will be used [Akka persistence](http://doc.akka.io/docs/akka/snapshot/scala/persistence.html)
 
 ## Status
 
