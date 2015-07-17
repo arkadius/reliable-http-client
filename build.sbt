@@ -1,11 +1,13 @@
+import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import net.virtualvoid.sbt.graph.Plugin._
 import com.banno.license.Plugin.LicenseKeys._
 import com.banno.license.Licenses._
 import ReleaseTransformations._
+import com.typesafe.sbt.packager.docker._
 
 val commonSettings =
-  seq(graphSettings : _*) ++
-  seq(licenseSettings : _*) ++
+  graphSettings ++
+  licenseSettings ++
   Seq(
     organization  := "org.github",
     scalaVersion  := "2.11.7",
@@ -43,6 +45,8 @@ lazy val server = (project in file("server")).
 
 lazy val sampleEcho = (project in file("sample-echo")).
   settings(commonSettings).
+  enablePlugins(DockerPlugin).
+  enablePlugins(JavaAppPackaging).
   settings(
     libraryDependencies ++= {
       Seq(
@@ -50,11 +54,14 @@ lazy val sampleEcho = (project in file("sample-echo")).
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           %  "logback-classic"              % logbackV
       )
-    }
+    },
+    dockerExposedPorts := Seq(8082)
   )
 
 lazy val sampleApp = (project in file("sample-app")).
   settings(commonSettings).
+  enablePlugins(DockerPlugin).
+  enablePlugins(JavaAppPackaging).
   settings(
     libraryDependencies ++= {
       Seq(
@@ -65,7 +72,8 @@ lazy val sampleApp = (project in file("sample-app")).
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
-    }
+    },
+    dockerExposedPorts := Seq(8081)
   ).
   dependsOn(client)
 

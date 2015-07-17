@@ -1,0 +1,11 @@
+sampleecho:
+  image: sampleecho:0.0.1-SNAPSHOT
+  expose:
+    - "8082"
+
+sampleapp:
+  image: sampleapp:0.0.1-SNAPSHOT
+  links:
+    - sampleecho
+  ports:
+    - "8081:8081"
