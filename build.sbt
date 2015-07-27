@@ -4,6 +4,7 @@ import com.banno.license.Plugin.LicenseKeys._
 import com.banno.license.Licenses._
 import ReleaseTransformations._
 import com.typesafe.sbt.packager.docker._
+import sbt.Keys._
 
 val commonSettings =
   graphSettings ++
@@ -13,8 +14,12 @@ val commonSettings =
     scalaVersion  := "2.11.7",
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
-    removeExistingHeaderBlock := true
-  ) 
+    removeExistingHeaderBlock := true,
+    resolvers ++= Seq(
+      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
+      Resolver.sonatypeRepo("snapshots")
+    )
+  )
 
 val akkaV = "2.3.12"
 val akkaStreamsV = "1.0"
@@ -77,20 +82,21 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
+val playV = "2.3.9"
+
 lazy val test = (project in file("test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {
       Seq(
-        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV
+        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
+        "org.almoehi"             %% "reactive-docker"               % "0.1-SNAPSHOT",
+        "com.typesafe.play"       %% "play-iteratees"                % playV, // reactive-docker dependency with accessible version
+        "com.typesafe.play"       %% "play-json"                     % playV  // reactive-docker dependency with accessible version
       )
     }
   ).
   dependsOn(sampleApp, sampleEcho)
-
-resolvers ++= Seq(
-  "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
-)
 
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,              // : ReleaseStep
