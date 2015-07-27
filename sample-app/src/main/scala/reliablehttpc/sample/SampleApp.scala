@@ -30,7 +30,7 @@ object SampleApp extends App with Directives {
 
   val client = new DelayedEchoClient {
     override def requestResponse(msg: String): Future[String] = {
-      DispatchHttp(url("http://sampleecho:8082") << "foo" > dispatchAs.String)
+      DispatchHttp(url("http://sampleecho:8082") << msg > dispatchAs.String)
     }
   }
 

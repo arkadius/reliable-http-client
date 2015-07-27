@@ -16,8 +16,7 @@ val commonSettings =
     license := apache2("Copyright 2015 the original author or authors."),
     removeExistingHeaderBlock := true,
     resolvers ++= Seq(
-      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
-      Resolver.sonatypeRepo("snapshots")
+      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
     )
   )
 
@@ -82,21 +81,17 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
-val playV = "2.3.9"
-
 lazy val test = (project in file("test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {
       Seq(
+        "com.spotify"              % "docker-client"                 % "3.0.0",
         "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
-        "org.almoehi"             %% "reactive-docker"               % "0.1-SNAPSHOT",
-        "com.typesafe.play"       %% "play-iteratees"                % playV, // reactive-docker dependency with accessible version
-        "com.typesafe.play"       %% "play-json"                     % playV  // reactive-docker dependency with accessible version
+        "ch.qos.logback"           %  "logback-classic"              % logbackV
       )
     }
-  ).
-  dependsOn(sampleApp, sampleEcho)
+  )
 
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,              // : ReleaseStep
