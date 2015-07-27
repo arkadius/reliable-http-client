@@ -15,47 +15,31 @@
  */
 package reliablehttpc.test
 
+import com.github.dockerjava.api.model._
+import com.github.dockerjava.core.DockerClientBuilder
+import dispatch._
 import org.slf4j.LoggerFactory
-import tugboat._
+import reliablehttpc.test.DockerEnrichments._
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import DockerEnrichments._
-import dispatch._
 
 object DeliveryResponseAfterRestartSpec extends App {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
-  val docker = Docker(hostStr = "http://localhost:4243")
-
-  val testFuture = for {
-    containerId <- docker.containerFindByNameOrCreate("test_sampleapp_1", "sampleapp:0.0.1-SNAPSHOT")
-    container: docker.containers.Container = docker.containers.get(containerId)
-    _ <- container.start.portBind(Port.Tcp(8081), PortBinding.local(8081))()
-    _ = {
-      logger.info("App started")
-      container.logs.tail(0).follow(true).stdout(true).stderr(true).stream(msg => logger.debug(">>> sampleapp: " + msg))
-      stopContainerOnShutdown(container, 10 seconds)
-      Thread.sleep(5000)
-    }
-    fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
-    _ <- fooBarClient.foo
-  } yield {
-    logger.info("Foo successful")
+  val docker = DockerClientBuilder.getInstance("unix:///var/run/docker.sock").build()
+  val containerId = docker.containerFindByNameOrCreate("test_sampleapp_1", "sampleapp:0.0.1-SNAPSHOT") { cmd =>
+    val portBindings = new Ports()
+    portBindings.bind(ExposedPort.tcp(8081), Ports.Binding(8081))
+    cmd.withPortBindings(portBindings)
   }
-
-  Await.result(testFuture, 30 seconds)
-
-  def stopContainerOnShutdown(container: docker.containers.Container, duration: FiniteDuration) = {
-    Runtime.getRuntime.addShutdownHook(new Thread {
-      override def run(): Unit = {
-        logger.info(s"Graceful stopping container: ${container.id}")
-        Await.result(container.stop(duration)(), duration + 5.seconds)
-        logger.info(s"Container shutdown successful: ${container.id}")
-      }
-    })
-  }
+  docker.startContainerCmd(containerId).exec()
+  docker.attachLogging(containerId)
+  docker.stopContainerOnShutdown(containerId, 10)
+  logger.info("App started")
+  Thread.sleep(5000)
+  val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
+  Await.result(fooBarClient.foo, 10 seconds)
 }
-

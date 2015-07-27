@@ -15,35 +15,51 @@
  */
 package reliablehttpc.test
 
+import com.github.dockerjava.api._
+import com.github.dockerjava.api.command.CreateContainerCmd
+import org.apache.commons.io.IOUtils
 import org.slf4j.LoggerFactory
-import tugboat._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.convert.wrapAsScala._
 
 object DockerEnrichments {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
-  implicit class DockerEnrichment(docker: Docker) {
+  implicit class DockerEnrichment(docker: DockerClient) {
     def containerFindByNameOrCreate(containerName: String, image: String)
-                                   (implicit ec: ExecutionContext): Future[String] = {
-      for {
-        containers: List[Container] <- docker.containers.list.all(true)()
-        containerId <- {
-          containers.find(_.names.exists(_.contains(containerName))) match {
-            case Some(container) =>
-              logger.debug(s"Found container for name: $containerName: $container")
-              Future.successful(container.id)
-            case None =>
-              logger.info(s"Not found container for name: $containerName. Creating for image: $image")
-              val createFuture: Future[Create.Response] = docker.containers.create(image)()
-              createFuture.map {
-                case Create.Response(createdContainerId, warnings) =>
-                  logger.warn(warnings.mkString(s"Warnings during container create with name: $containerName for image: $image:\n", ",\n", ""))
-                  createdContainerId
-              }
+                                   (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
+      docker.listContainersCmd.withShowAll(true).exec().find(_.getNames.exists(_.contains(containerName))) match {
+        case Some(container) =>
+          logger.debug(s"Found container for name: $containerName: $container")
+          container.getId
+        case None =>
+          logger.info(s"Not found container for name: $containerName. Creating for image: $image")
+          val createWithNameCommand = docker.createContainerCmd(image).withName(containerName)
+          val createResult = prepareCreateCommand(createWithNameCommand).exec()
+          if (Option(createResult.getWarnings).exists(_.nonEmpty)) {
+            logger.warn(createResult.getWarnings.mkString(s"Warnings during container create with name: $containerName for image: $image:\n", ",\n", ""))
           }
+          createResult.getId
+      }
+    }
+
+    def attachLogging(containerId: String) = {
+      new Thread {
+        override def run(): Unit = {
+          val input = docker.logContainerCmd(containerId).withStdOut().withStdErr().withFollowStream().withTail(0).exec()
+          IOUtils.copy(input, System.out)
         }
-      } yield containerId
+      }.start()
+    }
+
+    def stopContainerOnShutdown(containerId: String, secondsToWaitBeforeKilling: Int) = {
+      Runtime.getRuntime.addShutdownHook(new Thread {
+        override def run(): Unit = {
+          logger.info(s"Graceful stopping container: $containerId")
+          docker.stopContainerCmd(containerId).withTimeout(secondsToWaitBeforeKilling).exec()
+          logger.info(s"Container shutdown successful: $containerId")
+        }
+      })
     }
   }
 }

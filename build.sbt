@@ -86,7 +86,8 @@ lazy val test = (project in file("test")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.spotify"              % "docker-client"                 % "3.0.0",
+        "com.github.docker-java"   % "docker-java"                   % "1.4.0" exclude("commons-logging", "commons-logging"),
+        "commons-io"               % "commons-io"                    % "2.4",
         "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
         "ch.qos.logback"           %  "logback-classic"              % logbackV
       )
