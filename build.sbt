@@ -25,7 +25,7 @@ val akkaStreamsV = "1.0"
 val json4sV = "3.2.11"
 val logbackV = "1.1.3"
 val dispatchV = "0.11.3"
-val scalaTestV = "2.2.5"
+val scalaTestV = "3.0.0-M7"
 
 lazy val client = (project in file("client")).
   settings(commonSettings).
@@ -81,7 +81,7 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
-lazy val test = (project in file("test")).
+lazy val testProj = (project in file("test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {
@@ -89,10 +89,13 @@ lazy val test = (project in file("test")).
         "com.github.docker-java"   % "docker-java"                   % "1.4.0" exclude("commons-logging", "commons-logging"),
         "commons-io"               % "commons-io"                    % "2.4",
         "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
-        "ch.qos.logback"           %  "logback-classic"              % logbackV
+        "ch.qos.logback"           %  "logback-classic"              % logbackV,
+        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
-    }
+    },
+    Keys.test <<= (Keys.test in Test).dependsOn(publishLocal in Docker in sampleEcho, publishLocal in Docker in sampleApp)
   )
+
 
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,              // : ReleaseStep

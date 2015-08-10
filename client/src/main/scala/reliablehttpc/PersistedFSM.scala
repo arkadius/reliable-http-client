@@ -34,15 +34,25 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
 
   onTransition {
     case (_, to) =>
-      deleteSnapshots(SnapshotSelectionCriteria())
-      saveSnapshot(StateAndData(to, nextStateData))
+      deleteSnapshotsLogging()
+      saveSnapshotLogging(StateAndData(to, nextStateData))
   }
 
   onTermination {
     case StopEvent(Normal, _, _) =>
-      deleteSnapshots(SnapshotSelectionCriteria())
+      deleteSnapshotsLogging()
     case StopEvent(Failure(_), _, _) =>
-      deleteSnapshots(SnapshotSelectionCriteria())
+      deleteSnapshotsLogging()
+  }
+
+  private def deleteSnapshotsLogging() = {
+    log.debug(s"Deleting all snapshots for $persistenceId ...")
+    deleteSnapshots(SnapshotSelectionCriteria())
+  }
+
+  private def saveSnapshotLogging(stateAndData: StateAndData[S, D]) = {
+    log.debug(s"Saving state and data for $persistenceId: $stateAndData ...")
+    saveSnapshot(stateAndData)
   }
 
   override def receive: Receive = logSnapshotEvents orElse super.receive
