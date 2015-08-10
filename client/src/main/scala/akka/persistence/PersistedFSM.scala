@@ -13,17 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package reliablehttpc
+package akka.persistence
 
 import java.io.{PrintWriter, StringWriter}
 
-import akka.actor.FSM
 import akka.actor.FSM._
-import akka.persistence._
+import akka.actor.{ActorRef, FSM}
+import akka.persistence.SnapshotProtocol.{DeleteSnapshots, SaveSnapshot}
 
 trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
+  private lazy val _snapshotStore = Persistence(context.system).snapshotStoreFor(snapshotterId)
+
+  private var replyAfterSaveMsg: Option[Any] = None
+  private var listenersForSnapshotSave: Map[Long, RecipientWithMsg] = Map.empty
+
+  implicit class StateExt(state: State) {
+    def replyingAfterSave(msg: Any = StateSaved): PersistedFSM.this.State = {
+      replyAfterSaveMsg = Some(msg)
+      state
+    }
+  }
+
+
   override def receiveRecover: Receive = {
-    case SnapshotOffer(_, stateAndData: StateAndData[_, _]) =>
+    case SnapshotOffer(metadata, stateAndData) =>
       log.info(s"Recovering: $persistenceId from snapshot: $stateAndData")
       val casted = stateAndData.asInstanceOf[StateAndData[S, D]]
       startWith(casted.state, casted.data)
@@ -48,19 +61,25 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
 
   private def deleteSnapshotsLogging() = {
     log.debug(s"Deleting all snapshots for $persistenceId ...")
-    deleteSnapshots(SnapshotSelectionCriteria())
+    _snapshotStore ! DeleteSnapshots(snapshotterId, SnapshotSelectionCriteria())
   }
 
   private def saveSnapshotLogging(stateAndData: StateAndData[S, D]) = {
     log.debug(s"Saving state and data for $persistenceId: $stateAndData ...")
-    saveSnapshot(stateAndData)
+    updateLastSequenceNr(lastSequenceNr + 1)
+    replyAfterSaveMsg.foreach { msg =>
+      listenersForSnapshotSave += lastSequenceNr -> new RecipientWithMsg(sender(), msg)
+      replyAfterSaveMsg = None
+    }
+    _snapshotStore ! SaveSnapshot(SnapshotMetadata(snapshotterId, lastSequenceNr), stateAndData)
   }
 
   override def receive: Receive = logSnapshotEvents orElse super.receive
 
   protected val logSnapshotEvents: Receive = {
-    case _: SaveSnapshotSuccess =>
+    case SaveSnapshotSuccess(metadata) =>
       log.debug("State saved for " + persistenceId)
+      replyToSaveListenerIfWaiting(metadata)
       stay()
     case SaveSnapshotFailure(metadata, cause) =>
       val stringWriter = new StringWriter()
@@ -69,6 +88,19 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
       log.error(s"State save failure for $persistenceId.\nError: $stringWriter")
       stay()
   }
+
+  private def replyToSaveListenerIfWaiting(metadata: SnapshotMetadata): Unit = {
+    listenersForSnapshotSave.get(metadata.sequenceNr).foreach { listener =>
+      listener.reply()
+      listenersForSnapshotSave -= metadata.sequenceNr
+    }
+  }
+  
+  class RecipientWithMsg(recipient: ActorRef, msg: Any) {
+    def reply() = recipient ! msg
+  }
 }
 
 case class StateAndData[S, D](state: S, data: D)
+
+case object StateSaved

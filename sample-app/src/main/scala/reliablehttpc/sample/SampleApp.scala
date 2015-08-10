@@ -42,8 +42,10 @@ object SampleApp extends App with Directives {
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>
-      manager ! SendMsgToFooBar(id, SendMsg(msg))
-      complete("OK")
+      complete {
+        implicit val sendMsgTimeout = Timeout(5 seconds)
+        (manager ? SendMsgToFooBar(id, SendMsg(msg))).map(_ => "OK")
+      }
     } ~
     get {
       complete {

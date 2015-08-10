@@ -33,7 +33,6 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
   it should "handle response after application restart" in { fixture =>
     fixture.fooBarClient.foo
     fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
-    Thread.sleep(3000) // without this, snapshots are not saved correctly
     fixture.restartApp()
     fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
     Thread.sleep(11000)

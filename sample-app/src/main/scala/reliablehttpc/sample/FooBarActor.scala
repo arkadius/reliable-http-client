@@ -17,7 +17,7 @@ package reliablehttpc.sample
 
 import akka.actor._
 import akka.pattern._
-import reliablehttpc.PersistedFSM
+import akka.persistence.PersistedFSM
 import concurrent.duration._
 import scala.language.postfixOps
 
@@ -31,7 +31,7 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[Fo
   when(InitState) {
     case Event(SendMsg(msg), _) =>
       client.requestResponse(msg) pipeTo self
-      goto(WaitingForResponseState)
+      goto(WaitingForResponseState) replyingAfterSave()
   }
   
   when(WaitingForResponseState) {
