@@ -24,6 +24,7 @@ import akka.persistence._
 trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
   override def receiveRecover: Receive = {
     case SnapshotOffer(_, stateAndData: StateAndData[_, _]) =>
+      log.info(s"Recovering: $persistenceId from snapshot: $stateAndData")
       val casted = stateAndData.asInstanceOf[StateAndData[S, D]]
       startWith(casted.state, casted.data)
   }

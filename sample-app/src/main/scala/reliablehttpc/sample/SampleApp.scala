@@ -18,6 +18,7 @@ package reliablehttpc.sample
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
+import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import dispatch.{Http => DispatchHttp, as => dispatchAs, _}
@@ -25,7 +26,6 @@ import dispatch.{Http => DispatchHttp, as => dispatchAs, _}
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import akka.pattern._
 
 object SampleApp extends App with Directives {
   implicit val system = ActorSystem()
@@ -38,20 +38,21 @@ object SampleApp extends App with Directives {
     }
   }
 
+  val manager = system.actorOf(Props(new FooBarsManger(id => Props(new FooBarActor(id, client)))), "foobar")
+
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>
-      val fooBar = system.actorOf(Props(new FooBarActor(id, client)), s"foobar-$id")
-      fooBar ! SendMsg(msg)
+      manager ! SendMsgToFooBar(id, SendMsg(msg))
       complete("OK")
     } ~
     get {
       complete {
         implicit val currentStateTimeout = Timeout(5 seconds)
-        val fooBar = system.actorSelection(system / s"foobar-$id")
-        (fooBar ? CurrentState).mapTo[FooBarState].map(_.toString)
+        (manager ? SendMsgToFooBar(id, CurrentState)).mapTo[FooBarState].map(_.toString)
       }
     }
   }
 
   Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081)
+
 }

@@ -1,10 +1,9 @@
+import com.banno.license.Licenses._
+import com.banno.license.Plugin.LicenseKeys._
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import net.virtualvoid.sbt.graph.Plugin._
-import com.banno.license.Plugin.LicenseKeys._
-import com.banno.license.Licenses._
-import ReleaseTransformations._
-import com.typesafe.sbt.packager.docker._
 import sbt.Keys._
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 
 val commonSettings =
   graphSettings ++

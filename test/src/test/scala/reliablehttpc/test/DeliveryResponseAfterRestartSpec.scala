@@ -33,6 +33,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
   it should "handle response after application restart" in { fixture =>
     fixture.fooBarClient.foo
     fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
+    Thread.sleep(3000) // without this, snapshots are not saved correctly
     fixture.restartApp()
     fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
     Thread.sleep(11000)
@@ -45,7 +46,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
       docker.stopContainerCmd(appContainerId).exec()
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      Thread.sleep(5000)
+      Thread.sleep(5000) // wait for start
       logger.info("App restarted")
     }
   }
@@ -66,7 +67,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
       cmd.withPortBindings(portBindings)
       cmd.withLinks(new Link(echoName, "sampleecho"))
     }
-    Thread.sleep(5000)
+    Thread.sleep(5000) // wait for start
     logger.info("App started")
     val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
