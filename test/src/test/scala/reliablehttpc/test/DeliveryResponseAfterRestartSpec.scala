@@ -50,8 +50,6 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     }
   }
 
-  private val echoName = "test_sampleecho_1"
-
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config =
       new DockerClientConfigBuilder()
@@ -59,6 +57,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
         .withMaxTotalConnections(200)
         .withMaxPerRouteConnections(200)
     val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
+    val echoName = "test_sampleecho_1"
     val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho:0.0.1-SNAPSHOT")(identity)
     val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp:0.0.1-SNAPSHOT") { cmd =>
       val portBindings = new Ports()
