@@ -29,4 +29,8 @@ class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor {
   }
 }
 
+object FooBarsManger {
+  def props(client: DelayedEchoClient): Props = Props(new FooBarsManger(id => FooBarActor.props(id, client)))
+}
+
 case class SendMsgToFooBar(id: String, msg: Any)

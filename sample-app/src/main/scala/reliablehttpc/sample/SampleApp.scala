@@ -15,7 +15,7 @@
  */
 package reliablehttpc.sample
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
 import akka.pattern._
@@ -38,7 +38,7 @@ object SampleApp extends App with Directives {
     }
   }
 
-  val manager = system.actorOf(Props(new FooBarsManger(id => Props(new FooBarActor(id, client)))), "foobar")
+  val manager = system.actorOf(FooBarsManger.props(client), "foobar")
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>

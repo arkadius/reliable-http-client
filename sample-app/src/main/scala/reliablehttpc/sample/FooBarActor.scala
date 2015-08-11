@@ -56,6 +56,10 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[Fo
   }
 }
 
+object FooBarActor {
+  def props(id: String, client: DelayedEchoClient): Props = Props(new FooBarActor(id, client))
+}
+
 sealed trait FooBarState
 
 case object InitState extends FooBarState
