@@ -19,11 +19,8 @@ import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.FSM._
 import akka.actor.{ActorRef, FSM}
-import akka.persistence.SnapshotProtocol.{DeleteSnapshots, SaveSnapshot}
 
 trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
-  private lazy val _snapshotStore = Persistence(context.system).snapshotStoreFor(snapshotterId)
-
   private var replyAfterSaveMsg: Option[Any] = None
   private var listenersForSnapshotSave: Map[Long, RecipientWithMsg] = Map.empty
 
@@ -61,7 +58,7 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
 
   private def deleteSnapshotsLogging() = {
     log.debug(s"Deleting all snapshots for $persistenceId ...")
-    _snapshotStore ! DeleteSnapshots(snapshotterId, SnapshotSelectionCriteria())
+    deleteSnapshots(SnapshotSelectionCriteria())
   }
 
   private def saveSnapshotLogging(stateAndData: StateAndData[S, D]) = {
@@ -71,7 +68,7 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
       listenersForSnapshotSave += lastSequenceNr -> new RecipientWithMsg(sender(), msg)
       replyAfterSaveMsg = None
     }
-    _snapshotStore ! SaveSnapshot(SnapshotMetadata(snapshotterId, lastSequenceNr), stateAndData)
+    saveSnapshot(stateAndData)
   }
 
   override def receive: Receive = logSnapshotEvents orElse super.receive
