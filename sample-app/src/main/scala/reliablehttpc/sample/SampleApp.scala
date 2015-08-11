@@ -39,6 +39,7 @@ object SampleApp extends App with Directives {
   }
 
   val manager = system.actorOf(FooBarsManger.props(client), "foobar")
+  manager ! RecoverAllFooBars
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>

@@ -15,10 +15,34 @@
  */
 package reliablehttpc.sample
 
-import akka.actor.{Actor, Props}
+import akka.actor._
+import akka.persistence.{IdsWithStoredSnapshots, GetIdsWithStoredSnapshots, SnapshotsRegistry}
 
-class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor {
+class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor with ActorLogging {
+
   override def receive: Receive = {
+    case RecoverAllFooBars =>
+      val registry = context.actorOf(SnapshotsRegistry.props(FooBarActor.persistenceCategory), "registry")
+      registry ! GetIdsWithStoredSnapshots
+      context.become(waitForIdsWithStoredSnapshots(registry, sender()))
+  }
+
+  private def waitForIdsWithStoredSnapshots(registry: ActorRef, originalSender: ActorRef): Receive = {
+    case IdsWithStoredSnapshots(ids) =>
+      if (ids.nonEmpty) {
+        log.info("Recovering actors from registry: " + ids)
+        ids.foreach { id =>
+          context.actorOf(fooBarPropsCreate(id), id)
+        }
+      } else {
+        log.info("Empty registry - nothing to recover")
+      }
+      originalSender ! FooBarsRecovered
+      registry ! PoisonPill
+      context.become(handleFooBarMessages)
+  }
+
+  val handleFooBarMessages: Receive = {
     case SendMsgToFooBar(id, msg) =>
       context.child(id) match {
         case Some(fooBar) => fooBar forward msg
@@ -32,5 +56,8 @@ class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor {
 object FooBarsManger {
   def props(client: DelayedEchoClient): Props = Props(new FooBarsManger(id => FooBarActor.props(id, client)))
 }
+
+case object RecoverAllFooBars
+case object FooBarsRecovered
 
 case class SendMsgToFooBar(id: String, msg: Any)

@@ -18,6 +18,7 @@ package reliablehttpc.sample
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
+import akka.persistence.StateSaved
 import akka.testkit._
 import org.scalatest._
 
@@ -68,6 +69,27 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
     gracefulStop(restoredActor)
   }
 
+  it should "restore persisted actors just after manager init" in {
+    val mgr = createFooBarManager()
+
+    val id = "saved"
+    mgr ! SendMsgToFooBar(id, SendMsg("foo"))
+    expectMsg(StateSaved)
+
+    val probe = TestProbe()
+    probe watch mgr
+    mgr ! PoisonPill
+    probe.expectTerminated(mgr)
+
+    val restoredMgr = createFooBarManager()
+    restoredMgr ! SendMsgToFooBar(id, CurrentState)
+    expectMsg(WaitingForResponseState)
+    restoredMgr ! SendMsgToFooBar(id, "foo")
+    restoredMgr ! SendMsgToFooBar(id, CurrentState)
+    expectMsg(FooState)
+    ()
+  }
+
   val id = new AtomicInteger(0)
 
   def withNextFooBar(test: ActorRef => Unit) = {
@@ -85,7 +107,15 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
   def createFooBar(id: String): ActorRef = {
     val client = new InMemDelayedEchoClient(1 second)
-    system.actorOf(Props(new FooBarActor(id.toString, client)), "foobar-" + id)
+    system.actorOf(FooBarActor.props(id.toString, client), "foobar-" + id)
+  }
+
+  def createFooBarManager(): ActorRef = {
+    val client = new InMemDelayedEchoClient(1 second)
+    val ref = system.actorOf(FooBarsManger.props(client), "foobar")
+    ref ! RecoverAllFooBars
+    expectMsg(FooBarsRecovered)
+    ref
   }
 
   override protected def beforeAll(): Unit = {

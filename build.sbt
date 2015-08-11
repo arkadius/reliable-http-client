@@ -15,7 +15,8 @@ val commonSettings =
     license := apache2("Copyright 2015 the original author or authors."),
     removeExistingHeaderBlock := true,
     resolvers ++= Seq(
-      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
+      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
+      "SpinGo OSS" at "http://spingo-oss.s3.amazonaws.com/repositories/releases"
     )
   )
 
@@ -25,6 +26,7 @@ val json4sV = "3.2.11"
 val logbackV = "1.1.3"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
+val amqpClientV = "1.5"
 
 lazy val client = (project in file("client")).
   settings(commonSettings).
@@ -32,7 +34,8 @@ lazy val client = (project in file("client")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
-        "org.json4s"              %% "json4s-native"                 % json4sV
+        "org.json4s"              %% "json4s-native"                 % json4sV,
+        "com.github.sstone"       %% "amqp-client"                   % amqpClientV
       )
     }
   )
@@ -42,6 +45,8 @@ lazy val server = (project in file("server")).
   settings(
     libraryDependencies ++= {
       Seq(
+        "com.github.sstone"       %% "amqp-client"                   % amqpClientV,
+        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV
       )
     }
   )
@@ -80,7 +85,7 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
-lazy val testProj = (project in file("test")).
+lazy val test = (project in file("test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {

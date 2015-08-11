@@ -18,11 +18,11 @@ package akka.persistence
 import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.FSM._
-import akka.actor.{ActorRef, FSM}
+import akka.actor._
+import reliablehttpc._
 
-trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
+trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotifications with FSM[S, D] with SubscriptionsHolder {
   private var replyAfterSaveMsg: Option[Any] = None
-  private var listenersForSnapshotSave: Map[Long, RecipientWithMsg] = Map.empty
 
   implicit class StateExt(state: State) {
     def replyingAfterSave(msg: Any = StateSaved): PersistedFSM.this.State = {
@@ -31,22 +31,16 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
     }
   }
 
-
   override def receiveRecover: Receive = {
     case SnapshotOffer(metadata, stateAndData) =>
       log.info(s"Recovering: $persistenceId from snapshot: $stateAndData")
-      val casted = stateAndData.asInstanceOf[StateAndData[S, D]]
+      val casted = stateAndData.asInstanceOf[FSMState[S, D]]
       startWith(casted.state, casted.data)
-  }
-
-  override def receiveCommand: Receive = {
-    case _ => throw new IllegalArgumentException("Should be used receive of FSM")
   }
 
   onTransition {
     case (_, to) =>
-      deleteSnapshotsLogging()
-      saveSnapshotLogging(StateAndData(to, nextStateData))
+      saveSnapshotNotifying(FSMState(to, nextStateData, subscriptions))
   }
 
   onTermination {
@@ -56,48 +50,19 @@ trait PersistedFSM[S, D] extends PersistentActor with FSM[S, D]{
       deleteSnapshotsLogging()
   }
 
-  private def deleteSnapshotsLogging() = {
-    log.debug(s"Deleting all snapshots for $persistenceId ...")
-    deleteSnapshots(SnapshotSelectionCriteria())
-  }
 
-  private def saveSnapshotLogging(stateAndData: StateAndData[S, D]) = {
-    log.debug(s"Saving state and data for $persistenceId: $stateAndData ...")
-    updateLastSequenceNr(lastSequenceNr + 1)
-    replyAfterSaveMsg.foreach { msg =>
-      listenersForSnapshotSave += lastSequenceNr -> new RecipientWithMsg(sender(), msg)
+  protected def needToAddListener(): Option[RecipientWithMsg] = {
+    replyAfterSaveMsg.map { msg =>
       replyAfterSaveMsg = None
-    }
-    saveSnapshot(stateAndData)
-  }
-
-  override def receive: Receive = logSnapshotEvents orElse super.receive
-
-  protected val logSnapshotEvents: Receive = {
-    case SaveSnapshotSuccess(metadata) =>
-      log.debug("State saved for " + persistenceId)
-      replyToSaveListenerIfWaiting(metadata)
-      stay()
-    case SaveSnapshotFailure(metadata, cause) =>
-      val stringWriter = new StringWriter()
-      val printWriter = new PrintWriter(stringWriter)
-      cause.printStackTrace(printWriter)
-      log.error(s"State save failure for $persistenceId.\nError: $stringWriter")
-      stay()
-  }
-
-  private def replyToSaveListenerIfWaiting(metadata: SnapshotMetadata): Unit = {
-    listenersForSnapshotSave.get(metadata.sequenceNr).foreach { listener =>
-      listener.reply()
-      listenersForSnapshotSave -= metadata.sequenceNr
+      new RecipientWithMsg(sender(), msg)
     }
   }
-  
-  class RecipientWithMsg(recipient: ActorRef, msg: Any) {
-    def reply() = recipient ! msg
-  }
+
+  override def receive: Receive =
+    handleSnapshotEvents orElse
+      handleMessageFromSubscription orElse
+      super.receive
+
 }
 
-case class StateAndData[S, D](state: S, data: D)
-
-case object StateSaved
+case class FSMState[S, D](state: S, data: D, subscriptions: Set[Subscription])

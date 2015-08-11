@@ -18,11 +18,14 @@ package reliablehttpc.sample
 import akka.actor._
 import akka.pattern._
 import akka.persistence.PersistedFSM
+import reliablehttpc.SubscriptionManager
 import concurrent.duration._
 import scala.language.postfixOps
 
-class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
-  override def persistenceId: String = "foobar-" + id
+class FooBarActor(protected val id: String, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
+  override protected def persistenceCategory: String = FooBarActor.persistenceCategory
+
+  override protected def subscriptionManager: SubscriptionManager = ???
 
   import context.dispatcher
 
@@ -57,6 +60,8 @@ class FooBarActor(id: String, client: DelayedEchoClient) extends PersistedFSM[Fo
 }
 
 object FooBarActor {
+  val persistenceCategory = "foobar"
+  
   def props(id: String, client: DelayedEchoClient): Props = Props(new FooBarActor(id, client))
 }
 
