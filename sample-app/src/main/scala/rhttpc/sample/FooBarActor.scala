@@ -16,6 +16,7 @@
 package rhttpc.sample
 
 import akka.actor._
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
 import akka.persistence.PersistedFSM
 import akka.pattern._
 import rhttpc.client.SubscriptionManager
@@ -37,6 +38,9 @@ class FooBarActor(protected val id: String, protected val subscriptionManager: S
   }
   
   when(WaitingForResponseState) {
+    case Event(httpResponse: HttpResponse, _) =>
+      self ! httpResponse.entity.asInstanceOf[HttpEntity.Strict].data.utf8String
+      stay()
     case Event("foo", _) => goto(FooState)
     case Event("bar", _) => goto(BarState)
   }

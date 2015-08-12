@@ -33,10 +33,10 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
   }
 
   override def receiveRecover: Receive = {
-    case SnapshotOffer(metadata, stateAndData) =>
-      log.info(s"Recovering: $persistenceId from snapshot: $stateAndData")
-      val casted = stateAndData.asInstanceOf[FSMState[S, D]]
-      registerSubscriptions()
+    case SnapshotOffer(metadata, snapshot) =>
+      log.info(s"Recovering: $persistenceId from snapshot: $snapshot")
+      val casted = snapshot.asInstanceOf[FSMState[S, D]]
+      registerSubscriptions(casted.subscriptions)
       startWith(casted.state, casted.data)
   }
 

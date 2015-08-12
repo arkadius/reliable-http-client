@@ -15,11 +15,11 @@
  */
 package rhttpc.client
 
-import akka.actor.{Actor, ActorRef, Status}
+import akka.actor.{ActorLogging, Actor, ActorRef, Status}
 import akka.http.scaladsl.model.HttpResponse
 import rhttpc.api.Correlated
 
-class SubscriptionManagerActor extends Actor {
+class SubscriptionManagerActor extends Actor with ActorLogging {
   private var subscriptions: Map[SubscriptionOnResponse, ActorRef] = Map.empty
 
   override def receive: Actor.Receive = {
@@ -30,10 +30,12 @@ class SubscriptionManagerActor extends Actor {
       subscriptions.get(sub) match {
         case Some(consumer) =>
           subscriptions -= sub
-          consumer forward msg
+          consumer ! msg
         case None =>
-          sender() ! Status.Failure(new IllegalStateException(s"No subscription registered for $c"))
+          log.error(s"No subscription registered for $c. Will be skipped.")
+          // FIXME: DLQ
       }
+      sender() ! true //  ack
   }
 }
 

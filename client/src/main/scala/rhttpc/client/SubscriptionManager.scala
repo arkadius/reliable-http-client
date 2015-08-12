@@ -84,7 +84,8 @@ trait SubscriptionsHolder { this: Actor =>
 
   protected var subscriptions: Set[SubscriptionOnResponse] = Set.empty
 
-  protected def registerSubscriptions(): Unit = {
+  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Unit = {
+    subscriptions ++= subs
     subscriptions.foreach(subscriptionManager.register(_, self))
   }
 

@@ -62,8 +62,9 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     val serverName = "test_server_1"
     val appVersion: String = "0.0.1-SNAPSHOT"
     val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4")(identity)
-    Thread.sleep(5000)
-    // wait for rabbitmq
+    Thread.sleep(5000) // wait for rabbitmq
+    logger.info("RabbitMQ started")
+
     val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
     val rhttpcServerContainerId = docker.containerStartFromScratch(serverName, "server", appVersion) { cmd =>
       cmd.withLinks(
@@ -79,8 +80,9 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
         new Link(rabbitMqName, "rabbitmq")
       )
     }
-    Thread.sleep(5000) // wait for start
+    Thread.sleep(10000) // wait for start
     logger.info("App started")
+
     val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
     try {

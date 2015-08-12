@@ -39,11 +39,12 @@ class ReliableHttp(implicit actorFactory: ActorRefFactory, rabbitControlActor: R
   def send(request: HttpRequest)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
     val correlationId = UUID.randomUUID().toString
     implicit val timeout = Timeout(10 seconds)
+    val correlated = Correlated(request, correlationId)
     for {
-      ack <- (rabbitControlActor.rabbitControl ? QueueMessage(Correlated(request, correlationId), "rhttpc-request")).mapTo[Boolean]
+      ack <- (rabbitControlActor.rabbitControl ? QueueMessage(correlated, "rhttpc-request")).mapTo[Boolean]
       regSub <- Future.fromTry(
         if (ack) {
-          log.debug(s"Request: $request successfully acknowledged")
+          log.debug(s"Request: $correlated successfully acknowledged")
           Success(DoRegisterSubscription(SubscriptionOnResponse(correlationId)))
         } else {
           Failure(new NoAckException(request))
