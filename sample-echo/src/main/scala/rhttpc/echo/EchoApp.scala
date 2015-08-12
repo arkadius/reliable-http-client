@@ -23,6 +23,7 @@ import akka.stream.ActorMaterializer
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 object EchoApp extends App with Directives {
 
@@ -32,7 +33,11 @@ object EchoApp extends App with Directives {
 
   val route = (post & entity(as[String])) { msg =>
     complete {
-      after(10 seconds, system.scheduler)(Future.successful(msg))
+      system.log.info(s"Got: $msg")
+      after(10 seconds, system.scheduler) {
+        system.log.info(s"Reply with: $msg")
+        Future.successful(msg)
+      }
     }
   }
 

@@ -44,13 +44,12 @@ object SampleApp extends App with Directives {
 //    override def requestResponse(msg: String): Future[String] = {
 //      DispatchHttp(url("http://sampleecho:8082") << msg > dispatchAs.String)
 //    }
-    override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] =
-      rhttpc.send(HttpRequest(method = HttpMethods.POST).withEntity(msg))
+    override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
+      rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(ContentTypes.`text/plain(UTF-8)`, msg))
+    }
   }
 
   val subscriptionManager = SubscriptionManager()
-  Await.result(subscriptionManager.initialized, 10 seconds)
-  system.log.info("Subscription initialized")
 
   val manager = system.actorOf(RecoverableActorsManger.props(
     FooBarActor.persistenceCategory,

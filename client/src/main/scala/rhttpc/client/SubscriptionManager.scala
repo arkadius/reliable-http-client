@@ -28,8 +28,6 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait SubscriptionManager {
-  def initialized: Future[Unit]
-
   def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
 
   def close(): Future[Unit]
@@ -61,10 +59,6 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, rabbitCont
   }
 
   rabbitControlActor.rabbitControl ! subscription
-
-  override def initialized: Future[Unit] = {
-    subscription.initialized
-  }
 
   override def register(subscription: SubscriptionOnResponse, consumer: ActorRef) = {
     subMgr ! RegisterSubscription(subscription, consumer)

@@ -35,7 +35,8 @@ lazy val api = (project in file("api")).
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
         "com.spingo"              %% "op-rabbit-json4s"              % spingoV,
-        "org.json4s"              %% "json4s-native"                 % json4sV
+        "org.json4s"              %% "json4s-native"                 % json4sV,
+        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
     }
   )

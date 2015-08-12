@@ -24,8 +24,10 @@ import com.spingo.op_rabbit._
 import com.spingo.op_rabbit.consumer.Directives._
 import com.spingo.op_rabbit.stream._
 import rhttpc.api.Correlated
+import scala.concurrent.duration._
 
-import scala.concurrent.Promise
+import scala.concurrent.{ExecutionContext, Promise}
+import scala.language.postfixOps
 
 object ServerApp extends App {
   import Json4sSupport._
@@ -33,16 +35,11 @@ object ServerApp extends App {
 
   implicit val actorSystem = ActorSystem("rhttpc-server")
   implicit val materializer = ActorMaterializer()
+  implicit val ec: ExecutionContext = actorSystem.dispatcher
   val rabbitMq = actorSystem.actorOf(Props[RabbitControl])
 
   val graph = FlowGraph.closed() { implicit builder =>
     import FlowGraph.Implicits._
-
-    val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
-      "rhttpc-response-sink",
-      rabbitMq,
-      ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisher("rhttpc-response"))
-    ).akkaGraph
 
     val source = RabbitSource(
       "rhttpc-request-source",
@@ -50,9 +47,19 @@ object ServerApp extends App {
       channel(qos = 3),
       consume(queue("rhttpc-request")),
       body(as[Correlated[HttpRequest]])
-    ).akkaGraph
+    ).akkaGraph.map {
+      case t@(promise, correlated) =>
+        actorSystem.log.info(s"Got $correlated")
+        t
+    }
 
-    val httpClient = Http().outgoingConnection("sampleecho", 8082)
+    val httpClient = Http().outgoingConnection("sampleecho", 8082).mapAsync(3)(_.toStrict(1 minute))
+
+    val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
+      "rhttpc-response-sink",
+      rabbitMq,
+      ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisher("rhttpc-response"))
+    ).akkaGraph
 
     val unzipAckAndCorrelatedRequest = builder.add(Unzip[Promise[Unit], Correlated[HttpRequest]]())
     val unzipRequestAndCorrelationId = builder.add(UnzipWith[Correlated[HttpRequest], HttpRequest, String] { correlated =>
@@ -60,7 +67,9 @@ object ServerApp extends App {
     })
 
     val zipResponseAndCorrelationId = builder.add(ZipWith[HttpResponse, String, Correlated[HttpResponse]] { (msg, correlationId) =>
-      Correlated(msg, correlationId)
+      val correlated = Correlated(msg, correlationId)
+      actorSystem.log.info(s"Reply with $correlated")
+      correlated
     })
     val zipAckAndCorrelatedResponse = builder.add(Zip[Promise[Unit], Correlated[HttpResponse]]())
 

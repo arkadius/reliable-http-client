@@ -35,8 +35,6 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
   }
 
   val subscriptionManager: SubscriptionManager = new SubscriptionManager {
-    override def initialized: Future[Unit] = Future.successful()
-
     override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
       system.scheduler.scheduleOnce(delay) {
         subOnMsg.remove(subscription).foreach { msg =>
@@ -45,6 +43,6 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
       }
     }
 
-    override def close(): Future[Unit] = Future.successful()
+    override def close(): Future[Unit] = Future.successful(Unit)
   }
 }

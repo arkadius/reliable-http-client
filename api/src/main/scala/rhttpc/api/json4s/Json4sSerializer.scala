@@ -49,6 +49,6 @@ object Json4sSerializer {
 
   implicit val formats: Formats = new DefaultFormats {
     override val typeHints: TypeHints = AllTypeHints
-  } + ObjectSerializer
+  } + ObjectSerializer + ContentTypeSerializer + ByteStringSerializer
 
 }

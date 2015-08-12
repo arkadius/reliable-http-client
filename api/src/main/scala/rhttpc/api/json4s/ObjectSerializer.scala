@@ -27,11 +27,10 @@ object ObjectSerializer extends Serializer[Any] {
       val typeMirror = runtimeMirror(getClass.getClassLoader)
       val sym = typeMirror.moduleSymbol(Class.forName(className))
       typeMirror.reflectModule(sym).instance
-
   }
 
   override def serialize(implicit format: Formats): PartialFunction[Any, JValue] = {
     case obj if obj.getClass.getName.endsWith("$") =>
-      JObject(List(JField(ID_FIELD, JString(obj.getClass.getName))))
+      JObject(ID_FIELD -> JString(obj.getClass.getName))
   }
 }
