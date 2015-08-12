@@ -41,16 +41,18 @@ trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging
     deleteSnapshots(SnapshotSelectionCriteria(maxSequenceNr = maxSequenceNr.getOrElse(Int.MaxValue)))
   }
 
-  protected def saveSnapshotNotifying(snapshot: Any): Unit = {
+  protected def saveSnapshotLogging(snapshot: Any): Unit = {
+    saveSnapshotNotifying(snapshot, None)
+  }
+
+  protected def saveSnapshotNotifying(snapshot: Any, listener: Option[RecipientWithMsg]): Unit = {
     log.debug(s"Saving snapshot for $persistenceId: $snapshot ...")
     updateLastSequenceNr(lastSequenceNr + 1)
-    needToAddListener().foreach { listener =>
+    listener.foreach { listener =>
       listenersForSnapshotSave += lastSequenceNr -> listener
     }
     saveSnapshot(snapshot)
   }
-
-  protected def needToAddListener(): Option[RecipientWithMsg]
 
   protected val handleSnapshotEvents: Receive = {
     case SaveSnapshotSuccess(metadata) =>

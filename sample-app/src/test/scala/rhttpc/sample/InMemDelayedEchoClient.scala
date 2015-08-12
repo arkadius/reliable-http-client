@@ -18,9 +18,9 @@ package rhttpc.sample
 import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
-import rhttpc.client.{PipeableExecutable, SubscriptionManager, SubscriptionOnResponse}
+import rhttpc.client.{DoRegisterSubscription, SubscriptionManager, SubscriptionOnResponse}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem) extends DelayedEchoClient {
@@ -28,13 +28,15 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
 
   private val subOnMsg: collection.concurrent.Map[SubscriptionOnResponse, String] = collection.concurrent.TrieMap()
 
-  override def requestResponse(msg: String): PipeableExecutable = {
+  override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
     val uniqueSubOnResponse = SubscriptionOnResponse(UUID.randomUUID().toString)
     subOnMsg.put(uniqueSubOnResponse, msg)
-    new PipeableExecutable(uniqueSubOnResponse)()
+    Future.successful(DoRegisterSubscription(uniqueSubOnResponse))
   }
 
   val subscriptionManager: SubscriptionManager = new SubscriptionManager {
+    override def initialized: Future[Unit] = Future.successful()
+
     override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
       system.scheduler.scheduleOnce(delay) {
         subOnMsg.remove(subscription).foreach { msg =>

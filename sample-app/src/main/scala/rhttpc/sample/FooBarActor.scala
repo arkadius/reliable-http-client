@@ -17,20 +17,23 @@ package rhttpc.sample
 
 import akka.actor._
 import akka.persistence.PersistedFSM
+import akka.pattern._
 import rhttpc.client.SubscriptionManager
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class FooBarActor(protected val id: String, protected val subscriptionManager: SubscriptionManager, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
+  import context.dispatcher
+
   override protected def persistenceCategory: String = FooBarActor.persistenceCategory
 
   startWith(InitState, EmptyData)
 
   when(InitState) {
     case Event(SendMsg(msg), _) =>
-      client.requestResponse(msg) pipeTo this
-      goto(WaitingForResponseState) replyingAfterSave()
+      client.requestResponse(msg) pipeTo self
+      goto(WaitingForResponseState) replyingAfterSave() //TODO: add replyaAfterSubscriptionsRegistered?
   }
   
   when(WaitingForResponseState) {

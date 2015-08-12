@@ -26,8 +26,14 @@ object DockerEnrichments {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
   implicit class DockerEnrichment(docker: DockerClient) {
-    def containerStartFromScratch(containerName: String, image: String)
+    def containerStartFromScratch(containerName: String, repo: String, tag: String)
                                  (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
+      val image = s"$repo:$tag"
+      val images = docker.listImagesCmd().exec().toList
+      if (!images.exists(_.getRepoTags.contains(image))) {
+        logger.info(s"Not found image: $image. Pulling ...")
+        docker.pullImageCmd(repo).withTag(tag).exec()
+      }
       val containerId = containerCleanCreateByName(containerName, image)(prepareCreateCommand)
       docker.startContainerCmd(containerId).exec()
       attachLogging(containerId)

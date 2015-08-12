@@ -15,8 +15,10 @@
  */
 package rhttpc.sample
 
-import rhttpc.client.PipeableExecutable
+import rhttpc.client.DoRegisterSubscription
+
+import scala.concurrent.{ExecutionContext, Future}
 
 trait DelayedEchoClient {
-  def requestResponse(msg: String): PipeableExecutable
+  def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription]
 }

@@ -97,7 +97,7 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
-lazy val test = (project in file("test")).
+lazy val testProj = (project in file("test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {

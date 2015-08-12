@@ -42,7 +42,11 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
 
   onTransition {
     case (_, to) =>
-      saveSnapshotNotifying(FSMState(to, nextStateData, subscriptions))
+      val listener = replyAfterSaveMsg.map { msg =>
+        replyAfterSaveMsg = None
+        new RecipientWithMsg(sender(), msg)
+      }
+      saveSnapshotNotifying(FSMState(to, nextStateData, subscriptions), listener)
   }
 
   onTermination {
@@ -52,19 +56,15 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
       deleteSnapshotsLogging()
   }
 
-
-  protected def needToAddListener(): Option[RecipientWithMsg] = {
-    replyAfterSaveMsg.map { msg =>
-      replyAfterSaveMsg = None
-      new RecipientWithMsg(sender(), msg)
-    }
-  }
-
   override def receive: Receive =
     handleSnapshotEvents orElse
+      handleRegisterSubscription orElse
       handleMessageFromSubscription orElse
       super.receive
 
+  override def stateChanged(): Unit = {
+    saveSnapshotLogging(FSMState(stateName, stateData, subscriptions))
+  }
 }
 
 case class FSMState[S, D](state: S, data: D, subscriptions: Set[SubscriptionOnResponse])

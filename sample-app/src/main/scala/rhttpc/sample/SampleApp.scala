@@ -23,9 +23,10 @@ import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.spingo.op_rabbit.RabbitControl
-import rhttpc.client.{SubscriptionManager, PipeableExecutable, RabbitControlActor, ReliableHttp}
+import rhttpc.client._
 
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Await, Future}
 import scala.language.postfixOps
 
 object SampleApp extends App with Directives {
@@ -35,19 +36,22 @@ object SampleApp extends App with Directives {
 
   implicit val rabbitControl = RabbitControlActor(system.actorOf(Props[RabbitControl]))
 
+
   val client = new DelayedEchoClient {
 //    override def requestResponse(msg: String): Future[String] = {
 //      DispatchHttp(url("http://sampleecho:8082") << msg > dispatchAs.String)
 //    }
     private val rhttpc = ReliableHttp()
 
-    override def requestResponse(msg: String): PipeableExecutable = rhttpc.send(HttpRequest(method = HttpMethods.POST).withEntity(msg))
+    override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] =
+      rhttpc.send(HttpRequest(method = HttpMethods.POST).withEntity(msg))
   }
 
   val subscriptionManager = SubscriptionManager()
+  Await.result(subscriptionManager.initialized, 5 seconds)
 
   val manager = system.actorOf(FooBarsManger.props(subscriptionManager, client), "foobar")
-  manager ! RecoverAllFooBars
+  Await.result((manager ? RecoverAllFooBars)(Timeout(5 seconds)), 10 seconds)
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>

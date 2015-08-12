@@ -28,6 +28,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait SubscriptionManager {
+  def initialized: Future[Unit]
+
   def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
 
   def close(): Future[Unit]
@@ -60,11 +62,15 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, rabbitCont
 
   rabbitControlActor.rabbitControl ! subscription
 
-  def register(subscription: SubscriptionOnResponse, consumer: ActorRef) = {
+  override def initialized: Future[Unit] = {
+    subscription.initialized
+  }
+
+  override def register(subscription: SubscriptionOnResponse, consumer: ActorRef) = {
     subMgr ! RegisterSubscription(subscription, consumer)
   }
 
-  def close(): Future[Unit] = {
+  override def close(): Future[Unit] = {
     subscription.close(30 seconds)
     subscription.closed
   }
@@ -72,35 +78,35 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, rabbitCont
 
 case class SubscriptionOnResponse(correlationId: String)
 
-class PipeableExecutable(subscription: SubscriptionOnResponse)
-                        (executable: => Unit) {
-  def pipeTo(holder: SubscriptionsHolder): Unit = {
-    holder.register(subscription)
-    executable
-  }
-}
-
 trait SubscriptionsHolder { this: Actor =>
 
   protected def subscriptionManager: SubscriptionManager
 
   protected var subscriptions: Set[SubscriptionOnResponse] = Set.empty
 
-  private[rhttpc] def register(subscription: SubscriptionOnResponse) = {
-    subscriptions = subscriptions + subscription
-    subscriptionManager.register(subscription, self)
-  }
-
   protected def registerSubscriptions(): Unit = {
     subscriptions.foreach(subscriptionManager.register(_, self))
+  }
+
+  private[rhttpc] def failedRequest(ex: Throwable, subscription: SubscriptionOnResponse) = {
+    self ! Status.Failure(ex)
+  }
+
+  protected val handleRegisterSubscription: Receive = {
+    case DoRegisterSubscription(subscription) =>
+      subscriptions = subscriptions + subscription
+      stateChanged()
+      subscriptionManager.register(subscription, self)
   }
 
   protected val handleMessageFromSubscription: Receive = {
     case MessageFromSubscription(msg, subscription) =>
       subscriptions = subscriptions - subscription
+      stateChanged()
       self ! msg
   }
-  
+
+  def stateChanged(): Unit
 }
 
 case class MessageFromSubscription(msg: Any, subscription: SubscriptionOnResponse)

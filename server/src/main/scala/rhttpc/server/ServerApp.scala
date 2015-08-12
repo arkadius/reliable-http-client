@@ -50,7 +50,7 @@ object ServerApp extends App {
     body(as[Correlated[HttpRequest]])
   ).akkaGraph
 
-  val httpClient = Http().outgoingConnection("http://sampleecho:8082")
+  val httpClient = Http().outgoingConnection("sampleecho", 8082)
 
   val graph = FlowGraph.closed() { implicit builder =>
     import FlowGraph.Implicits._

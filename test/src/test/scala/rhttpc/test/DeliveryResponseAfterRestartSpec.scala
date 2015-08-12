@@ -57,21 +57,28 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
         .withMaxTotalConnections(200)
         .withMaxPerRouteConnections(200)
     val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
+    val rabbitMqName = "rabbitmq_1"
     val echoName = "test_sampleecho_1"
-    val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho:0.0.1-SNAPSHOT")(identity)
-    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp:0.0.1-SNAPSHOT") { cmd =>
+    val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4")(identity)
+    Thread.sleep(5000) // wait for rabbitmq
+    val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", "0.0.1-SNAPSHOT")(identity)
+    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp", "0.0.1-SNAPSHOT") { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(8081), Ports.Binding(8081))
       cmd.withPortBindings(portBindings)
-      cmd.withLinks(new Link(echoName, "sampleecho"))
+      cmd.withLinks(
+        new Link(echoName, "sampleecho"),
+        new Link(rabbitMqName, "rabbitmq")
+      )
     }
     Thread.sleep(5000) // wait for start
     logger.info("App started")
     val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
     try {
-      docker.stopAndRemoveContainer(echoContainerId)
       docker.stopAndRemoveContainer(appContainerId)
+      docker.stopAndRemoveContainer(echoContainerId)
+      docker.stopAndRemoveContainer(rabbitmqContainerId)
       docker.close()
     } catch {
       case NonFatal(ex) => logger.warn("Exception during cleanup", ex)

@@ -19,21 +19,44 @@ import java.util.UUID
 
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.model.HttpRequest
+import akka.util.Timeout
 import com.spingo.op_rabbit.QueueMessage
+import org.slf4j.LoggerFactory
 import rhttpc.api.Correlated
 import rhttpc.api.json4s.Json4sSerializer
+import akka.pattern._
+import concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 class ReliableHttp(implicit actorFactory: ActorRefFactory, rabbitControlActor: RabbitControlActor) {
   import Json4sSerializer.formats
   import com.spingo.op_rabbit.Json4sSupport._
 
-  def send(request: HttpRequest): PipeableExecutable = {
+  private lazy val log = LoggerFactory.getLogger(getClass)
+
+  def send(request: HttpRequest)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
     val correlationId = UUID.randomUUID().toString
-    def sendRequest() = rabbitControlActor.rabbitControl ! QueueMessage(Correlated(request, correlationId), "rhttpc-request")
-    new PipeableExecutable(SubscriptionOnResponse(correlationId))(sendRequest())
+    implicit val timeout = Timeout(10 seconds)
+    for {
+      ack <- (rabbitControlActor.rabbitControl ? QueueMessage(Correlated(request, correlationId), "rhttpc-request")).mapTo[Boolean]
+      regSub <- Future.fromTry(
+        if (ack) {
+          log.debug(s"Request: $request successfully acknowledged")
+          Success(DoRegisterSubscription(SubscriptionOnResponse(correlationId)))
+        } else {
+          Failure(new NoAckException(request))
+        }
+      )
+    } yield regSub
   }
 }
 
 object ReliableHttp {
   def apply()(implicit actorFactory: ActorRefFactory, rabbitControlActor: RabbitControlActor) = new ReliableHttp()
 }
+
+case class DoRegisterSubscription(subscription: SubscriptionOnResponse)
+
+class NoAckException(request: HttpRequest) extends Exception(s"No acknowledge for request: $request")
