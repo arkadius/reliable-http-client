@@ -18,7 +18,7 @@ package rhttpc.sample
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
-import akka.persistence.StateSaved
+import akka.persistence._
 import akka.testkit._
 import org.scalatest._
 
@@ -73,7 +73,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
     val mgr = createFooBarManager()
 
     val id = "saved"
-    mgr ! SendMsgToFooBar(id, SendMsg("foo"))
+    mgr ! SendMsgToChild(id, SendMsg("foo"))
     expectMsg(StateSaved)
 
     val probe = TestProbe()
@@ -82,10 +82,10 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
     probe.expectTerminated(mgr)
 
     val restoredMgr = createFooBarManager()
-    restoredMgr ! SendMsgToFooBar(id, CurrentState)
+    restoredMgr ! SendMsgToChild(id, CurrentState)
     expectMsg(WaitingForResponseState)
-    restoredMgr ! SendMsgToFooBar(id, "foo")
-    restoredMgr ! SendMsgToFooBar(id, CurrentState)
+    restoredMgr ! SendMsgToChild(id, "foo")
+    restoredMgr ! SendMsgToChild(id, CurrentState)
     expectMsg(FooState)
     ()
   }
@@ -112,9 +112,12 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
   def createFooBarManager(): ActorRef = {
     val client = new InMemDelayedEchoClient(1 second)
-    val ref = system.actorOf(FooBarsManger.props(client.subscriptionManager, client), "foobar")
-    ref ! RecoverAllFooBars
-    expectMsg(FooBarsRecovered)
+    val ref = system.actorOf(RecoverableActorsManger.props(
+      FooBarActor.persistenceCategory,
+      id => FooBarActor.props(id, client.subscriptionManager, client)
+    ), "foobar")
+    ref ! RecoverAllActors
+    expectMsg(ActorsRecovered)
     ref
   }
 

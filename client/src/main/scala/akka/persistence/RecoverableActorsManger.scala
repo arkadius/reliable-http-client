@@ -13,17 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.sample
+package akka.persistence
 
 import akka.actor._
-import akka.persistence.{IdsWithStoredSnapshots, GetIdsWithStoredSnapshots, SnapshotsRegistry}
-import rhttpc.client.SubscriptionManager
 
-class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor with ActorLogging {
+class RecoverableActorsManger(persistenceCategory: String, childPropsCreate: String => Props) extends Actor with ActorLogging {
 
   override def receive: Receive = {
-    case RecoverAllFooBars =>
-      val registry = context.actorOf(SnapshotsRegistry.props(FooBarActor.persistenceCategory), "registry")
+    case RecoverAllActors =>
+      val registry = context.actorOf(SnapshotsRegistry.props(persistenceCategory), "registry")
       registry ! GetIdsWithStoredSnapshots
       context.become(waitForIdsWithStoredSnapshots(registry, sender()))
   }
@@ -33,33 +31,33 @@ class FooBarsManger(fooBarPropsCreate: String => Props) extends Actor with Actor
       if (ids.nonEmpty) {
         log.info(ids.mkString("Recovering actors from registry: ", ", ", ""))
         ids.foreach { id =>
-          context.actorOf(fooBarPropsCreate(id), id)
+          context.actorOf(childPropsCreate(id), id)
         }
       } else {
         log.info("Empty registry - nothing to recover")
       }
-      originalSender ! FooBarsRecovered
+      originalSender ! ActorsRecovered
       registry ! PoisonPill
       context.become(handleFooBarMessages)
   }
 
   val handleFooBarMessages: Receive = {
-    case SendMsgToFooBar(id, msg) =>
+    case SendMsgToChild(id, msg) =>
       context.child(id) match {
-        case Some(fooBar) => fooBar forward msg
+        case Some(child) => child forward msg
         case None =>
-          val fooBar = context.actorOf(fooBarPropsCreate(id), id)
+          val fooBar = context.actorOf(childPropsCreate(id), id)
           fooBar forward msg
       }
   }
 }
 
-object FooBarsManger {
-  def props(subscriptionManager: SubscriptionManager, client: DelayedEchoClient): Props =
-    Props(new FooBarsManger(id => FooBarActor.props(id, subscriptionManager, client)))
+object RecoverableActorsManger {
+  def props(persistenceCategory: String, childPropsCreate: String => Props): Props =
+    Props(new RecoverableActorsManger(persistenceCategory, childPropsCreate))
 }
 
-case object RecoverAllFooBars
-case object FooBarsRecovered
+case object RecoverAllActors
+case object ActorsRecovered
 
-case class SendMsgToFooBar(id: String, msg: Any)
+case class SendMsgToChild(id: String, msg: Any)

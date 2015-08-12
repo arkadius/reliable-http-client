@@ -59,6 +59,9 @@ class FooBarActor(protected val id: String, protected val subscriptionManager: S
       stay()
     case Event(StopYourself, _) =>
       stop()
+    case Event(other, _) =>
+      log.error(s"Unhandled: $other (${other.getClass}) in $stateName")
+      stay()
   }
 }
 

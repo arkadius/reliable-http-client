@@ -20,6 +20,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
 import akka.pattern._
+import akka.persistence.{SendMsgToChild, RecoverAllActors, RecoverableActorsManger}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.spingo.op_rabbit.RabbitControl
@@ -48,26 +49,31 @@ object SampleApp extends App with Directives {
   }
 
   val subscriptionManager = SubscriptionManager()
-  Await.result(subscriptionManager.initialized, 5 seconds)
+  Await.result(subscriptionManager.initialized, 10 seconds)
+  system.log.info("Subscription initialized")
 
-  val manager = system.actorOf(FooBarsManger.props(subscriptionManager, client), "foobar")
-  Await.result((manager ? RecoverAllFooBars)(Timeout(5 seconds)), 10 seconds)
+  val manager = system.actorOf(RecoverableActorsManger.props(
+    FooBarActor.persistenceCategory,
+    id => FooBarActor.props(id, subscriptionManager, client)
+  ), "foobar")
+
+  Await.result((manager ? RecoverAllActors)(Timeout(5 seconds)), 10 seconds)
+  system.log.info("Recovered all actors")
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>
       complete {
         implicit val sendMsgTimeout = Timeout(5 seconds)
-        (manager ? SendMsgToFooBar(id, SendMsg(msg))).map(_ => "OK")
+        (manager ? SendMsgToChild(id, SendMsg(msg))).map(_ => "OK")
       }
     } ~
     get {
       complete {
         implicit val currentStateTimeout = Timeout(5 seconds)
-        (manager ? SendMsgToFooBar(id, CurrentState)).mapTo[FooBarState].map(_.toString)
+        (manager ? SendMsgToChild(id, CurrentState)).mapTo[FooBarState].map(_.toString)
       }
     }
   }
 
   Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081)
-
 }
