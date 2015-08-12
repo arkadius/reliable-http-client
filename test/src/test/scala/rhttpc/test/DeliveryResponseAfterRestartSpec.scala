@@ -59,15 +59,23 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
     val rabbitMqName = "rabbitmq_1"
     val echoName = "test_sampleecho_1"
+    val serverName = "test_server_1"
+    val appVersion: String = "0.0.1-SNAPSHOT"
     val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4")(identity)
-    Thread.sleep(5000) // wait for rabbitmq
-    val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", "0.0.1-SNAPSHOT")(identity)
-    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp", "0.0.1-SNAPSHOT") { cmd =>
+    Thread.sleep(5000)
+    // wait for rabbitmq
+    val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
+    val rhttpcServerContainerId = docker.containerStartFromScratch(serverName, "server", appVersion) { cmd =>
+      cmd.withLinks(
+        new Link(echoName, "sampleecho"),
+        new Link(rabbitMqName, "rabbitmq")
+      )
+    }
+    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp", appVersion) { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(8081), Ports.Binding(8081))
       cmd.withPortBindings(portBindings)
       cmd.withLinks(
-        new Link(echoName, "sampleecho"),
         new Link(rabbitMqName, "rabbitmq")
       )
     }
@@ -77,6 +85,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
     try {
       docker.stopAndRemoveContainer(appContainerId)
+      docker.stopAndRemoveContainer(rhttpcServerContainerId)
       docker.stopAndRemoveContainer(echoContainerId)
       docker.stopAndRemoveContainer(rabbitmqContainerId)
       docker.close()

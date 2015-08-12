@@ -38,11 +38,11 @@ object SampleApp extends App with Directives {
 
 
   val client = new DelayedEchoClient {
+    private val rhttpc = ReliableHttp()
+
 //    override def requestResponse(msg: String): Future[String] = {
 //      DispatchHttp(url("http://sampleecho:8082") << msg > dispatchAs.String)
 //    }
-    private val rhttpc = ReliableHttp()
-
     override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] =
       rhttpc.send(HttpRequest(method = HttpMethods.POST).withEntity(msg))
   }

@@ -54,10 +54,14 @@ lazy val client = (project in file("client")).
 
 lazy val server = (project in file("server")).
   settings(commonSettings).
+  enablePlugins(DockerPlugin).
+  enablePlugins(JavaAppPackaging).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV
+        "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV,
+        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
+        "ch.qos.logback"           % "logback-classic"               % logbackV
       )
     }
   ).
@@ -86,7 +90,6 @@ lazy val sampleApp = (project in file("sample-app")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           % "logback-classic"               % logbackV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
@@ -109,7 +112,11 @@ lazy val testProj = (project in file("test")).
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
     },
-    Keys.test <<= (Keys.test in Test).dependsOn(publishLocal in Docker in sampleEcho, publishLocal in Docker in sampleApp)
+    Keys.test <<= (Keys.test in Test).dependsOn(
+      publishLocal in Docker in server,
+      publishLocal in Docker in sampleEcho,
+      publishLocal in Docker in sampleApp
+    )
   )
 
 
