@@ -19,7 +19,8 @@ import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.FSM._
 import akka.actor._
-import reliablehttpc._
+import rhttpc._
+import rhttpc.client.{SubscriptionsHolder, SubscriptionOnResponse}
 
 trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotifications with FSM[S, D] with SubscriptionsHolder {
   private var replyAfterSaveMsg: Option[Any] = None
@@ -35,6 +36,7 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
     case SnapshotOffer(metadata, stateAndData) =>
       log.info(s"Recovering: $persistenceId from snapshot: $stateAndData")
       val casted = stateAndData.asInstanceOf[FSMState[S, D]]
+      registerSubscriptions()
       startWith(casted.state, casted.data)
   }
 
@@ -65,4 +67,4 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
 
 }
 
-case class FSMState[S, D](state: S, data: D, subscriptions: Set[Subscription])
+case class FSMState[S, D](state: S, data: D, subscriptions: Set[SubscriptionOnResponse])

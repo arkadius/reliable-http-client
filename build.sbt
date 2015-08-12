@@ -26,7 +26,19 @@ val json4sV = "3.2.11"
 val logbackV = "1.1.3"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
-val amqpClientV = "1.5"
+val spingoV = "1.0.0-M15"
+
+lazy val api = (project in file("api")).
+  settings(commonSettings).
+  settings(
+    libraryDependencies ++= {
+      Seq(
+        "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
+        "com.spingo"              %% "op-rabbit-json4s"              % spingoV,
+        "org.json4s"              %% "json4s-native"                 % json4sV
+      )
+    }
+  )
 
 lazy val client = (project in file("client")).
   settings(commonSettings).
@@ -34,22 +46,22 @@ lazy val client = (project in file("client")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
-        "org.json4s"              %% "json4s-native"                 % json4sV,
-        "com.github.sstone"       %% "amqp-client"                   % amqpClientV
+        "com.spingo"              %% "op-rabbit-core"                % spingoV
       )
     }
-  )
+  ).
+  dependsOn(api)
 
 lazy val server = (project in file("server")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.github.sstone"       %% "amqp-client"                   % amqpClientV,
-        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV
+        "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV
       )
     }
-  )
+  ).
+  dependsOn(api)
 
 lazy val sampleEcho = (project in file("sample-echo")).
   settings(commonSettings).
