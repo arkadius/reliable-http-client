@@ -16,8 +16,16 @@
 package akka.persistence
 
 import akka.actor._
+import akka.pattern._
+import akka.util.Timeout
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class RecoverableActorsManger(persistenceCategory: String, childPropsCreate: String => Props) extends Actor with ActorLogging {
+
+  import context.dispatcher
 
   override def receive: Receive = {
     case RecoverAllActors =>
@@ -28,29 +36,42 @@ class RecoverableActorsManger(persistenceCategory: String, childPropsCreate: Str
 
   private def waitForIdsWithStoredSnapshots(registry: ActorRef, originalSender: ActorRef): Receive = {
     case IdsWithStoredSnapshots(ids) =>
-      if (ids.nonEmpty) {
-        log.info(ids.mkString("Recovering actors from registry: ", ", ", ""))
-        ids.foreach { id =>
-          context.actorOf(childPropsCreate(id), id)
+      val recoveryFinishedFuture =
+        if (ids.nonEmpty) {
+          log.info(ids.mkString("Recovering actors from registry: ", ", ", ""))
+          implicit val timeout = Timeout(1 minute)
+          val futures = ids.map { id =>
+            context.actorOf(childPropsCreate(id), id) ? NotifyAboutRecoveryCompleted
+          }
+          Future.sequence(futures).map { _ =>
+            log.info("Recovering of all actors completed")
+          }
+        } else {
+          log.info("Empty registry - nothing to recover")
+          Future.successful(Unit)
         }
-      } else {
-        log.info("Empty registry - nothing to recover")
+      recoveryFinishedFuture.foreach { _ =>
+        originalSender ! ActorsRecovered
+        registry ! PoisonPill
+        self ! BecomeRecovered
       }
-      originalSender ! ActorsRecovered
-      registry ! PoisonPill
-      context.become(handleFooBarMessages)
+    case BecomeRecovered =>
+      context.become(recovered)
   }
 
-  val handleFooBarMessages: Receive = {
+  val recovered: Receive = {
     case SendMsgToChild(id, msg) =>
       context.child(id) match {
         case Some(child) => child forward msg
         case None =>
-          val fooBar = context.actorOf(childPropsCreate(id), id)
-          fooBar forward msg
+          val child = context.actorOf(childPropsCreate(id), id)
+          child forward msg
       }
   }
+
 }
+
+case object BecomeRecovered
 
 object RecoverableActorsManger {
   def props(persistenceCategory: String, childPropsCreate: String => Props): Props =

@@ -41,11 +41,8 @@ object SampleApp extends App with Directives {
   val client = new DelayedEchoClient {
     private val rhttpc = ReliableHttp()
 
-//    override def requestResponse(msg: String): Future[String] = {
-//      DispatchHttp(url("http://sampleecho:8082") << msg > dispatchAs.String)
-//    }
     override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
-      rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(ContentTypes.`text/plain(UTF-8)`, msg))
+      rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(msg))
     }
   }
 
@@ -57,7 +54,7 @@ object SampleApp extends App with Directives {
   ), "foobar")
 
   Await.result((manager ? RecoverAllActors)(Timeout(5 seconds)), 10 seconds)
-  system.log.info("Recovered all actors")
+  subscriptionManager.run()
 
   val route = path(Segment) { id =>
     (post & entity(as[String])) { msg =>

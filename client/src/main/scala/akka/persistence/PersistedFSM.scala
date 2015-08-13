@@ -22,7 +22,13 @@ import akka.actor._
 import rhttpc._
 import rhttpc.client.{SubscriptionsHolder, SubscriptionOnResponse}
 
-trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotifications with FSM[S, D] with SubscriptionsHolder {
+trait PersistedFSM[S, D]
+  extends PersistentActor
+  with PersistentActorWithNotifications
+  with NotificationAboutRecoveryCompleted
+  with FSM[S, D]
+  with SubscriptionsHolder {
+
   private var replyAfterSaveMsg: Option[Any] = None
 
   implicit class StateExt(state: State) {
@@ -32,7 +38,12 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
     }
   }
 
-  override def receiveRecover: Receive = {
+  override def receiveRecover: Receive =
+    handleSnapshotOffer orElse
+      handleRecoveryCompleted
+
+
+  private val handleSnapshotOffer: Receive = {
     case SnapshotOffer(metadata, snapshot) =>
       log.info(s"Recovering: $persistenceId from snapshot: $snapshot")
       val casted = snapshot.asInstanceOf[FSMState[S, D]]
@@ -57,7 +68,8 @@ trait PersistedFSM[S, D] extends PersistentActor with PersistentActorWithNotific
   }
 
   override def receive: Receive =
-    handleSnapshotEvents orElse
+    handleNotifyAboutRecoveryCompleted orElse
+      handleSnapshotEvents orElse
       handleRegisterSubscription orElse
       handleMessageFromSubscription orElse
       super.receive

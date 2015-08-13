@@ -30,12 +30,10 @@ import scala.util.control.NonFatal
 class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers with BeforeAndAfter {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
-  it should "handle response after application restart" in { fixture =>
+  it should "handle response during application unavailable" in { fixture =>
     fixture.fooBarClient.foo
     fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
     fixture.restartApp()
-    fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
-    Thread.sleep(11000)
     fixture.fooBarClient.currentState shouldEqual "FooState"
   }
 
@@ -43,12 +41,18 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
                     (docker: DockerClient, appContainerId: String) {
     def restartApp() = {
       docker.stopContainerCmd(appContainerId).exec()
+      Thread.sleep(10000) // wait for reply
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      Thread.sleep(5000) // wait for start
+      Thread.sleep(10000) // wait for start
       logger.info("App restarted")
     }
   }
+
+  val rabbitMqName = "rabbitmq_1"
+  val echoName = "test_sampleecho_1"
+  val serverName = "test_server_1"
+  val appVersion = "0.0.1-SNAPSHOT"
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config =
@@ -56,15 +60,26 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
         .withUri("unix:///var/run/docker.sock")
         .withMaxTotalConnections(200)
         .withMaxPerRouteConnections(200)
-    val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
-    val rabbitMqName = "rabbitmq_1"
-    val echoName = "test_sampleecho_1"
-    val serverName = "test_server_1"
-    val appVersion: String = "0.0.1-SNAPSHOT"
+    implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
+
+    val rabbitmqContainerId = startRabbitMq()
+
+    val (echoContainerId, rhttpcServerContainerId, appContainerId) = startServices()
+
+    val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
+    val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
+    stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
+    result
+  }
+
+  private def startRabbitMq()(implicit docker: DockerClient): String = {
     val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4")(identity)
     Thread.sleep(5000) // wait for rabbitmq
     logger.info("RabbitMQ started")
+    rabbitmqContainerId
+  }
 
+  private def startServices()(implicit docker: DockerClient): (String, String, String) = {
     val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
     val rhttpcServerContainerId = docker.containerStartFromScratch(serverName, "server", appVersion) { cmd =>
       cmd.withLinks(
@@ -80,11 +95,16 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
         new Link(rabbitMqName, "rabbitmq")
       )
     }
-    Thread.sleep(10000) // wait for start
+    Thread.sleep(5000) // wait for start
     logger.info("App started")
+    (echoContainerId, rhttpcServerContainerId, appContainerId)
+  }
 
-    val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
-    val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
+  private def stopAndRemoveContainers(rabbitmqContainerId: String,
+                                      echoContainerId: String,
+                                      rhttpcServerContainerId: String,
+                                      appContainerId: String)
+                                     (implicit docker: DockerClient): Unit = {
     try {
       docker.stopAndRemoveContainer(appContainerId)
       docker.stopAndRemoveContainer(rhttpcServerContainerId)
@@ -94,6 +114,5 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     } catch {
       case NonFatal(ex) => logger.warn("Exception during cleanup", ex)
     }
-    result
   }
 }

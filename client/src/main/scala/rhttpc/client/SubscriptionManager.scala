@@ -19,7 +19,7 @@ import akka.actor._
 import akka.http.scaladsl.model.HttpResponse
 import akka.pattern._
 import akka.util.Timeout
-import com.spingo.op_rabbit.consumer.Subscription
+import com.spingo.op_rabbit.consumer.{LogbackLogger, Subscription}
 import rhttpc.api.Correlated
 import rhttpc.api.json4s.Json4sSerializer
 
@@ -28,6 +28,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait SubscriptionManager {
+  def run(): Unit
+
   def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
 
   def close(): Future[Unit]
@@ -58,7 +60,9 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, rabbitCont
     }
   }
 
-  rabbitControlActor.rabbitControl ! subscription
+  override def run(): Unit = {
+    rabbitControlActor.rabbitControl ! subscription
+  }
 
   override def register(subscription: SubscriptionOnResponse, consumer: ActorRef) = {
     subMgr ! RegisterSubscription(subscription, consumer)
