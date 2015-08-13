@@ -15,7 +15,7 @@
  */
 package rhttpc.client
 
-import akka.actor.{ActorLogging, Actor, ActorRef, Status}
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import akka.http.scaladsl.model.HttpResponse
 import rhttpc.api.Correlated
 

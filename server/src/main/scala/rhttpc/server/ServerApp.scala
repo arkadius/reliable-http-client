@@ -20,13 +20,11 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
-import com.rabbitmq.client.AMQP.BasicProperties
-import com.rabbitmq.client.Channel
 import com.spingo.op_rabbit._
 import com.spingo.op_rabbit.consumer.Directives._
 import com.spingo.op_rabbit.stream._
 import rhttpc.api.Correlated
-import rhttpc.api.amqp.QueuePublisherDeclaringQueueIfNotExist
+import rhttpc.api.transport.amqp.QueuePublisherDeclaringQueueIfNotExist
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Promise}

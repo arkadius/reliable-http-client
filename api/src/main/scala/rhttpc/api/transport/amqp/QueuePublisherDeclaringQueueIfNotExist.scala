@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.amqp
+package rhttpc.api.transport.amqp
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.Channel

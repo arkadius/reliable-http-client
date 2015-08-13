@@ -46,8 +46,7 @@ lazy val client = (project in file("client")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
-        "com.spingo"              %% "op-rabbit-core"                % spingoV
+        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV
       )
     }
   ).

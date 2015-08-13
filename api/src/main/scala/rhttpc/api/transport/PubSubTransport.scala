@@ -13,8 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.api.transport
 
 import akka.actor.ActorRef
 
-case class RabbitControlActor(rabbitControl: ActorRef)
+import scala.concurrent.Future
+import scala.language.higherKinds
+
+trait PubSubTransport[PubMsg, SubMsg] {
+  def publisher(queueName: String): Publisher[PubMsg]
+
+  def subscription(queueName: String, consumer: ActorRef): Subscription
+}
+
+trait PubSubTransportFactory {
+  type DataT[P, S] <: TransportCreateData[P, S]
+
+  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, SubMsg]
+}
+
+trait TransportCreateData[PubMsg, SubMsg]
+
+trait Publisher[Msg] {
+  def publish(msg: Msg): Future[Unit]
+}
+
+trait Subscription {
+  def run(): Unit
+}

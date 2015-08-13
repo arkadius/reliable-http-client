@@ -15,27 +15,32 @@
  */
 package rhttpc.sample
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
 import akka.pattern._
-import akka.persistence.{SendMsgToChild, RecoverAllActors, RecoverableActorsManger}
+import akka.persistence.{RecoverAllActors, RecoverableActorsManger, SendMsgToChild}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import com.spingo.op_rabbit.RabbitControl
+import rhttpc.api.Correlated
+import rhttpc.api.json4s.Json4sSerializer
+import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
 import rhttpc.client._
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
 object SampleApp extends App with Directives {
+  import Json4sSerializer.formats
   implicit val system = ActorSystem("rhttpc-sample")
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  implicit val rabbitControl = RabbitControlActor(system.actorOf(Props[RabbitControl]))
+  implicit val transport = AmqpTransportFactory.create(
+    AmqpTransportCreateData[Correlated[HttpRequest], Correlated[HttpResponse]](system)
+  )
 
   val client = new DelayedEchoClient {
     private val rhttpc = ReliableHttp()

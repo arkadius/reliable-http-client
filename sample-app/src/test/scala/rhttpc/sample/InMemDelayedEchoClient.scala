@@ -45,7 +45,5 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
     }
 
     override def run(): Unit = {}
-
-    override def close(): Future[Unit] = Future.successful(Unit)
   }
 }

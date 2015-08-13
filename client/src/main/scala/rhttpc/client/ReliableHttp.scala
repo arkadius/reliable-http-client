@@ -20,42 +20,34 @@ import java.util.UUID
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.model.HttpRequest
 import akka.util.Timeout
-import com.spingo.op_rabbit.{QueuePublisher, ConfirmedMessage, QueueMessage}
 import org.slf4j.LoggerFactory
 import rhttpc.api.Correlated
-import rhttpc.api.amqp.QueuePublisherDeclaringQueueIfNotExist
-import rhttpc.api.json4s.Json4sSerializer
-import akka.pattern._
-import concurrent.duration._
+import rhttpc.api.transport.PubSubTransport
+
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
 
-class ReliableHttp(implicit actorFactory: ActorRefFactory, rabbitControlActor: RabbitControlActor) {
-  import Json4sSerializer.formats
-  import com.spingo.op_rabbit.Json4sSupport._
-
+class ReliableHttp(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], _]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
+
+  private val publisher = transport.publisher("rhttpc-request")
 
   def send(request: HttpRequest)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
     val correlationId = UUID.randomUUID().toString
     implicit val timeout = Timeout(10 seconds)
     val correlated = Correlated(request, correlationId)
-    (rabbitControlActor.rabbitControl ? ConfirmedMessage(QueuePublisherDeclaringQueueIfNotExist("rhttpc-request"), correlated)).mapTo[Boolean].map { ack =>
-      if (ack) {
-        log.debug(s"Request: $correlated successfully acknowledged")
-        // FIXME request is acknowledged and we are not sure if subscription will be registered before response will come
-        // FIXME register subscription declaration and then subscription confirmation or abortion
-        DoRegisterSubscription(SubscriptionOnResponse(correlationId))
-      } else {
-        throw new NoAckException(request)
-      }
+    publisher.publish(correlated).map { _ =>
+      log.debug(s"Request: $correlated successfully acknowledged")
+      // FIXME request is acknowledged and we are not sure if subscription will be registered before response will come
+      // FIXME register subscription declaration and then subscription confirmation or abortion
+      DoRegisterSubscription(SubscriptionOnResponse(correlationId))
     }
   }
 }
 
 object ReliableHttp {
-  def apply()(implicit actorFactory: ActorRefFactory, rabbitControlActor: RabbitControlActor) = new ReliableHttp()
+  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], _]) = new ReliableHttp()
 }
 
 case class DoRegisterSubscription(subscription: SubscriptionOnResponse)
