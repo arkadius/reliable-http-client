@@ -22,18 +22,20 @@ import akka.actor._
 import rhttpc._
 import rhttpc.client.{SubscriptionsHolder, SubscriptionOnResponse}
 
-trait PersistedFSM[S, D]
+import scala.concurrent.ExecutionContext
+
+trait ReliableFSM[S, D]
   extends PersistentActor
   with PersistentActorWithNotifications
-  with NotificationAboutRecoveryCompleted
+  with NotificationAboutRecoveryCompleted  // FIXME: should notify about recovery completed and registered subscriptions
   with FSM[S, D]
   with SubscriptionsHolder {
 
-  private var replyAfterSaveMsg: Option[Any] = None
+  private var onSaveListener: Option[RecipientWithMsg] = None
 
   implicit class StateExt(state: State) {
-    def replyingAfterSave(msg: Any = StateSaved): PersistedFSM.this.State = {
-      replyAfterSaveMsg = Some(msg)
+    def replyingAfterSave(msg: Any = StateSaved): ReliableFSM.this.State = { // FIXME: should be: replying after registered subscriptions & persisted
+      onSaveListener = Some(new RecipientWithMsg(sender(), msg))
       state
     }
   }
@@ -47,17 +49,14 @@ trait PersistedFSM[S, D]
     case SnapshotOffer(metadata, snapshot) =>
       log.info(s"Recovering: $persistenceId from snapshot: $snapshot")
       val casted = snapshot.asInstanceOf[FSMState[S, D]]
-      registerSubscriptions(casted.subscriptions)
+      registerSubscriptions(casted.subscriptions) // FIXME: should be used in: replying after registered subscription & persisted
       startWith(casted.state, casted.data)
   }
 
   onTransition {
     case (_, to) =>
-      val listener = replyAfterSaveMsg.map { msg =>
-        replyAfterSaveMsg = None
-        new RecipientWithMsg(sender(), msg)
-      }
-      saveSnapshotNotifying(FSMState(to, nextStateData, subscriptions), listener)
+      saveSnapshotNotifying(FSMState(to, nextStateData, subscriptions), onSaveListener)
+      onSaveListener = None
   }
 
   onTermination {

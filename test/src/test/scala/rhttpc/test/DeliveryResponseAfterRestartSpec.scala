@@ -31,20 +31,21 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
   lazy val logger = LoggerFactory.getLogger(getClass)
 
   it should "handle response during application unavailable" in { fixture =>
-    fixture.fooBarClient.foo
-    fixture.fooBarClient.currentState shouldEqual "WaitingForResponseState"
+    val id = "123"
+    fixture.fooBarClient.foo(id)
+    fixture.fooBarClient.currentState(id) shouldEqual "WaitingForResponseState"
     fixture.restartApp()
-    fixture.fooBarClient.currentState shouldEqual "FooState"
+    fixture.fooBarClient.currentState(id) shouldEqual "FooState"
   }
 
   class FixtureParam(val fooBarClient: FooBarClient)
                     (docker: DockerClient, appContainerId: String) {
     def restartApp() = {
       docker.stopContainerCmd(appContainerId).exec()
-      Thread.sleep(10000) // wait for reply
+      Thread.sleep(8000) // wait for reply
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      Thread.sleep(10000) // wait for start
+      Thread.sleep(5000) // wait for start
       logger.info("App restarted")
     }
   }
@@ -66,9 +67,11 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
 
     val (echoContainerId, rhttpcServerContainerId, appContainerId) = startServices()
 
-    val fooBarClient = new FooBarClient(url("http://localhost:8081"), "123")
+    val fooBarClient = new FooBarClient(url("http://localhost:8081"))
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
-    stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
+    if (result.isSucceeded) {
+      stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
+    }
     result
   }
 
@@ -100,16 +103,10 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
     (echoContainerId, rhttpcServerContainerId, appContainerId)
   }
 
-  private def stopAndRemoveContainers(rabbitmqContainerId: String,
-                                      echoContainerId: String,
-                                      rhttpcServerContainerId: String,
-                                      appContainerId: String)
+  private def stopAndRemoveContainers(constainerIds: String*)
                                      (implicit docker: DockerClient): Unit = {
     try {
-      docker.stopAndRemoveContainer(appContainerId)
-      docker.stopAndRemoveContainer(rhttpcServerContainerId)
-      docker.stopAndRemoveContainer(echoContainerId)
-      docker.stopAndRemoveContainer(rabbitmqContainerId)
+      constainerIds.toList.reverse.foreach(docker.stopAndRemoveContainer)
       docker.close()
     } catch {
       case NonFatal(ex) => logger.warn("Exception during cleanup", ex)

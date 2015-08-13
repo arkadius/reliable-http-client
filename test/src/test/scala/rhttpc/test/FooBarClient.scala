@@ -21,12 +21,12 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class FooBarClient(baseUrl: Req, id: String) {
+class FooBarClient(baseUrl: Req) {
   implicit val successPredicate = new retry.Success[Unit.type](_ => true)
 
-  def foo(implicit ec: ExecutionContext): Unit =
+  def foo(id: String)(implicit ec: ExecutionContext): Unit =
     Await.result(Http(baseUrl / id << "foo"), 10 seconds)
 
-  def currentState(implicit ec: ExecutionContext): String =
+  def currentState(id: String)(implicit ec: ExecutionContext): String =
     Await.result(Http(baseUrl / id OK as.String), 10 seconds)
 }

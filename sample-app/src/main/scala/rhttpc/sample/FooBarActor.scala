@@ -17,14 +17,14 @@ package rhttpc.sample
 
 import akka.actor._
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
-import akka.persistence.PersistedFSM
+import akka.persistence.ReliableFSM
 import akka.pattern._
 import rhttpc.client.SubscriptionManager
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class FooBarActor(protected val id: String, protected val subscriptionManager: SubscriptionManager, client: DelayedEchoClient) extends PersistedFSM[FooBarState, FooBarData] {
+class FooBarActor(protected val id: String, protected val subscriptionManager: SubscriptionManager, client: DelayedEchoClient) extends ReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher
 
   override protected def persistenceCategory: String = FooBarActor.persistenceCategory

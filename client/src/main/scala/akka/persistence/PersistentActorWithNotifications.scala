@@ -58,7 +58,7 @@ trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging
     case SaveSnapshotSuccess(metadata) =>
       log.debug("State saved for " + persistenceId)
       deleteSnapshotsLogging(Some(lastSequenceNr-1))
-      replyToSaveListenerIfWaiting(metadata)
+      replyToListenerForSaveIfWaiting(metadata)
     case SaveSnapshotFailure(metadata, cause) =>
       val stringWriter = new StringWriter()
       val printWriter = new PrintWriter(stringWriter)
@@ -66,7 +66,7 @@ trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging
       log.error(s"State save failure for $persistenceId.\nError: $stringWriter")
   }
 
-  private def replyToSaveListenerIfWaiting(metadata: SnapshotMetadata): Unit = {
+  private def replyToListenerForSaveIfWaiting(metadata: SnapshotMetadata): Unit = {
     listenersForSnapshotSave.get(metadata.sequenceNr).foreach { listener =>
       listener.reply()
       listenersForSnapshotSave -= metadata.sequenceNr

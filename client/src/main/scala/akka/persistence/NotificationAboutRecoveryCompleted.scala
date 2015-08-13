@@ -22,7 +22,6 @@ trait NotificationAboutRecoveryCompleted { this: Actor with PersistentActor with
   private var recoveryCompleted: Boolean = false
   private var waitingForRecoveryCompleted: List[ActorRef] = List.empty
 
-
   protected val handleRecoveryCompleted: Receive = {
     case RecoveryCompleted =>
       log.info("Recovery completed for: " + persistenceId)

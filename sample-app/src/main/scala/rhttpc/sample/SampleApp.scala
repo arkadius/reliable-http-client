@@ -37,7 +37,6 @@ object SampleApp extends App with Directives {
 
   implicit val rabbitControl = RabbitControlActor(system.actorOf(Props[RabbitControl]))
 
-
   val client = new DelayedEchoClient {
     private val rhttpc = ReliableHttp()
 

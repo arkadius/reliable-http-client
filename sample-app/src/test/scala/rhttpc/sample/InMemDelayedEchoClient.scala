@@ -18,7 +18,7 @@ package rhttpc.sample
 import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
-import rhttpc.client.{DoRegisterSubscription, SubscriptionManager, SubscriptionOnResponse}
+import rhttpc.client.{SubscriptionRegistered, DoRegisterSubscription, SubscriptionManager, SubscriptionOnResponse}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
@@ -35,12 +35,13 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
   }
 
   val subscriptionManager: SubscriptionManager = new SubscriptionManager {
-    override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
+    override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[SubscriptionRegistered] = {
       system.scheduler.scheduleOnce(delay) {
         subOnMsg.remove(subscription).foreach { msg =>
           consumer ! msg
         }
       }
+      Future.successful(SubscriptionRegistered(subscription))
     }
 
     override def run(): Unit = {}

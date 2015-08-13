@@ -20,14 +20,18 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
+import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.Channel
 import com.spingo.op_rabbit._
 import com.spingo.op_rabbit.consumer.Directives._
 import com.spingo.op_rabbit.stream._
 import rhttpc.api.Correlated
-import scala.concurrent.duration._
+import rhttpc.api.amqp.QueuePublisherDeclaringQueueIfNotExist
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
 object ServerApp extends App {
   import Json4sSupport._
@@ -49,7 +53,7 @@ object ServerApp extends App {
       body(as[Correlated[HttpRequest]])
     ).akkaGraph.map {
       case t@(promise, correlated) =>
-        actorSystem.log.info(s"Got $correlated")
+        actorSystem.log.debug(s"Got $correlated")
         t
     }
 
@@ -58,7 +62,7 @@ object ServerApp extends App {
     val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
       "rhttpc-response-sink",
       rabbitMq,
-      ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisher("rhttpc-response"))
+      ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisherDeclaringQueueIfNotExist("rhttpc-response"))
     ).akkaGraph
 
     val unzipAckAndCorrelatedRequest = builder.add(Unzip[Promise[Unit], Correlated[HttpRequest]]())
@@ -68,10 +72,16 @@ object ServerApp extends App {
 
     val zipResponseAndCorrelationId = builder.add(ZipWith[HttpResponse, String, Correlated[HttpResponse]] { (msg, correlationId) =>
       val correlated = Correlated(msg, correlationId)
-      actorSystem.log.info(s"Reply with $correlated")
+      actorSystem.log.debug(s"Reply with $correlated")
       correlated
     })
-    val zipAckAndCorrelatedResponse = builder.add(Zip[Promise[Unit], Correlated[HttpResponse]]())
+    val zipAckAndCorrelatedResponse = builder.add(ZipWith[Promise[Unit], Correlated[HttpResponse], (Promise[Unit], Correlated[HttpResponse])] { (ackPromise, correlated) =>
+      ackPromise.future.onComplete {
+        case Success(_) => actorSystem.log.debug(s"Publishing of $correlated successfully acknowledged")
+        case Failure(ex) => actorSystem.log.error(s"Publishing of $correlated acknowledgement failed", ex)
+      }
+      (ackPromise, correlated)
+    })
 
     source ~> unzipAckAndCorrelatedRequest.in
               unzipAckAndCorrelatedRequest.out0                                                                                       ~> zipAckAndCorrelatedResponse.in0

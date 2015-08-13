@@ -24,11 +24,14 @@ class SubscriptionManagerActor extends Actor with ActorLogging {
 
   override def receive: Actor.Receive = {
     case RegisterSubscription(sub, consumer) =>
+      log.debug(s"Registering subscription: $sub")
       subscriptions += sub -> consumer
+      sender() ! SubscriptionRegistered(sub)
     case c@Correlated(msg: HttpResponse, correlationId) =>
       val sub = SubscriptionOnResponse(correlationId)
       subscriptions.get(sub) match {
         case Some(consumer) =>
+          log.debug(s"Consuming message: $c")
           subscriptions -= sub
           consumer ! msg
         case None =>
@@ -40,3 +43,5 @@ class SubscriptionManagerActor extends Actor with ActorLogging {
 }
 
 case class RegisterSubscription(subscription: SubscriptionOnResponse, consumer: ActorRef)
+
+case class SubscriptionRegistered(subscription: SubscriptionOnResponse)

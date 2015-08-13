@@ -23,14 +23,14 @@ import com.spingo.op_rabbit.consumer.{LogbackLogger, Subscription}
 import rhttpc.api.Correlated
 import rhttpc.api.json4s.Json4sSerializer
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait SubscriptionManager {
   def run(): Unit
 
-  def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
+  def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[SubscriptionRegistered]
 
   def close(): Future[Unit]
 }
@@ -64,8 +64,9 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, rabbitCont
     rabbitControlActor.rabbitControl ! subscription
   }
 
-  override def register(subscription: SubscriptionOnResponse, consumer: ActorRef) = {
-    subMgr ! RegisterSubscription(subscription, consumer)
+  override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[SubscriptionRegistered] = {
+    implicit val timeout = Timeout(10 seconds)
+    (subMgr ? RegisterSubscription(subscription, consumer)).mapTo[SubscriptionRegistered]
   }
 
   override def close(): Future[Unit] = {
@@ -78,13 +79,15 @@ case class SubscriptionOnResponse(correlationId: String)
 
 trait SubscriptionsHolder { this: Actor =>
 
+  private implicit def ec: ExecutionContext = context.dispatcher
+
   protected def subscriptionManager: SubscriptionManager
 
   protected var subscriptions: Set[SubscriptionOnResponse] = Set.empty
 
-  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Unit = {
+  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Future[Set[SubscriptionRegistered]] = {
     subscriptions ++= subs
-    subscriptions.foreach(subscriptionManager.register(_, self))
+    Future.sequence(subscriptions.map(subscriptionManager.register(_, self)))
   }
 
   private[rhttpc] def failedRequest(ex: Throwable, subscription: SubscriptionOnResponse) = {
@@ -105,7 +108,7 @@ trait SubscriptionsHolder { this: Actor =>
       self ! msg
   }
 
-  def stateChanged(): Unit
+  def stateChanged(): Unit // FIXME state should be saved only onTransiton when we got subscriptions for all requests
 }
 
 case class MessageFromSubscription(msg: Any, subscription: SubscriptionOnResponse)

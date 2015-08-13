@@ -20,9 +20,10 @@ import java.util.UUID
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.model.HttpRequest
 import akka.util.Timeout
-import com.spingo.op_rabbit.QueueMessage
+import com.spingo.op_rabbit.{QueuePublisher, ConfirmedMessage, QueueMessage}
 import org.slf4j.LoggerFactory
 import rhttpc.api.Correlated
+import rhttpc.api.amqp.QueuePublisherDeclaringQueueIfNotExist
 import rhttpc.api.json4s.Json4sSerializer
 import akka.pattern._
 import concurrent.duration._
@@ -40,17 +41,16 @@ class ReliableHttp(implicit actorFactory: ActorRefFactory, rabbitControlActor: R
     val correlationId = UUID.randomUUID().toString
     implicit val timeout = Timeout(10 seconds)
     val correlated = Correlated(request, correlationId)
-    for {
-      ack <- (rabbitControlActor.rabbitControl ? QueueMessage(correlated, "rhttpc-request")).mapTo[Boolean]
-      regSub <- Future.fromTry(
-        if (ack) {
-          log.debug(s"Request: $correlated successfully acknowledged")
-          Success(DoRegisterSubscription(SubscriptionOnResponse(correlationId)))
-        } else {
-          Failure(new NoAckException(request))
-        }
-      )
-    } yield regSub
+    (rabbitControlActor.rabbitControl ? ConfirmedMessage(QueuePublisherDeclaringQueueIfNotExist("rhttpc-request"), correlated)).mapTo[Boolean].map { ack =>
+      if (ack) {
+        log.debug(s"Request: $correlated successfully acknowledged")
+        // FIXME request is acknowledged and we are not sure if subscription will be registered before response will come
+        // FIXME register subscription declaration and then subscription confirmation or abortion
+        DoRegisterSubscription(SubscriptionOnResponse(correlationId))
+      } else {
+        throw new NoAckException(request)
+      }
+    }
   }
 }
 

@@ -26,7 +26,7 @@ val json4sV = "3.2.11"
 val logbackV = "1.1.3"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
-val spingoV = "1.0.0-M15"
+val spingoV = "1.0.0-M16"
 
 lazy val api = (project in file("api")).
   settings(commonSettings).

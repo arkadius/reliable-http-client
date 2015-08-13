@@ -33,9 +33,9 @@ object EchoApp extends App with Directives {
 
   val route = (post & entity(as[String])) { msg =>
     complete {
-      system.log.info(s"Got: $msg")
-      after(10 seconds, system.scheduler) {
-        system.log.info(s"Reply with: $msg")
+      system.log.debug(s"Got: $msg")
+      after(5 seconds, system.scheduler) {
+        system.log.debug(s"Reply with: $msg")
         Future.successful(msg)
       }
     }
