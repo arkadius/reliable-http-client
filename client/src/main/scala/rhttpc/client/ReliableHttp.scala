@@ -18,7 +18,8 @@ package rhttpc.client
 import java.util.UUID
 
 import akka.actor.ActorRefFactory
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
+import akka.pattern.PipeableFuture
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.api.Correlated
@@ -28,28 +29,48 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-class ReliableHttp(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], _]) {
+class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[Request], _]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
+
+  def subscriptionManager: SubscriptionManager = subMgr
 
   private val publisher = transport.publisher("rhttpc-request")
 
-  def send(request: HttpRequest)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
+  def send(request: Request)(implicit ec: ExecutionContext): PublicationPromise = {
     val correlationId = UUID.randomUUID().toString
     implicit val timeout = Timeout(10 seconds)
     val correlated = Correlated(request, correlationId)
-    publisher.publish(correlated).map { _ =>
+    val subscription = SubscriptionOnResponse(correlationId)
+    subMgr.registerPromise(subscription)
+    val acknowledgeFuture = publisher.publish(correlated).map { _ =>
       log.debug(s"Request: $correlated successfully acknowledged")
-      // FIXME request is acknowledged and we are not sure if subscription will be registered before response will come
-      // FIXME register subscription declaration and then subscription confirmation or abortion
-      DoRegisterSubscription(SubscriptionOnResponse(correlationId))
+      DoConfirmSubscription(subscription)
     }
+    acknowledgeFuture.onFailure {
+      case ex =>
+        log.error(s"Request: $correlated acknowledgement failure", ex)
+        subMgr.abort(subscription)
+    }
+    new PublicationPromise(subscription, acknowledgeFuture)
   }
 }
 
 object ReliableHttp {
-  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], _]) = new ReliableHttp()
+  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], Correlated[HttpResponse]]): ReliableClient[HttpRequest] = {
+    val subMgr = SubscriptionManager()
+    new ReliableClient[HttpRequest](subMgr)
+  }
 }
 
-case class DoRegisterSubscription(subscription: SubscriptionOnResponse)
+class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture: Future[DoConfirmSubscription]) {
+  def pipeTo(holder: SubscriptionsHolder)(implicit ec: ExecutionContext): Unit = {
+    // we can notice about promise registered - message won't be consumed before RegisterSubscriptionPromise in actor because of mailbox processing in order
+    holder.subscriptionPromiseRegistered(subscription)
+    new PipeableFuture[DoConfirmSubscription](acknowledgeFuture).pipeTo(holder.self)
+//    acknowledgeFuture.pipeTo(holder.self) // have no idea why it not compile?
+  }
+}
+
+case class DoConfirmSubscription(subscription: SubscriptionOnResponse)
 
 class NoAckException(request: HttpRequest) extends Exception(s"No acknowledge for request: $request")

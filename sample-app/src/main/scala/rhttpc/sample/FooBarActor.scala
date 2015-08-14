@@ -33,7 +33,7 @@ class FooBarActor(protected val id: String, protected val subscriptionManager: S
 
   when(InitState) {
     case Event(SendMsg(msg), _) =>
-      client.requestResponse(msg) pipeTo self
+      client.requestResponse(msg) pipeTo this
       goto(WaitingForResponseState) replyingAfterSave() //TODO: add replyaAfterSubscriptionsRegistered?
   }
   

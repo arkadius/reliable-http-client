@@ -42,15 +42,14 @@ object SampleApp extends App with Directives {
     AmqpTransportCreateData[Correlated[HttpRequest], Correlated[HttpResponse]](system)
   )
 
+  private val rhttpc = ReliableHttp()
   val client = new DelayedEchoClient {
-    private val rhttpc = ReliableHttp()
-
-    override def requestResponse(msg: String)(implicit ec: ExecutionContext): Future[DoRegisterSubscription] = {
+    override def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise = {
       rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(msg))
     }
   }
 
-  val subscriptionManager = SubscriptionManager()
+  val subscriptionManager = rhttpc.subscriptionManager
 
   val manager = system.actorOf(RecoverableActorsManger.props(
     FooBarActor.persistenceCategory,
@@ -58,6 +57,7 @@ object SampleApp extends App with Directives {
   ), "foobar")
 
   Await.result((manager ? RecoverAllActors)(Timeout(5 seconds)), 10 seconds)
+
   subscriptionManager.run()
 
   val route = path(Segment) { id =>

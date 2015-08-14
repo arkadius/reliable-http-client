@@ -16,32 +16,59 @@
 package rhttpc.client
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import akka.http.scaladsl.model.HttpResponse
 import rhttpc.api.Correlated
 
 class SubscriptionManagerActor extends Actor with ActorLogging {
+  private var promisesOnPending: Map[SubscriptionOnResponse, IndexedSeq[Any]] = Map.empty
+
   private var subscriptions: Map[SubscriptionOnResponse, ActorRef] = Map.empty
 
   override def receive: Actor.Receive = {
-    case RegisterSubscription(sub, consumer) =>
-      log.debug(s"Registering subscription: $sub")
+    case RegisterSubscriptionPromise(sub) =>
+      log.debug(s"Registering subscription promise: $sub")
+      promisesOnPending += sub -> IndexedSeq.empty[Any]
+      sender() ! Unit
+    case ConfirmOrRegisterSubscription(sub, consumer) =>
+      promisesOnPending.get(sub).foreach { pending =>
+        log.debug(s"Confirming subscription: $sub. Sending outstanding messages: ${pending.size}.")
+        pending.foreach(consumer ! _)
+        promisesOnPending -= sub
+      }
       subscriptions += sub -> consumer
-      sender() ! SubscriptionRegistered(sub)
-    case c@Correlated(msg: HttpResponse, correlationId) =>
+    case AbortSubscription(sub) =>
+      promisesOnPending.get(sub) match {
+        case Some(pending) if pending.isEmpty =>
+          log.debug(s"Aborted subscription: $sub.")
+          promisesOnPending -= sub
+        case Some(pending) =>
+          log.error(s"Aborted subscription: $sub. There were pending messages: ${pending.size}.")
+          promisesOnPending -= sub
+        case None =>
+          log.warning(s"Confirmed subscription promise: $sub was missing")
+      }
+    case c@Correlated(msg, correlationId) =>
       val sub = SubscriptionOnResponse(correlationId)
-      subscriptions.get(sub) match {
-        case Some(consumer) =>
+      (subscriptions.get(sub), promisesOnPending.get(sub)) match {
+        case (Some(consumer), optionalPending) =>
+          optionalPending.foreach { pending =>
+            log.error(s"There were both registered subscription and subscription promise with pending messages: ${pending.size}.")
+          }
           log.debug(s"Consuming message: $c")
           subscriptions -= sub
-          consumer ! msg
-        case None =>
-          log.error(s"No subscription registered for $c. Will be skipped.")
-          // FIXME: DLQ
+          consumer forward msg // consumer should ack
+        case (None, Some(pending)) =>
+          log.debug(s"Adding pending message: $c")
+          promisesOnPending = promisesOnPending.updated(sub, pending :+ msg)
+          sender() ! Unit //  ack, look out - pending messages aren't persisted
+        case (None, None) =>
+          log.error(s"No subscription (promise) registered for $c. Will be skipped.")
+          // TODO: DLQ
+          sender() ! Unit //  ack
       }
-      sender() ! true //  ack
   }
 }
+case class RegisterSubscriptionPromise(sub: SubscriptionOnResponse)
 
-case class RegisterSubscription(subscription: SubscriptionOnResponse, consumer: ActorRef)
+case class ConfirmOrRegisterSubscription(sub: SubscriptionOnResponse, consumer: ActorRef)
 
-case class SubscriptionRegistered(subscription: SubscriptionOnResponse)
+case class AbortSubscription(sub: SubscriptionOnResponse)

@@ -15,6 +15,4 @@
  */
 package rhttpc.api
 
-import akka.http.scaladsl.model.HttpMessage
-
-case class Correlated[T <: HttpMessage](msg: T, correlationId: String)
+case class Correlated[T](msg: T, correlationId: String)

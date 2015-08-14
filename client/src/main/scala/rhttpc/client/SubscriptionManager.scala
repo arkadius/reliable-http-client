@@ -28,17 +28,25 @@ import scala.language.postfixOps
 
 trait SubscriptionManager {
   def run(): Unit
+  
+  def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit]
+}
 
-  def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[SubscriptionRegistered]
+private[client] trait SubscriptionInternalManagement {
+  def registerPromise(subscription: SubscriptionOnResponse): Unit
+
+  def abort(subscription: SubscriptionOnResponse): Unit
 }
 
 object SubscriptionManager {
-  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]]): SubscriptionManager = {
+  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]]) extends SubscriptionManager {
+private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]])
+  extends SubscriptionManager with SubscriptionInternalManagement {
+
   private val subMgr = actorFactory.actorOf(Props[SubscriptionManagerActor], "subscription-manager")
 
   private val transportSub = transport.subscription("rhttpc-response", subMgr)
@@ -47,15 +55,23 @@ class SubscriptionManagerImpl(implicit actorFactory: ActorRefFactory, transport:
     transportSub.run()
   }
 
-  override def register(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[SubscriptionRegistered] = {
+  override def registerPromise(subscription: SubscriptionOnResponse): Unit = {
+    subMgr ! RegisterSubscriptionPromise(subscription)
+  }
+
+  override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit] = {
     implicit val timeout = Timeout(10 seconds)
-    (subMgr ? RegisterSubscription(subscription, consumer)).mapTo[SubscriptionRegistered]
+    (subMgr ? ConfirmOrRegisterSubscription(subscription, consumer)).mapTo[Unit]
+  }
+
+  override def abort(subscription: SubscriptionOnResponse): Unit = {
+    subMgr ! AbortSubscription(subscription)
   }
 }
 
 case class SubscriptionOnResponse(correlationId: String)
 
-trait SubscriptionsHolder { this: Actor =>
+trait SubscriptionsHolder extends Actor {
 
   private implicit def ec: ExecutionContext = context.dispatcher
 
@@ -63,20 +79,20 @@ trait SubscriptionsHolder { this: Actor =>
 
   protected var subscriptions: Set[SubscriptionOnResponse] = Set.empty
 
-  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Future[Set[SubscriptionRegistered]] = {
+  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Future[Set[Unit]] = {
     subscriptions ++= subs
-    Future.sequence(subscriptions.map(subscriptionManager.register(_, self)))
+    Future.sequence(subscriptions.map(subscriptionManager.confirmOrRegister(_, self)))
   }
 
-  private[rhttpc] def failedRequest(ex: Throwable, subscription: SubscriptionOnResponse) = {
-    self ! Status.Failure(ex)
+  private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
+    // FIXME
   }
 
   protected val handleRegisterSubscription: Receive = {
-    case DoRegisterSubscription(subscription) =>
+    case DoConfirmSubscription(subscription) =>
       subscriptions = subscriptions + subscription
       stateChanged()
-      subscriptionManager.register(subscription, self)
+      subscriptionManager.confirmOrRegister(subscription, self)
   }
 
   protected val handleMessageFromSubscription: Receive = {
