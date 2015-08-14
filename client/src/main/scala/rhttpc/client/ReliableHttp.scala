@@ -16,18 +16,27 @@
 package rhttpc.client
 
 import java.util.UUID
+import java.util.concurrent.TimeoutException
 
-import akka.actor.ActorRefFactory
+import akka.actor._
 import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
-import akka.pattern.PipeableFuture
+import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.api.Correlated
 import rhttpc.api.transport.PubSubTransport
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Promise, ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.Failure
+
+object ReliableHttp {
+  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], Correlated[HttpResponse]]): ReliableClient[HttpRequest] = {
+    val subMgr = SubscriptionManager()
+    new ReliableClient[HttpRequest](subMgr)
+  }
+}
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[Request], _]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
@@ -51,23 +60,54 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
         log.error(s"Request: $correlated acknowledgement failure", ex)
         subMgr.abort(subscription)
     }
-    new PublicationPromise(subscription, acknowledgeFuture)
+    new PublicationPromise(subscription, acknowledgeFuture, subMgr)
+  }
+
+  def close()(implicit ec: ExecutionContext): Future[Unit] = {
+    for {
+      _ <- publisher.close()
+      subMgrStopped <- subscriptionManager.stop()
+    } yield subMgrStopped
   }
 }
 
-object ReliableHttp {
-  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest], Correlated[HttpResponse]]): ReliableClient[HttpRequest] = {
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr)
-  }
-}
-
-class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture: Future[DoConfirmSubscription]) {
-  def pipeTo(holder: SubscriptionsHolder)(implicit ec: ExecutionContext): Unit = {
+class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture: Future[DoConfirmSubscription], subscriptionManager: SubscriptionManager) {
+  def pipeTo(holder: SubscriptionPromiseRegistrationListener)(implicit ec: ExecutionContext): Unit = {
     // we can notice about promise registered - message won't be consumed before RegisterSubscriptionPromise in actor because of mailbox processing in order
     holder.subscriptionPromiseRegistered(subscription)
     new PipeableFuture[DoConfirmSubscription](acknowledgeFuture).pipeTo(holder.self)
 //    acknowledgeFuture.pipeTo(holder.self) // have no idea why it not compile?
+  }
+
+  def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
+    import system.dispatcher
+    val promise = Promise[Any]()
+    system.actorOf(Props(new SubscriptionPromiseRegistrationListener {
+      override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
+
+      override def receive: Actor.Receive = {
+        case DoConfirmSubscription(sub) =>
+          assert(sub == subscription, "should be confirmed about self subscription")
+          subscriptionManager.confirmOrRegister(subscription, self)
+          context.become(waitForMessage)
+      }
+
+      private val waitForMessage: Receive = {
+        case Status.Failure(ex) =>
+          promise.failure(ex)
+          context.stop(self)
+        case msg =>
+          promise.success(msg)
+          context.stop(self)
+      }
+
+      pipeTo(this)
+    }))
+    val f = system.scheduler.scheduleOnce(timeout.duration) {
+      promise tryComplete Failure(new TimeoutException(s"Timed out on waiting on response from subscription"))
+    }
+    promise.future onComplete { _ => f.cancel() }
+    promise.future
   }
 }
 

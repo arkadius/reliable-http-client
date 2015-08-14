@@ -23,7 +23,7 @@ import scala.language.higherKinds
 trait PubSubTransport[PubMsg, SubMsg] {
   def publisher(queueName: String): Publisher[PubMsg]
 
-  def subscription(queueName: String, consumer: ActorRef): Subscription
+  def subscriber(queueName: String, consumer: ActorRef): Subscriber
 }
 
 trait PubSubTransportFactory {
@@ -36,8 +36,12 @@ trait TransportCreateData[PubMsg, SubMsg]
 
 trait Publisher[Msg] {
   def publish(msg: Msg): Future[Unit]
+
+  def close(): Future[Unit]
 }
 
-trait Subscription {
+trait Subscriber {
   def run(): Unit
+  
+  def stop(): Future[Unit]
 }

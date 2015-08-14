@@ -21,7 +21,7 @@ import akka.util.Timeout
 import com.spingo._
 import com.spingo.op_rabbit._
 import org.json4s.Formats
-import rhttpc.api.transport.{Subscription, _}
+import rhttpc.api.transport.{Subscriber, _}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +33,7 @@ private[amqp] class AmqpTransport[PubMsg, SubMsg](val rabbitControl: ActorRef)
                                                   val executionContext: ExecutionContext) extends PubSubTransport[PubMsg, SubMsg] {
   override def publisher(queueName: String): Publisher[PubMsg] = new AmqpPublisher(this, queueName)
 
-  override def subscription(queueName: String, consumer: ActorRef): Subscription = new AmqpSubscriber(this, queueName, consumer)
+  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new AmqpSubscriber(this, queueName, consumer)
 }
 
 object AmqpTransportFactory extends PubSubTransportFactory {
@@ -61,23 +61,33 @@ private[amqp] class AmqpPublisher[PubMsg](transport: AmqpTransport[PubMsg, _], q
       if (!ack) throw new NoAckException(msg)
     }
   }
+
+  override def close(): Future[Unit] = {
+    Future.successful(Unit) // TODO: should close the channel?
+  }
 }
 
-private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueName: String, consumer: ActorRef) extends Subscription {
-  override def run(): Unit = {
-    val subscription = new op_rabbit.consumer.Subscription {
-      import transport.{executionContext, unmarshaller}
-      // A qos of 3 will cause up to 3 concurrent messages to be processed at any given time.
-      def config = channel(qos = 3) {
-        consume(queue(queueName)) {
-          body(as[Sub]) { msg =>
-            implicit val timeout = Timeout(10 seconds)
-            ack(consumer ? msg)
-          }
+private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueName: String, consumer: ActorRef) extends Subscriber {
+  private val subscription = new op_rabbit.consumer.Subscription {
+    import transport.{executionContext, unmarshaller}
+    // A qos of 3 will cause up to 3 concurrent messages to be processed at any given time.
+    def config = channel(qos = 3) {
+      consume(queue(queueName)) {
+        body(as[Sub]) { msg =>
+          implicit val timeout = Timeout(10 seconds)
+          ack(consumer ? msg)
         }
       }
     }
+  }
+
+  override def run(): Unit = {
     transport.rabbitControl ! subscription
+  }
+
+  override def stop(): Future[Unit] = {
+    subscription.close()
+    subscription.closed
   }
 }
 

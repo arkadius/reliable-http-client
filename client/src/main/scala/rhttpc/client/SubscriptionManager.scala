@@ -30,6 +30,8 @@ trait SubscriptionManager {
   def run(): Unit
   
   def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit]
+
+  def stop()(implicit ec: ExecutionContext): Future[Unit]
 }
 
 private[client] trait SubscriptionInternalManagement {
@@ -39,17 +41,17 @@ private[client] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, Correlated[HttpResponse]])
+private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, _])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val subMgr = actorFactory.actorOf(Props[SubscriptionManagerActor], "subscription-manager")
 
-  private val transportSub = transport.subscription("rhttpc-response", subMgr)
+  private val transportSub = transport.subscriber("rhttpc-response", subMgr)
 
   override def run(): Unit = {
     transportSub.run()
@@ -67,11 +69,21 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
   override def abort(subscription: SubscriptionOnResponse): Unit = {
     subMgr ! AbortSubscription(subscription)
   }
+
+  override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
+    for {
+      _ <- transportSub.stop()
+      smaStopped <- gracefulStop(subMgr, 10 seconds).map(stopped =>
+        if (!stopped)
+          throw new IllegalStateException("Subscription manager hasn't been stopped correctly")
+      )
+    } yield smaStopped
+  }
 }
 
 case class SubscriptionOnResponse(correlationId: String)
 
-trait SubscriptionsHolder extends Actor {
+trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {
 
   private implicit def ec: ExecutionContext = context.dispatcher
 
@@ -84,7 +96,7 @@ trait SubscriptionsHolder extends Actor {
     Future.sequence(subscriptions.map(subscriptionManager.confirmOrRegister(_, self)))
   }
 
-  private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
+  override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
     // FIXME
   }
 
@@ -103,6 +115,10 @@ trait SubscriptionsHolder extends Actor {
   }
 
   def stateChanged(): Unit // FIXME state should be saved only onTransiton when we got subscriptions for all requests
+}
+
+trait SubscriptionPromiseRegistrationListener extends Actor {
+  private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit
 }
 
 case class MessageFromSubscription(msg: Any, subscription: SubscriptionOnResponse)

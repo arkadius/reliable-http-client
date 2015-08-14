@@ -46,7 +46,11 @@ lazy val client = (project in file("client")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV
+        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
+        "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV         % "test",
+        "ch.qos.logback"           % "logback-classic"               % logbackV      % "test"
       )
     }
   ).
