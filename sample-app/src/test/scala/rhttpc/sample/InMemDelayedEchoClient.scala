@@ -40,6 +40,8 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
     }
 
     override def run(): Unit = {}
+
+    override def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
   }
 
   override def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise = {

@@ -27,7 +27,6 @@ class SubscriptionManagerActor extends Actor with ActorLogging {
     case RegisterSubscriptionPromise(sub) =>
       log.debug(s"Registering subscription promise: $sub")
       promisesOnPending += sub -> IndexedSeq.empty[Any]
-      sender() ! Unit
     case ConfirmOrRegisterSubscription(sub, consumer) =>
       promisesOnPending.get(sub).foreach { pending =>
         log.debug(s"Confirming subscription: $sub. Sending outstanding messages: ${pending.size}.")
@@ -35,6 +34,7 @@ class SubscriptionManagerActor extends Actor with ActorLogging {
         promisesOnPending -= sub
       }
       subscriptions += sub -> consumer
+      sender() ! Unit
     case AbortSubscription(sub) =>
       promisesOnPending.get(sub) match {
         case Some(pending) if pending.isEmpty =>

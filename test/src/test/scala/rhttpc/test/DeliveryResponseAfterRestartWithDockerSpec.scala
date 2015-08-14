@@ -27,7 +27,7 @@ import rhttpc.test.DockerEnrichments._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.control.NonFatal
 
-class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers with BeforeAndAfter {
+class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with Matchers with BeforeAndAfter {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
   it should "handle response during application unavailable" in { fixture =>
@@ -45,7 +45,7 @@ class DeliveryResponseAfterRestartSpec extends fixture.FlatSpec with Matchers wi
       Thread.sleep(8000) // wait for reply
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      Thread.sleep(5000) // wait for start
+      Thread.sleep(7000) // wait for start
       logger.info("App restarted")
     }
   }
