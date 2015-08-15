@@ -2,12 +2,10 @@ package rhttpc.client
 
 import java.util.UUID
 
-import akka.actor.{Actor, Props, ActorRef, ActorSystem}
-import akka.testkit.{TestProbe, ImplicitSender, TestKit}
+import akka.actor.{ActorSystem, Props}
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
 import rhttpc.api.Correlated
-
-import scala.concurrent.ExecutionContext
 
 class MessageDispatcherActorSpec
   extends TestKit(ActorSystem("MessageDispatcherActorSpec"))

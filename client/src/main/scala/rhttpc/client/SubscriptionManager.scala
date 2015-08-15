@@ -27,7 +27,7 @@ import scala.language.postfixOps
 trait SubscriptionManager {
   def run(): Unit
 
-  def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit]
+  def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
 
   def stop()(implicit ec: ExecutionContext): Future[Unit]
 }
@@ -59,9 +59,9 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
     dispatcher ! RegisterSubscriptionPromise(subscription)
   }
 
-  override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit] = {
+  override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
     implicit val timeout = Timeout(30 seconds)
-    (dispatcher ? ConfirmOrRegisterSubscription(subscription, consumer)).mapTo[Unit]
+    dispatcher ! ConfirmOrRegisterSubscription(subscription, consumer)
   }
 
   override def abort(subscription: SubscriptionOnResponse): Unit = {

@@ -17,9 +17,11 @@ package akka.persistence
 
 import java.io.{PrintWriter, StringWriter}
 
-import akka.actor.{ActorRef, ActorLogging}
+import akka.actor.{ActorLogging, ActorRef}
+import rhttpc.actor.SnapshotsRegistry
 
-trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging =>
+// this trait must be in akka.persistence package because of updateLastSequenceNr package protected access
+trait PersistentActorWithNotifications extends PersistentActor { this: ActorLogging =>
   override def persistenceId: String = SnapshotsRegistry.persistenceId(persistenceCategory, id)
 
   protected def persistenceCategory: String
@@ -37,33 +39,29 @@ trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging
   }
 
   private def deleteSnapshotsLogging(maxSequenceNr: Option[Long]): Unit = {
-    log.debug(s"Deleting all snapshots for $persistenceId until: $maxSequenceNr...")
+    log.debug(s"Deleting all snapshots for $persistenceId until (inclusive): $maxSequenceNr...")
     deleteSnapshots(SnapshotSelectionCriteria(maxSequenceNr = maxSequenceNr.getOrElse(Int.MaxValue)))
   }
 
-  protected def saveSnapshotLogging(snapshot: Any): Unit = {
-    saveSnapshotNotifying(snapshot, None)
-  }
-
-  protected def saveSnapshotNotifying(snapshot: Any, listener: Option[RecipientWithMsg]): Unit = {
-    log.debug(s"Saving snapshot for $persistenceId: $snapshot ...")
-    updateLastSequenceNr(lastSequenceNr + 1)
+  protected def saveSnapshotNotifying(snapshot: Any, sequenceNr: Long, listener: Option[RecipientWithMsg]): Unit = {
+    log.debug(s"Saving snapshot for $persistenceId with sequenceNr: $sequenceNr: $snapshot ...")
     listener.foreach { listener =>
-      listenersForSnapshotSave += lastSequenceNr -> listener
+      listenersForSnapshotSave += sequenceNr -> listener
     }
+    updateLastSequenceNr(sequenceNr)
     saveSnapshot(snapshot)
   }
 
   protected val handleSnapshotEvents: Receive = {
     case SaveSnapshotSuccess(metadata) =>
-      log.debug("State saved for " + persistenceId)
-      deleteSnapshotsLogging(Some(lastSequenceNr-1))
+      log.debug(s"State saved for: $metadata")
+      deleteSnapshotsLogging(Some(metadata.sequenceNr-1))
       replyToListenerForSaveIfWaiting(metadata)
     case SaveSnapshotFailure(metadata, cause) =>
       val stringWriter = new StringWriter()
       val printWriter = new PrintWriter(stringWriter)
       cause.printStackTrace(printWriter)
-      log.error(s"State save failure for $persistenceId.\nError: $stringWriter")
+      log.error(s"State save failure for: $metadata.\nError: $stringWriter")
   }
 
   private def replyToListenerForSaveIfWaiting(metadata: SnapshotMetadata): Unit = {
@@ -77,5 +75,3 @@ trait PersistentActorWithNotifications { this: PersistentActor with ActorLogging
 class RecipientWithMsg(recipient: ActorRef, msg: Any) {
   def reply() = recipient ! msg
 }
-
-case object StateSaved

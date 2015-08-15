@@ -1,20 +1,21 @@
-package rhttpc.client
+package rhttpc.actor
 
-import akka.actor.{Props, Status, Actor}
+import akka.actor.{Actor, Props, Status}
+import rhttpc.client._
 
 import scala.concurrent.Promise
 
 private class PromiseSubscriptionCommandsListener(pubPromise: ReplyFuture, replyPromise: Promise[Any])
-                                                 (request: Any, subscriptionManager: SubscriptionManager) extends SubscriptionCommandsListener {
+                                                 (request: Any, subscriptionManager: SubscriptionManager) extends PublicationListener {
   import context.dispatcher
 
-  override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
+  override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
 
   override def receive: Actor.Receive = {
-    case DoConfirmSubscription(sub) =>
+    case RequestPublished(sub) =>
       subscriptionManager.confirmOrRegister(sub, self)
       context.become(waitForMessage)
-    case SubscriptionAborted(sub, cause) =>
+    case RequestAborted(sub, cause) =>
       replyPromise.failure(new NoAckException(request, cause))
       context.stop(self)
   }

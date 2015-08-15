@@ -21,6 +21,7 @@ import akka.actor._
 import akka.persistence._
 import akka.testkit._
 import org.scalatest._
+import rhttpc.actor._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps

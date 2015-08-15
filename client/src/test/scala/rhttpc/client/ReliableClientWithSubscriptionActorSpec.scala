@@ -16,7 +16,6 @@
 package rhttpc.client
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.testkit.TestActors.EchoActor
 import akka.testkit._
 import org.scalatest.Matchers
 
@@ -44,31 +43,31 @@ class ReliableClientWithSubscriptionActorSpec
     val actor = system.actorOf(MockSubscriptionActor.props(fixture.client, replyMock.ref))
     actor ! SendRequest
     fixture.transport.publicationPromise.failure(FailedAcknowledge)
-    expectMsgAllClassOf(classOf[SubscriptionAborted])
+    expectMsgAllClassOf(classOf[RequestAborted])
   }
 
 }
 
-private class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext) extends SubscriptionCommandsListener {
+private class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext) extends PublicationListener {
   override def receive: Receive = {
     case SendRequest =>
       client.send("foo") pipeTo this
   }
 
-  override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
+  override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
     context.become(waitingOnSubscriptionCommand(sender()))
   }
 
   private def waitingOnSubscriptionCommand(originalSender: ActorRef): Receive = {
-    case DoConfirmSubscription(sub) =>
+    case RequestPublished(sub) =>
       client.subscriptionManager.confirmOrRegister(sub, self)
       originalSender ! Unit
       context.become(waitingOnReply)
-    case a: SubscriptionAborted =>
+    case a: RequestAborted =>
       originalSender ! a
       context.stop(self)
   }
-  
+
   private def waitingOnReply: Receive = {
     case MessageFromSubscription(reply, sub) =>
       replyMock ! reply

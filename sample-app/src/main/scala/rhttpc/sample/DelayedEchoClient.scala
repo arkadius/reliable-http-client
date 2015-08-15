@@ -15,7 +15,7 @@
  */
 package rhttpc.sample
 
-import rhttpc.client.{ReplyFuture, DoConfirmSubscription}
+import rhttpc.client.ReplyFuture
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
+import rhttpc.actor._
 import rhttpc.api.Correlated
 import rhttpc.api.transport.PubSubTransport
 
@@ -52,15 +53,15 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
     val subscription = SubscriptionOnResponse(correlationId)
     // we need to registerPromise before publish because message can be consumed before subscription on response registration 
     subMgr.registerPromise(subscription)
-    val doConfirmAfterAckFuture = publisher.publish(correlated).map { _ =>
+    val publicationAckFuture = publisher.publish(correlated).map { _ =>
       log.debug(s"Request: $correlated successfully acknowledged")
-      DoConfirmSubscription(subscription)
+      RequestPublished(subscription)
     }
-    val abortingIfFailureFuture = doConfirmAfterAckFuture.recover {
+    val abortingIfFailureFuture = publicationAckFuture.recover {
       case ex =>
         log.error(s"Request: $correlated acknowledgement failure", ex)
         subMgr.abort(subscription)
-        SubscriptionAborted(subscription, ex)
+        RequestAborted(subscription, ex)
     }
     new ReplyFuture(subscription, abortingIfFailureFuture)(request, subMgr)
   }
@@ -73,13 +74,13 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 }
 
-class ReplyFuture(subscription: SubscriptionOnResponse, subCommandFuture: Future[SubscriptionCommand])
+class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Future[PublicationResult])
                  (request: Any, subscriptionManager: SubscriptionManager) {
-  def pipeTo(holder: SubscriptionCommandsListener)(implicit ec: ExecutionContext): Unit = {
+  def pipeTo(listener: PublicationListener)(implicit ec: ExecutionContext): Unit = {
     // we can notice about promise registered in this place - message won't be consumed before RegisterSubscriptionPromise
     // in dispatcher actor because of mailbox processing in order
-    holder.subscriptionPromiseRegistered(subscription)
-    subCommandFuture.pipeTo(holder.self) // have no idea why it not compile?
+    listener.subscriptionPromiseRegistered(subscription)
+    publicationFuture pipeTo listener.self
   }
 
   def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {

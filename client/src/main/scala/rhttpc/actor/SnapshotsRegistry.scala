@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package akka.persistence
+package rhttpc.actor
 
 import java.io.File
 
-import akka.actor.{Props, Actor}
+import akka.actor.{Actor, Props}
 
 class SnapshotsRegistry(persistenceCategory: String) extends Actor {
   private val FilenamePattern = s"""^snapshot-$persistenceCategory-(.+)-(\\d+)-(\\d+)""".r
