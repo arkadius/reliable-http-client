@@ -27,25 +27,26 @@ trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {
   protected val handleSubscriptionMessages: Receive = {
     case DoConfirmSubscription(subscription) =>
       subscriptions = subscriptions + subscription
-      removeSubscriptionPromise(subscription)
-      stateChanged()
+      removeSubscriptionPromise(subscription, () => Unit)
+      notifyAboutAllSubscriptionsConfirmedOrAborted()
       subscriptionManager.confirmOrRegister(subscription, self)
     case SubscriptionAborted(subscription, cause) =>
-      removeSubscriptionPromise(subscription)
-      stateChanged()
+      removeSubscriptionPromise(subscription, () => Unit)
+      notifyAboutAllSubscriptionsConfirmedOrAborted()
 //      subscriptionManager.(subscription, self)
     case MessageFromSubscription(msg, subscription) =>
       subscriptions = subscriptions - subscription
-      stateChanged()
-      self ! msg
+      notifyAboutAllSubscriptionsConfirmedOrAborted()
+      self forward msg
   }
 
-  private def removeSubscriptionPromise(sub: SubscriptionOnResponse) = {
+  private def removeSubscriptionPromise(sub: SubscriptionOnResponse, onNoPromisesLeft: () => Unit) = {
     subscriptionPromises -= sub
-    // TODO: reply if all removed
+    if (subscriptionPromises.isEmpty)
+      onNoPromisesLeft()
   }
 
-  def stateChanged(): Unit // FIXME state should be saved only onTransiton when we got subscriptions for all requests
+  def notifyAboutAllSubscriptionsConfirmedOrAborted(): Unit
 }
 
 trait SubscriptionPromiseRegistrationListener extends Actor {

@@ -99,10 +99,12 @@ class PublicationPromise(subscription: SubscriptionOnResponse, subCommandFuture:
       }
 
       private val waitForMessage: Receive = {
-        case Status.Failure(ex) =>
+        case MessageFromSubscription(Status.Failure(ex), sub) =>
+          assert(sub == subscription, "Should be self subscription command")
           promise.failure(ex)
           context.stop(self)
-        case msg =>
+        case MessageFromSubscription(msg, sub) =>
+          assert(sub == subscription, "Should be self subscription command")
           promise.success(msg)
           context.stop(self)
       }

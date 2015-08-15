@@ -70,7 +70,7 @@ class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)
   }
   
   private def waitingOnReply: Receive = {
-    case reply =>
+    case MessageFromSubscription(reply, sub) =>
       replyMock ! reply
       context.stop(self)
   }

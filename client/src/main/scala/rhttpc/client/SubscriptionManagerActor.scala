@@ -19,18 +19,21 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import rhttpc.api.Correlated
 
 class SubscriptionManagerActor extends Actor with ActorLogging {
-  private var promisesOnPending: Map[SubscriptionOnResponse, IndexedSeq[Any]] = Map.empty
+
+  private var promisesOnPending: Map[SubscriptionOnResponse, Option[PendingMessage]] = Map.empty
 
   private var subscriptions: Map[SubscriptionOnResponse, ActorRef] = Map.empty
 
   override def receive: Actor.Receive = {
     case RegisterSubscriptionPromise(sub) =>
       log.debug(s"Registering subscription promise: $sub")
-      promisesOnPending += sub -> IndexedSeq.empty[Any]
+      promisesOnPending += sub -> None
     case ConfirmOrRegisterSubscription(sub, consumer) =>
       promisesOnPending.get(sub).foreach { pending =>
         log.debug(s"Confirming subscription: $sub. Sending outstanding messages: ${pending.size}.")
-        pending.foreach(consumer ! _)
+        pending.foreach { pending =>
+          consumer.tell(MessageFromSubscription(pending.msg, sub), pending.sender)
+        }
         promisesOnPending -= sub
       }
       subscriptions += sub -> consumer
@@ -55,18 +58,30 @@ class SubscriptionManagerActor extends Actor with ActorLogging {
           }
           log.debug(s"Consuming message: $c")
           subscriptions -= sub
-          consumer forward msg // consumer should ack
-        case (None, Some(pending)) =>
+          consumer forward MessageFromSubscription(msg, sub) // consumer should ack
+        case (None, Some(None)) =>
           log.debug(s"Adding pending message: $c")
-          promisesOnPending = promisesOnPending.updated(sub, pending :+ msg)
-          sender() ! Unit //  ack, look out - pending messages aren't persisted
+          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(msg)))
+        case (None, Some(Some(pending))) =>
+          log.error(s"There already was pending message: $pending for subscription. Overriding it.")
+          pending.ack()
+          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(msg)))
         case (None, None) =>
           log.error(s"No subscription (promise) registered for $c. Will be skipped.")
           // TODO: DLQ
           sender() ! Unit //  ack
       }
   }
+
+  class PendingMessage private (val msg: Any, val sender: ActorRef) {
+    def ack() = sender ! Unit
+  }
+
+  object PendingMessage {
+    def apply(msg: Any): PendingMessage = new PendingMessage(msg, sender())
+  }
 }
+
 case class RegisterSubscriptionPromise(sub: SubscriptionOnResponse)
 
 case class ConfirmOrRegisterSubscription(sub: SubscriptionOnResponse, consumer: ActorRef)
