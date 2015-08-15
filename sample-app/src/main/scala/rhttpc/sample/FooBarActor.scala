@@ -45,11 +45,11 @@ private class FooBarActor(protected val id: String, protected val subscriptionMa
     case Event("bar", _) => goto(BarState)
   }
 
-  when(FooState, stateTimeout = 10 seconds) {
+  when(FooState, stateTimeout = 5 minutes) {
     case Event(StateTimeout, _) => stop()
   }
 
-  when(BarState, stateTimeout = 10 seconds) {
+  when(BarState, stateTimeout = 5 minutes) {
     case Event(StateTimeout, _) => stop()
   }
 

@@ -24,9 +24,12 @@ import scala.language.postfixOps
 class FooBarClient(baseUrl: Req) {
   implicit val successPredicate = new retry.Success[Unit.type](_ => true)
 
-  def foo(id: String)(implicit ec: ExecutionContext): Unit =
-    Await.result(Http(baseUrl / id << "foo"), 10 seconds)
+  def foo(id: String)(implicit ec: ExecutionContext): Future[Any] =
+    Http(baseUrl / id << "foo")
 
-  def currentState(id: String)(implicit ec: ExecutionContext): String =
-    Await.result(Http(baseUrl / id OK as.String), 10 seconds)
+  def bar(id: String)(implicit ec: ExecutionContext): Future[Any] =
+    Http(baseUrl / id << "bar")
+
+  def currentState(id: String)(implicit ec: ExecutionContext): Future[String] =
+    Http(baseUrl / id OK as.String)
 }

@@ -37,7 +37,6 @@ class MessageDispatcherActor extends Actor with ActorLogging {
         promisesOnPending -= sub
       }
       subscriptions += sub -> consumer
-      sender() ! Unit
     case AbortSubscription(sub) =>
       promisesOnPending.get(sub) match {
         case Some(pending) if pending.isEmpty =>

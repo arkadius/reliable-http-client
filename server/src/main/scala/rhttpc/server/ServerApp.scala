@@ -46,7 +46,7 @@ object ServerApp extends App {
     val source = RabbitSource(
       "rhttpc-request-source",
       rabbitMq,
-      channel(qos = 3),
+      channel(qos = 10),
       consume(queue("rhttpc-request")),
       body(as[Correlated[HttpRequest]])
     ).akkaGraph.map {
@@ -55,7 +55,7 @@ object ServerApp extends App {
         t
     }
 
-    val httpClient = Http().outgoingConnection("sampleecho", 8082).mapAsync(3)(_.toStrict(1 minute))
+    val httpClient = Http().outgoingConnection("sampleecho", 8082).mapAsync(10)(_.toStrict(1 minute))
 
     val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
       "rhttpc-response-sink",
@@ -63,7 +63,14 @@ object ServerApp extends App {
       ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisherDeclaringQueueIfNotExist("rhttpc-response"))
     ).akkaGraph
 
-    val unzipAckAndCorrelatedRequest = builder.add(Unzip[Promise[Unit], Correlated[HttpRequest]]())
+    val unzipAckAndCorrelatedRequest = builder.add(UnzipWith[(Promise[Unit], Correlated[HttpRequest]), Promise[Unit], Correlated[HttpRequest]] {
+      case (ackPromise, correlated) =>
+        ackPromise.future.onComplete {
+          case Success(_) => actorSystem.log.debug(s"Publishing of $correlated successfully acknowledged")
+          case Failure(ex) => actorSystem.log.error(s"Publishing of $correlated acknowledgement failed", ex)
+        }
+        (ackPromise, correlated)
+    })
     val unzipRequestAndCorrelationId = builder.add(UnzipWith[Correlated[HttpRequest], HttpRequest, String] { correlated =>
       (correlated.msg, correlated.correlationId)
     })
@@ -73,13 +80,7 @@ object ServerApp extends App {
       actorSystem.log.debug(s"Reply with $correlated")
       correlated
     })
-    val zipAckAndCorrelatedResponse = builder.add(ZipWith[Promise[Unit], Correlated[HttpResponse], (Promise[Unit], Correlated[HttpResponse])] { (ackPromise, correlated) =>
-      ackPromise.future.onComplete {
-        case Success(_) => actorSystem.log.debug(s"Publishing of $correlated successfully acknowledged")
-        case Failure(ex) => actorSystem.log.error(s"Publishing of $correlated acknowledgement failed", ex)
-      }
-      (ackPromise, correlated)
-    })
+    val zipAckAndCorrelatedResponse = builder.add(Zip[Promise[Unit], Correlated[HttpResponse]]())
 
     source ~> unzipAckAndCorrelatedRequest.in
               unzipAckAndCorrelatedRequest.out0                                                                                       ~> zipAckAndCorrelatedResponse.in0

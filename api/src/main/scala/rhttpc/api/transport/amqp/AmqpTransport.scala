@@ -71,10 +71,10 @@ private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueN
   private val subscription = new op_rabbit.consumer.Subscription {
     import transport.{executionContext, unmarshaller}
     // A qos of 3 will cause up to 3 concurrent messages to be processed at any given time.
-    def config = channel(qos = 3) {
+    def config = channel(qos = 10) {
       consume(queue(queueName)) {
         body(as[Sub]) { msg =>
-          implicit val timeout = Timeout(10 seconds)
+          implicit val timeout = Timeout(60 seconds)
           ack(consumer ? msg)
         }
       }
