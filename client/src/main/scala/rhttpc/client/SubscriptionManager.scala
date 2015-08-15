@@ -26,7 +26,7 @@ import scala.language.postfixOps
 
 trait SubscriptionManager {
   def run(): Unit
-  
+
   def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit]
 
   def stop()(implicit ec: ExecutionContext): Future[Unit]
@@ -80,43 +80,3 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
 }
 
 case class SubscriptionOnResponse(correlationId: String)
-
-trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {
-
-  private implicit def ec: ExecutionContext = context.dispatcher
-
-  protected def subscriptionManager: SubscriptionManager
-
-  protected var subscriptions: Set[SubscriptionOnResponse] = Set.empty
-
-  protected def registerSubscriptions(subs: Set[SubscriptionOnResponse]): Future[Set[Unit]] = {
-    subscriptions ++= subs
-    Future.sequence(subscriptions.map(subscriptionManager.confirmOrRegister(_, self)))
-  }
-
-  override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
-    // FIXME
-  }
-
-  protected val handleRegisterSubscription: Receive = {
-    case DoConfirmSubscription(subscription) =>
-      subscriptions = subscriptions + subscription
-      stateChanged()
-      subscriptionManager.confirmOrRegister(subscription, self)
-  }
-
-  protected val handleMessageFromSubscription: Receive = {
-    case MessageFromSubscription(msg, subscription) =>
-      subscriptions = subscriptions - subscription
-      stateChanged()
-      self ! msg
-  }
-
-  def stateChanged(): Unit // FIXME state should be saved only onTransiton when we got subscriptions for all requests
-}
-
-trait SubscriptionPromiseRegistrationListener extends Actor {
-  private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit
-}
-
-case class MessageFromSubscription(msg: Any, subscription: SubscriptionOnResponse)

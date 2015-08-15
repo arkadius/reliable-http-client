@@ -15,26 +15,24 @@
  */
 package akka.persistence
 
-import java.io.{PrintWriter, StringWriter}
-
 import akka.actor.FSM._
 import akka.actor._
-import rhttpc._
-import rhttpc.client.{SubscriptionsHolder, SubscriptionOnResponse}
-
-import scala.concurrent.ExecutionContext
+import rhttpc.client.{SubscriptionOnResponse, SubscriptionsHolder}
 
 trait ReliableFSM[S, D]
-  extends PersistentActor
+  extends PersistentFSM[S, D]
   with PersistentActorWithNotifications
   with NotificationAboutRecoveryCompleted  // FIXME: should notify about recovery completed and registered subscriptions
-  with FSM[S, D]
-  with SubscriptionsHolder {
+  with SubscriptionsHolder
+
+trait PersistentFSM[S, D]
+  extends PersistentActor
+  with FSM[S, D] {  self: SubscriptionsHolder with NotificationAboutRecoveryCompleted with PersistentActorWithNotifications =>
 
   private var onSaveListener: Option[RecipientWithMsg] = None
 
   implicit class StateExt(state: State) {
-    def replyingAfterSave(msg: Any = StateSaved): ReliableFSM.this.State = { // FIXME: should be: replying after registered subscriptions & persisted
+    def replyingAfterSave(msg: Any = StateSaved): PersistentFSM.this.State = { // FIXME: should be: replying after registered subscriptions & persisted
       onSaveListener = Some(new RecipientWithMsg(sender(), msg))
       state
     }
@@ -69,8 +67,7 @@ trait ReliableFSM[S, D]
   override def receive: Receive =
     handleNotifyAboutRecoveryCompleted orElse
       handleSnapshotEvents orElse
-      handleRegisterSubscription orElse
-      handleMessageFromSubscription orElse
+      handleSubscriptionMessages orElse
       super.receive
 
   override def stateChanged(): Unit = {

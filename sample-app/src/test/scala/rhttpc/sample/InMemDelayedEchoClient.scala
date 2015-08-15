@@ -29,7 +29,6 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
   private val subOnMsg: collection.concurrent.Map[SubscriptionOnResponse, String] = collection.concurrent.TrieMap()
 
   val subscriptionManager: SubscriptionManager = new SubscriptionManager {
-
     override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit] = {
       system.scheduler.scheduleOnce(delay) {
         subOnMsg.remove(subscription).foreach { msg =>
@@ -47,6 +46,6 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
   override def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise = {
     val uniqueSubOnResponse = SubscriptionOnResponse(UUID.randomUUID().toString)
     subOnMsg.put(uniqueSubOnResponse, msg)
-    new PublicationPromise(uniqueSubOnResponse, Future.successful(DoConfirmSubscription(uniqueSubOnResponse)), subscriptionManager)
+    new PublicationPromise(uniqueSubOnResponse, Future.successful(DoConfirmSubscription(uniqueSubOnResponse)))(msg, subscriptionManager)
   }
 }

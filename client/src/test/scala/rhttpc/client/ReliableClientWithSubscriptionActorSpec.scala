@@ -33,10 +33,18 @@ class ReliableClientWithSubscriptionActorSpec
     val actor = system.actorOf(MockSubscriptionActor.props(fixture.client, replyMock.ref))
     actor ! SendRequest
     fixture.transport.publicationPromise.success(Unit)
-    expectMsgAllClassOf(classOf[SubscriptionOnResponse])
+    expectMsg(Unit)
 
     fixture.transport.replySubscriptionPromise.success("bar")
     replyMock.expectMsg("bar")
+  }
+
+  it should "got subscription aborted" in { fixture =>
+    val replyMock = TestProbe()
+    val actor = system.actorOf(MockSubscriptionActor.props(fixture.client, replyMock.ref))
+    actor ! SendRequest
+    fixture.transport.publicationPromise.failure(FailedAcknowledge)
+    expectMsgAllClassOf(classOf[SubscriptionAborted])
   }
 
 }
@@ -48,14 +56,17 @@ class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)
   }
 
   override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
-    context.become(waitingOnSubConfirmationCommand(sender()))
+    context.become(waitingOnSubscriptionCommand(sender()))
   }
 
-  private def waitingOnSubConfirmationCommand(originalSender: ActorRef): Receive = {
+  private def waitingOnSubscriptionCommand(originalSender: ActorRef): Receive = {
     case DoConfirmSubscription(sub) =>
       client.subscriptionManager.confirmOrRegister(sub, self)
-      originalSender ! sub
+      originalSender ! Unit
       context.become(waitingOnReply)
+    case a: SubscriptionAborted =>
+      originalSender ! a
+      context.stop(self)
   }
   
   private def waitingOnReply: Receive = {

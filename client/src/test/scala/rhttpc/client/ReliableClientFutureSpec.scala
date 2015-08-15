@@ -50,10 +50,19 @@ class ReliableClientFutureSpec extends TestKit(ActorSystem("ReliableClientFuture
 
   it should "send request and reply with failure" in { fixture =>
     val sendFuture = fixture.client.send("foo").toFuture
-    fixture.transport.replySubscriptionPromise.failure(FailedResponse)
     fixture.transport.publicationPromise.success(Unit)
+    fixture.transport.replySubscriptionPromise.failure(FailedResponse)
 
     a[FailedResponse.type] shouldBe thrownBy {
+      Await.result(sendFuture, 5 seconds) shouldEqual "bar"
+    }
+  }
+
+  it should "send request acknowledged by failure" in { fixture =>
+    val sendFuture = fixture.client.send("foo").toFuture
+    fixture.transport.publicationPromise.failure(FailedAcknowledge)
+
+    a[NoAckException] shouldBe thrownBy {
       Await.result(sendFuture, 5 seconds) shouldEqual "bar"
     }
   }

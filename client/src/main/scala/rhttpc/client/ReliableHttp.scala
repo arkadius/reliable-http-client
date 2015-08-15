@@ -51,16 +51,17 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
     val correlated = Correlated(request, correlationId)
     val subscription = SubscriptionOnResponse(correlationId)
     subMgr.registerPromise(subscription)
-    val acknowledgeFuture = publisher.publish(correlated).map { _ =>
+    val doConfirmAfterAckFuture = publisher.publish(correlated).map { _ =>
       log.debug(s"Request: $correlated successfully acknowledged")
       DoConfirmSubscription(subscription)
     }
-    acknowledgeFuture.onFailure {
+    val abortingIfFailureFuture = doConfirmAfterAckFuture.recover {
       case ex =>
         log.error(s"Request: $correlated acknowledgement failure", ex)
         subMgr.abort(subscription)
+        SubscriptionAborted(subscription, ex)
     }
-    new PublicationPromise(subscription, acknowledgeFuture, subMgr)
+    new PublicationPromise(subscription, abortingIfFailureFuture)(request, subMgr)
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
@@ -71,11 +72,12 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 }
 
-class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture: Future[DoConfirmSubscription], subscriptionManager: SubscriptionManager) {
+class PublicationPromise(subscription: SubscriptionOnResponse, subCommandFuture: Future[SubscriptionCommand])
+                        (request: Any, subscriptionManager: SubscriptionManager) {
   def pipeTo(holder: SubscriptionPromiseRegistrationListener)(implicit ec: ExecutionContext): Unit = {
     // we can notice about promise registered - message won't be consumed before RegisterSubscriptionPromise in actor because of mailbox processing in order
     holder.subscriptionPromiseRegistered(subscription)
-    new PipeableFuture[DoConfirmSubscription](acknowledgeFuture).pipeTo(holder.self)
+    new PipeableFuture[SubscriptionCommand](subCommandFuture).pipeTo(holder.self)
 //    acknowledgeFuture.pipeTo(holder.self) // have no idea why it not compile?
   }
 
@@ -87,9 +89,13 @@ class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture
 
       override def receive: Actor.Receive = {
         case DoConfirmSubscription(sub) =>
-          assert(sub == subscription, "should be confirmed about self subscription")
+          assert(sub == subscription, "Should be self subscription command")
           subscriptionManager.confirmOrRegister(subscription, self)
           context.become(waitForMessage)
+        case SubscriptionAborted(sub, cause) =>
+          assert(sub == subscription, "Should be self subscription command")
+          promise.failure(new NoAckException(request, cause))
+          context.stop(self)
       }
 
       private val waitForMessage: Receive = {
@@ -111,6 +117,4 @@ class PublicationPromise(subscription: SubscriptionOnResponse, acknowledgeFuture
   }
 }
 
-case class DoConfirmSubscription(subscription: SubscriptionOnResponse)
-
-class NoAckException(request: HttpRequest) extends Exception(s"No acknowledge for request: $request")
+class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
