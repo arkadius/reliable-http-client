@@ -24,6 +24,7 @@ val akkaV = "2.3.12"
 val akkaStreamsV = "1.0"
 val json4sV = "3.2.11"
 val logbackV = "1.1.3"
+val slf4jV = "1.7.7"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
 val spingoV = "1.0.0-M16"
@@ -34,7 +35,7 @@ lazy val api = (project in file("api")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "com.spingo"              %% "op-rabbit-json4s"              % spingoV,
+        "com.spingo"              %% "op-rabbit-json4s"              % spingoV exclude("ch.qos.logback", "logback-classic"),
         "org.json4s"              %% "json4s-native"                 % json4sV,
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
@@ -47,6 +48,7 @@ lazy val client = (project in file("client")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
+        "org.slf4j"                % "slf4j-api"                     % slf4jV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV         % "test",

@@ -58,7 +58,7 @@ private[amqp] class AmqpPublisher[PubMsg](transport: AmqpTransport[PubMsg, _], q
     import transport.{executionContext, marshaller}
     implicit val timeout = Timeout(10 seconds)
     (transport.rabbitControl ? ConfirmedMessage(QueuePublisherDeclaringQueueIfNotExist(queueName), msg)).mapTo[Boolean].map { ack =>
-      if (!ack) throw new NoAckException(msg)
+      if (!ack) throw new NoPubMsgAckException(msg)
     }
   }
 
@@ -91,4 +91,4 @@ private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueN
   }
 }
 
-class NoAckException(msg: Any) extends Exception(s"No acknowledgement for msg: $msg")
+class NoPubMsgAckException(msg: Any) extends Exception(s"No acknowledgement for published msg: $msg")
