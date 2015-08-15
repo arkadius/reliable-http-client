@@ -30,10 +30,6 @@ trait PersistentActorWithNotifications extends PersistentActor { this: ActorLogg
 
   private var listenersForSnapshotSave: Map[Long, RecipientWithMsg] = Map.empty
 
-  override def receiveCommand: Receive = {
-    case _ => throw new IllegalArgumentException("Should be used receive method")
-  }
-
   protected def deleteSnapshotsLogging(): Unit = {
     deleteSnapshotsLogging(None)
   }

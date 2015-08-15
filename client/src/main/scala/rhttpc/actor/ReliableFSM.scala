@@ -26,8 +26,8 @@ trait ReliableFSM[S, D]
 
   override def receive: Receive =
     handleNotifyAboutRecoveryCompleted orElse
-      handleSnapshotEvents orElse
       handleSubscriptionMessages orElse
+      handleSnapshotEvents orElse
       super.receive
 }
 
@@ -36,7 +36,7 @@ trait PersistentFSM[S, D]
   with FSM[S, D]
   with FSMAfterAllListenerHolder[S, D]
   with FSMStateTransitionRegistrar[S, D]
-  with NotifierAboutRecoveryCompleted { self: StateTransitionHandler[S, D] with RecoveryCompletedListener =>
+  with NotifierAboutRecoveryCompleted { self: StateTransitionHandler[S, D]  =>
 
   private var ownLastSequenceNr = 0L
   
@@ -49,6 +49,9 @@ trait PersistentFSM[S, D]
     handleSnapshotOffer orElse
       handleRecoveryCompleted
 
+  override def receiveCommand: Receive = {
+    case _ => throw new IllegalArgumentException("Should be used receive method instead")
+  }
 
   private val handleSnapshotOffer: Receive = {
     case SnapshotOffer(metadata, snapshot) =>

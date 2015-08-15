@@ -44,7 +44,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
   it should "go into foo state after echo response" in withNextFooBar { fooBarActor =>
     TestProbe().send(fooBarActor, SendMsg("foo"))
     val scheduled = system.scheduler.schedule(0.millis, 100.millis, fooBarActor, CurrentState)
-    fishForMessage(3 seconds) {
+    fishForMessage(10 seconds) {
       case WaitingForResponseState => false
       case FooState => true
     }
@@ -55,7 +55,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
     val id = "persisted"
     val fooBarActor = createFooBar(id)
     fooBarActor ! SendMsg("foo")
-    expectMsg(StateSaved)
+    expectMsg(10 seconds, StateSaved)
 
     val probe = TestProbe()
     probe watch fooBarActor
@@ -76,7 +76,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
     val id = "saved"
     mgr ! SendMsgToChild(id, SendMsg("foo"))
-    expectMsg(StateSaved)
+    expectMsg(10 seconds, StateSaved)
 
     val probe = TestProbe()
     probe watch mgr
@@ -108,12 +108,12 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
   }
 
   def createFooBar(id: String): ActorRef = {
-    val client = new InMemDelayedEchoClient(1 second)
+    val client = new InMemDelayedEchoClient(3 second)
     system.actorOf(FooBarActor.props(id.toString, client.subscriptionManager, client), "foobar-" + id)
   }
 
   def createFooBarManager(): ActorRef = {
-    val client = new InMemDelayedEchoClient(1 second)
+    val client = new InMemDelayedEchoClient(3 second)
     val ref = system.actorOf(RecoverableActorsManager.props(
       FooBarActor.persistenceCategory,
       id => FooBarActor.props(id, client.subscriptionManager, client)

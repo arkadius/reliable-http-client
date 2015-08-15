@@ -18,7 +18,7 @@ package rhttpc.actor
 import akka.actor._
 import akka.persistence.{PersistentActor, RecoveryCompleted}
 
-trait NotifierAboutRecoveryCompleted { this: PersistentActor with ActorLogging with RecoveryCompletedListener =>
+trait NotifierAboutRecoveryCompleted { this: PersistentActor with ActorLogging  =>
 
   private var recoveryCompleted: Boolean = false
   private var waitingForRecoveryCompleted: List[ActorRef] = List.empty
@@ -27,7 +27,6 @@ trait NotifierAboutRecoveryCompleted { this: PersistentActor with ActorLogging w
     case RecoveryCompleted =>
       log.info("Recovery completed for: " + persistenceId)
       recoveryCompleted = true
-      onRecoveryCompleted()
       waitingForRecoveryCompleted.foreach(_ ! RecoveryCompleted)
       waitingForRecoveryCompleted = List.empty
   }
@@ -39,12 +38,6 @@ trait NotifierAboutRecoveryCompleted { this: PersistentActor with ActorLogging w
       else
         waitingForRecoveryCompleted = sender() :: waitingForRecoveryCompleted
   }
-
-}
-
-trait RecoveryCompletedListener {
-
-  protected def onRecoveryCompleted(): Unit
 
 }
 

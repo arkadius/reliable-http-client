@@ -17,28 +17,16 @@ package rhttpc.actor
 
 import rhttpc.client._
 
-trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] with RecoveryCompletedListener {
+trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] {
   
   protected def subscriptionManager: SubscriptionManager
 
-  private var subscriptionStates: SubscriptionsStateStack = _
+  private var subscriptionStates: SubscriptionsStateStack = SubscriptionsStateStack()
 
-  private var optionalSubscriptionsOffered: Option[Set[SubscriptionOnResponse]] = None
-
-  override protected def onSubscriptionsOffered(subs: Set[SubscriptionOnResponse]): Unit = {
-    optionalSubscriptionsOffered = Some(subs)
-  }
-
-  override protected def onRecoveryCompleted(): Unit = {
-    optionalSubscriptionsOffered match {
-      case Some(subscriptionsOffered) =>
-        // we won't save this state because it was offered already
-        subscriptionStates = subscriptionsOffered.foldLeft(SubscriptionsStateStack())(_.withPublishedRequestFor(_)).withNextState(_ => Unit)
-        subscriptionsOffered.foreach(subscriptionManager.confirmOrRegister(_, self))
-      case None =>
-        // initial start
-        subscriptionStates = SubscriptionsStateStack()
-    }
+  override protected def onSubscriptionsOffered(subscriptionsOffered: Set[SubscriptionOnResponse]): Unit = {
+    val withRegistered = subscriptionsOffered.foldLeft(SubscriptionsStateStack(_ => Unit))(_.withRegisteredPromise(_))
+    subscriptionStates = subscriptionsOffered.foldLeft(withRegistered)(_.withPublishedRequestFor(_)).withNextState(_ => Unit)
+    subscriptionsOffered.foreach(subscriptionManager.confirmOrRegister(_, self))
   }
 
   override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
@@ -53,6 +41,7 @@ trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransition
 
   override protected val handleSubscriptionMessages: Receive = {
     case RequestPublished(subscription) =>
+      // TODO: timeouts for missing MessageFromSubscription
       subscriptionManager.confirmOrRegister(subscription, self)
       subscriptionStates = subscriptionStates.withPublishedRequestFor(subscription)
     case RequestAborted(subscription, cause) =>
