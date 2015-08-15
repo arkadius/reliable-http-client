@@ -54,7 +54,8 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
   it should "restore persited waiting state and continue with response" in {
     val id = "persisted"
     val fooBarActor = createFooBar(id)
-    TestProbe().send(fooBarActor, SendMsg("foo"))
+    fooBarActor ! SendMsg("foo")
+    expectMsg(StateSaved)
 
     val probe = TestProbe()
     probe watch fooBarActor
@@ -113,7 +114,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
   def createFooBarManager(): ActorRef = {
     val client = new InMemDelayedEchoClient(1 second)
-    val ref = system.actorOf(RecoverableActorsManger.props(
+    val ref = system.actorOf(RecoverableActorsManager.props(
       FooBarActor.persistenceCategory,
       id => FooBarActor.props(id, client.subscriptionManager, client)
     ), "foobar")

@@ -35,9 +35,8 @@ trait PersistentFSM[S, D]
   extends PersistentActorWithNotifications
   with FSM[S, D]
   with FSMAfterAllListenerHolder[S, D]
-  with StateTransitionHandler[S, D]
-  with FSMStateTransitionHandler[S, D]
-  with NotificationAboutRecoveryCompleted {
+  with FSMStateTransitionRegistrar[S, D]
+  with NotifierAboutRecoveryCompleted { self: StateTransitionHandler[S, D] with RecoveryCompletedListener =>
 
   private var ownLastSequenceNr = 0L
   

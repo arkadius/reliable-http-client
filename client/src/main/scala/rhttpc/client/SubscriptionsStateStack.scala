@@ -1,12 +1,38 @@
+/*
+ * Copyright 2015 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package rhttpc.client
 
 case class SubscriptionsStateStack private (stack: List[SubscriptionsState]) {
   import SubscriptionsStateStack._
 
-  def withNextState(onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit) = copy(stack = SubscriptionsState(onAllRequestsPublished) :: stack)
+  def withNextState(onAllRequestsPublishedForPrevState: Set[SubscriptionOnResponse] => Unit) = {
+    val head :: tail = stack
+    val newTail = head.withOnAllRequestsPublished(onAllRequestsPublishedForPrevState) match {
+      case AllSubscriptionsConsumed =>
+        tail
+      case SomeSubscriptionsLeft(updated) =>
+        updated :: tail
+    }
+    copy(stack = SubscriptionsState() :: newTail)
+  }
 
-  def withRegisteredPromise(sub: SubscriptionOnResponse): SubscriptionsStateStack =
-    withHead(_.withRegisteredPromise(sub))
+  def withRegisteredPromise(sub: SubscriptionOnResponse): SubscriptionsStateStack = {
+    val head :: tail = stack
+    copy(stack = head.withRegisteredPromise(sub) :: tail)
+  }
 
   def withPublishedRequestFor(sub: SubscriptionOnResponse): SubscriptionsStateStack =
     withCompletedSubscription(sub)(_.withPublishedRequestFor(sub))
@@ -16,11 +42,6 @@ case class SubscriptionsStateStack private (stack: List[SubscriptionsState]) {
 
   def withConsumedSubscription(sub: SubscriptionOnResponse): SubscriptionsStateStack =
     copy(stack = consumeSubscriptionOnStack(stack)(sub, _.withConsumedSubscription(sub)))
-  
-  private def withHead(transform: SubscriptionsState => SubscriptionsState): SubscriptionsStateStack = stack match {
-    case head :: tail => copy(stack = transform(head) :: tail)
-    case Nil          => copy(stack = transform(SubscriptionsState(_ => Unit)) :: stack)
-  }
 
   private def withCompletedSubscription(sub: SubscriptionOnResponse)
                                        (complete: SubscriptionsState => SubscriptionsState): SubscriptionsStateStack = {
@@ -30,7 +51,9 @@ case class SubscriptionsStateStack private (stack: List[SubscriptionsState]) {
 }
 
 object SubscriptionsStateStack {
-  def apply(): SubscriptionsStateStack = SubscriptionsStateStack(List.empty)
+  def apply(): SubscriptionsStateStack = SubscriptionsStateStack(List(SubscriptionsState()))
+
+  def apply(onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit): SubscriptionsStateStack = SubscriptionsStateStack(List(SubscriptionsState(onAllRequestsPublished)))
   
   private def completeSubscriptionOnStack(s: List[SubscriptionsState])
                                          (sub: SubscriptionOnResponse,
@@ -55,17 +78,25 @@ object SubscriptionsStateStack {
   }
 }
 
-case class SubscriptionsState private (private val subscriptions: Map[SubscriptionOnResponse, SubscriptionState])
-                                      (onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit) {
+case class SubscriptionsState private (private val subscriptions: Map[SubscriptionOnResponse, SubscriptionState], onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit) {
   def containsSubscription(sub: SubscriptionOnResponse) = subscriptions.contains(sub)
 
-  def withRegisteredPromise(sub: SubscriptionOnResponse): SubscriptionsState = copy(subscriptions = subscriptions + (sub -> SubscriptionPromisedState))(onAllRequestsPublished)
+  def withRegisteredPromise(sub: SubscriptionOnResponse): SubscriptionsState = copy(subscriptions = subscriptions + (sub -> SubscriptionPromisedState))
 
+  def withOnAllRequestsPublished(newOnAllRequestsPublished: Set[SubscriptionOnResponse] => Unit): SubscriptionConsumptionResult = {
+    if (subscriptions.isEmpty) {
+      newOnAllRequestsPublished(Set.empty)
+      AllSubscriptionsConsumed
+    } else {
+      copy(onAllRequestsPublished = newOnAllRequestsPublished).consumptionResult
+    }
+  }
+  
   def withPublishedRequestFor(sub: SubscriptionOnResponse): SubscriptionsState =
-    copy(subscriptions = subscriptions.updated(sub, RequestPublishedState))(onAllRequestsPublished).completionResult
+    copy(subscriptions = subscriptions.updated(sub, RequestPublishedState)).completionResult
 
   def withAbortedRequestFor(sub: SubscriptionOnResponse): SubscriptionsState =
-    copy(subscriptions = subscriptions - sub)(onAllRequestsPublished).completionResult
+    copy(subscriptions = subscriptions - sub).completionResult
   
   private def completionResult: SubscriptionsState = {
     val published = subscriptions.filter {
@@ -78,7 +109,7 @@ case class SubscriptionsState private (private val subscriptions: Map[Subscripti
   }
 
   def withConsumedSubscription(sub: SubscriptionOnResponse): SubscriptionConsumptionResult =
-    copy(subscriptions = subscriptions.updated(sub, SubscriptionConsumedState))(onAllRequestsPublished).consumptionResult
+    copy(subscriptions = subscriptions.updated(sub, SubscriptionConsumedState)).consumptionResult
   
   private def consumptionResult: SubscriptionConsumptionResult = {
     if (subscriptions.values.forall(_ == SubscriptionConsumedState)) {
@@ -110,6 +141,9 @@ case object AllSubscriptionsConsumed extends SubscriptionConsumptionResult
 case class SomeSubscriptionsLeft(updated: SubscriptionsState) extends SubscriptionConsumptionResult
 
 object SubscriptionsState {
+  def apply(): SubscriptionsState =
+    new SubscriptionsState(Map.empty, _ => throw new IllegalStateException("Callback should be executed after withNextState"))
+
   def apply(onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit): SubscriptionsState =
-    new SubscriptionsState(Map.empty)(onAllRequestsPublished)
+    new SubscriptionsState(Map.empty, onAllRequestsPublished)
 }

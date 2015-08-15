@@ -22,7 +22,7 @@ import akka.http.scaladsl.server._
 import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import rhttpc.actor.{RecoverAllActors, RecoverableActorsManger, SendMsgToChild}
+import rhttpc.actor.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
 import rhttpc.api.Correlated
 import rhttpc.api.json4s.Json4sSerializer
 import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
@@ -51,7 +51,7 @@ object SampleApp extends App with Directives {
 
   val subscriptionManager = rhttpc.subscriptionManager
 
-  val manager = system.actorOf(RecoverableActorsManger.props(
+  val manager = system.actorOf(RecoverableActorsManager.props(
     FooBarActor.persistenceCategory,
     id => FooBarActor.props(id, subscriptionManager, client)
   ), "foobar")

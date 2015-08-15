@@ -23,7 +23,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-private class RecoverableActorsManger(persistenceCategory: String, childPropsCreate: String => Props) extends Actor with ActorLogging {
+private class RecoverableActorsManager(persistenceCategory: String, childPropsCreate: String => Props) extends Actor with ActorLogging {
 
   import context.dispatcher
 
@@ -73,9 +73,9 @@ private class RecoverableActorsManger(persistenceCategory: String, childPropsCre
 
 case object BecomeRecovered
 
-object RecoverableActorsManger {
+object RecoverableActorsManager {
   def props(persistenceCategory: String, childPropsCreate: String => Props): Props =
-    Props(new RecoverableActorsManger(persistenceCategory, childPropsCreate))
+    Props(new RecoverableActorsManager(persistenceCategory, childPropsCreate))
 }
 
 case object RecoverAllActors
