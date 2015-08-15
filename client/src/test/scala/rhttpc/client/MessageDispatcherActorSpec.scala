@@ -9,14 +9,14 @@ import rhttpc.api.Correlated
 
 import scala.concurrent.ExecutionContext
 
-class SubscriptionManagerActorSpec
-  extends TestKit(ActorSystem("SubscriptionManagerActorSpec"))
+class MessageDispatcherActorSpec
+  extends TestKit(ActorSystem("MessageDispatcherActorSpec"))
   with ImplicitSender
   with FlatSpecLike
   with Matchers {
 
   it should "ack after promise -> confirm -> reply -> consumed" in {
-    val actor = system.actorOf(Props[SubscriptionManagerActor])
+    val actor = system.actorOf(Props[MessageDispatcherActor])
     val sub = SubscriptionOnResponse(UUID.randomUUID().toString)
 
     actor ! RegisterSubscriptionPromise(sub)
@@ -36,7 +36,7 @@ class SubscriptionManagerActorSpec
   }
 
   it should "ack after promise -> reply -> confirm -> consumed" in {
-    val actor = system.actorOf(Props[SubscriptionManagerActor])
+    val actor = system.actorOf(Props[MessageDispatcherActor])
     val sub = SubscriptionOnResponse(UUID.randomUUID().toString)
 
     actor ! RegisterSubscriptionPromise(sub)

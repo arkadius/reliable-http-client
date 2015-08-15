@@ -15,10 +15,10 @@
  */
 package rhttpc.sample
 
-import rhttpc.client.{PublicationPromise, DoConfirmSubscription}
+import rhttpc.client.{ReplyFuture, DoConfirmSubscription}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait DelayedEchoClient {
-  def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise
+  def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture
 }

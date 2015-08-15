@@ -47,35 +47,35 @@ object SubscriptionManager {
 private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, _])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
-  private val subMgr = actorFactory.actorOf(Props[SubscriptionManagerActor], "subscription-manager")
+  private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor], "subscription-manager")
 
-  private val transportSub = transport.subscriber("rhttpc-response", subMgr)
+  private val transportSub = transport.subscriber("rhttpc-response", dispatcher)
 
   override def run(): Unit = {
     transportSub.run()
   }
 
   override def registerPromise(subscription: SubscriptionOnResponse): Unit = {
-    subMgr ! RegisterSubscriptionPromise(subscription)
+    dispatcher ! RegisterSubscriptionPromise(subscription)
   }
 
   override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Future[Unit] = {
-    implicit val timeout = Timeout(10 seconds)
-    (subMgr ? ConfirmOrRegisterSubscription(subscription, consumer)).mapTo[Unit]
+    implicit val timeout = Timeout(30 seconds)
+    (dispatcher ? ConfirmOrRegisterSubscription(subscription, consumer)).mapTo[Unit]
   }
 
   override def abort(subscription: SubscriptionOnResponse): Unit = {
-    subMgr ! AbortSubscription(subscription)
+    dispatcher ! AbortSubscription(subscription)
   }
 
   override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
     for {
       _ <- transportSub.stop()
-      smaStopped <- gracefulStop(subMgr, 10 seconds).map(stopped =>
+      dispatcherStopped <- gracefulStop(dispatcher, 30 seconds).map(stopped =>
         if (!stopped)
           throw new IllegalStateException("Subscription manager hasn't been stopped correctly")
       )
-    } yield smaStopped
+    } yield dispatcherStopped
   }
 }
 

@@ -44,7 +44,7 @@ object SampleApp extends App with Directives {
 
   private val rhttpc = ReliableHttp()
   val client = new DelayedEchoClient {
-    override def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise = {
+    override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
       rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(msg))
     }
   }

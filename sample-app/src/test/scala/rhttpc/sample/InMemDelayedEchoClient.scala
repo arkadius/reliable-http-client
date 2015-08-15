@@ -18,7 +18,7 @@ package rhttpc.sample
 import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
-import rhttpc.client.{PublicationPromise, DoConfirmSubscription, SubscriptionManager, SubscriptionOnResponse}
+import rhttpc.client.{ReplyFuture, DoConfirmSubscription, SubscriptionManager, SubscriptionOnResponse}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,9 +43,9 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
     override def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
   }
 
-  override def requestResponse(msg: String)(implicit ec: ExecutionContext): PublicationPromise = {
+  override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
     val uniqueSubOnResponse = SubscriptionOnResponse(UUID.randomUUID().toString)
     subOnMsg.put(uniqueSubOnResponse, msg)
-    new PublicationPromise(uniqueSubOnResponse, Future.successful(DoConfirmSubscription(uniqueSubOnResponse)))(msg, subscriptionManager)
+    new ReplyFuture(uniqueSubOnResponse, Future.successful(DoConfirmSubscription(uniqueSubOnResponse)))(msg, subscriptionManager)
   }
 }

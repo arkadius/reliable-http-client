@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import rhttpc.api.Correlated
 
-class SubscriptionManagerActor extends Actor with ActorLogging {
+class MessageDispatcherActor extends Actor with ActorLogging {
 
   private var promisesOnPending: Map[SubscriptionOnResponse, Option[PendingMessage]] = Map.empty
 

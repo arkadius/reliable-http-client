@@ -5,7 +5,7 @@ import akka.actor._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {  
+trait SubscriptionsHolder extends SubscriptionCommandsListener {
   
   private implicit def ec: ExecutionContext = context.dispatcher
 
@@ -28,15 +28,15 @@ trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {
     case DoConfirmSubscription(subscription) =>
       subscriptions = subscriptions + subscription
       removeSubscriptionPromise(subscription, () => Unit)
-      notifyAboutAllSubscriptionsConfirmedOrAborted()
+      stateChanged()
       subscriptionManager.confirmOrRegister(subscription, self)
     case SubscriptionAborted(subscription, cause) =>
       removeSubscriptionPromise(subscription, () => Unit)
-      notifyAboutAllSubscriptionsConfirmedOrAborted()
+      stateChanged()
 //      subscriptionManager.(subscription, self)
     case MessageFromSubscription(msg, subscription) =>
       subscriptions = subscriptions - subscription
-      notifyAboutAllSubscriptionsConfirmedOrAborted()
+      stateChanged()
       self forward msg
   }
 
@@ -46,10 +46,10 @@ trait SubscriptionsHolder extends SubscriptionPromiseRegistrationListener {
       onNoPromisesLeft()
   }
 
-  def notifyAboutAllSubscriptionsConfirmedOrAborted(): Unit
+  def stateChanged(): Unit
 }
 
-trait SubscriptionPromiseRegistrationListener extends Actor {
+trait SubscriptionCommandsListener extends Actor {
   private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit
 }
 

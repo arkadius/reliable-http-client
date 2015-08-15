@@ -19,7 +19,7 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
@@ -27,7 +27,7 @@ import rhttpc.api.Correlated
 import rhttpc.api.transport.PubSubTransport
 
 import scala.concurrent.duration._
-import scala.concurrent.{Promise, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.Failure
 
@@ -45,11 +45,12 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
 
   private val publisher = transport.publisher("rhttpc-request")
 
-  def send(request: Request)(implicit ec: ExecutionContext): PublicationPromise = {
+  def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString
     implicit val timeout = Timeout(10 seconds)
     val correlated = Correlated(request, correlationId)
     val subscription = SubscriptionOnResponse(correlationId)
+    // we need to registerPromise before publish because message can be consumed before subscription on response registration 
     subMgr.registerPromise(subscription)
     val doConfirmAfterAckFuture = publisher.publish(correlated).map { _ =>
       log.debug(s"Request: $correlated successfully acknowledged")
@@ -61,7 +62,7 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
         subMgr.abort(subscription)
         SubscriptionAborted(subscription, ex)
     }
-    new PublicationPromise(subscription, abortingIfFailureFuture)(request, subMgr)
+    new ReplyFuture(subscription, abortingIfFailureFuture)(request, subMgr)
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
@@ -72,45 +73,19 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 }
 
-class PublicationPromise(subscription: SubscriptionOnResponse, subCommandFuture: Future[SubscriptionCommand])
-                        (request: Any, subscriptionManager: SubscriptionManager) {
-  def pipeTo(holder: SubscriptionPromiseRegistrationListener)(implicit ec: ExecutionContext): Unit = {
-    // we can notice about promise registered - message won't be consumed before RegisterSubscriptionPromise in actor because of mailbox processing in order
+class ReplyFuture(subscription: SubscriptionOnResponse, subCommandFuture: Future[SubscriptionCommand])
+                 (request: Any, subscriptionManager: SubscriptionManager) {
+  def pipeTo(holder: SubscriptionCommandsListener)(implicit ec: ExecutionContext): Unit = {
+    // we can notice about promise registered in this place - message won't be consumed before RegisterSubscriptionPromise
+    // in dispatcher actor because of mailbox processing in order
     holder.subscriptionPromiseRegistered(subscription)
-    new PipeableFuture[SubscriptionCommand](subCommandFuture).pipeTo(holder.self)
-//    acknowledgeFuture.pipeTo(holder.self) // have no idea why it not compile?
+    subCommandFuture.pipeTo(holder.self) // have no idea why it not compile?
   }
 
   def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
     import system.dispatcher
     val promise = Promise[Any]()
-    system.actorOf(Props(new SubscriptionPromiseRegistrationListener {
-      override private[client] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
-
-      override def receive: Actor.Receive = {
-        case DoConfirmSubscription(sub) =>
-          assert(sub == subscription, "Should be self subscription command")
-          subscriptionManager.confirmOrRegister(subscription, self)
-          context.become(waitForMessage)
-        case SubscriptionAborted(sub, cause) =>
-          assert(sub == subscription, "Should be self subscription command")
-          promise.failure(new NoAckException(request, cause))
-          context.stop(self)
-      }
-
-      private val waitForMessage: Receive = {
-        case MessageFromSubscription(Status.Failure(ex), sub) =>
-          assert(sub == subscription, "Should be self subscription command")
-          promise.failure(ex)
-          context.stop(self)
-        case MessageFromSubscription(msg, sub) =>
-          assert(sub == subscription, "Should be self subscription command")
-          promise.success(msg)
-          context.stop(self)
-      }
-
-      pipeTo(this)
-    }))
+    system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
     val f = system.scheduler.scheduleOnce(timeout.duration) {
       promise tryComplete Failure(new TimeoutException(s"Timed out on waiting on response from subscription"))
     }
@@ -118,5 +93,3 @@ class PublicationPromise(subscription: SubscriptionOnResponse, subCommandFuture:
     promise.future
   }
 }
-
-class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)

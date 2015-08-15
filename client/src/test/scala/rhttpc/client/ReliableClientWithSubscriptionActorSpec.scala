@@ -49,7 +49,7 @@ class ReliableClientWithSubscriptionActorSpec
 
 }
 
-class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext) extends SubscriptionPromiseRegistrationListener {
+private class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext) extends SubscriptionCommandsListener {
   override def receive: Receive = {
     case SendRequest =>
       client.send("foo") pipeTo this
