@@ -30,7 +30,7 @@ import scala.language.postfixOps
 private[amqp] class AmqpTransport[PubMsg, SubMsg](val rabbitControl: ActorRef)
                                                  (implicit val marshaller: RabbitMarshaller[PubMsg],
                                                   val unmarshaller: RabbitUnmarshaller[SubMsg],
-                                                  val executionContext: ExecutionContext) extends PubSubTransport[PubMsg, SubMsg] {
+                                                  val executionContext: ExecutionContext) extends PubSubTransport[PubMsg] {
   override def publisher(queueName: String): Publisher[PubMsg] = new AmqpPublisher(this, queueName)
 
   override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new AmqpSubscriber(this, queueName, consumer)
@@ -39,7 +39,7 @@ private[amqp] class AmqpTransport[PubMsg, SubMsg](val rabbitControl: ActorRef)
 object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
-  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, SubMsg] = {
+  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
     val rabbitControl = data.actorSystem.actorOf(Props[RabbitControl])
     import data.actorSystem.dispatcher
     import data.formats

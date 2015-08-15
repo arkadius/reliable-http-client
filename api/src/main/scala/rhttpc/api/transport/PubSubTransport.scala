@@ -20,7 +20,7 @@ import akka.actor.ActorRef
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-trait PubSubTransport[PubMsg, SubMsg] {
+trait PubSubTransport[PubMsg] {
   def publisher(queueName: String): Publisher[PubMsg]
 
   def subscriber(queueName: String, consumer: ActorRef): Subscriber
@@ -29,7 +29,7 @@ trait PubSubTransport[PubMsg, SubMsg] {
 trait PubSubTransportFactory {
   type DataT[P, S] <: TransportCreateData[P, S]
 
-  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, SubMsg]
+  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg]
 }
 
 trait TransportCreateData[PubMsg, SubMsg]

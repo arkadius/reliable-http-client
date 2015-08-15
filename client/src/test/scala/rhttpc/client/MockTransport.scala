@@ -23,7 +23,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
-class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends PubSubTransport[Correlated[String], Correlated[String]] {
+class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends PubSubTransport[Correlated[String]] {
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
   private var consumer: ActorRef = _

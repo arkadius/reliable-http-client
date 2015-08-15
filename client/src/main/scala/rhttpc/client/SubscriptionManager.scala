@@ -39,12 +39,12 @@ private[client] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_, _])
+private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor], "subscription-manager")
