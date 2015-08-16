@@ -24,29 +24,32 @@ class SubscriptionsStateStackSpec extends FlatSpec with Matchers {
   it should "notify about sub after register -> publish" in {
     var published: Set[SubscriptionOnResponse] = null
     val sub = SubscriptionOnResponse("foo")
-    SubscriptionsStateStack(published = _).withRegisteredPromise(sub).withPublishedRequestFor(sub)
+    SubscriptionsStateStack()
+      .withRegisteredPromise(sub)
+      .withNextState(published = _)
+      .withPublishedRequestFor(sub)
     published shouldEqual Set(sub)
   }
 
   it should "notify about sub after register -> next -> publish" in {
-    var published1: Set[SubscriptionOnResponse] = null
-    var published2: Set[SubscriptionOnResponse] = null
-    val sub1 = SubscriptionOnResponse("foo1")
+    var published: Set[SubscriptionOnResponse] = null
+    val sub = SubscriptionOnResponse("foo")
     SubscriptionsStateStack()
-      .withRegisteredPromise(sub1)
-      .withNextState(published1 = _)
-      .withPublishedRequestFor(sub1)
+      .withRegisteredPromise(sub)
+      .withNextState(published = _)
+      .withPublishedRequestFor(sub)
 
-    published1 shouldEqual Set(sub1)
+    published shouldEqual Set(sub)
   }
 
   it should "notify about sub after register1 -> register2 -> publish1 -> consume1 -> publish2" in {
     var published: Set[SubscriptionOnResponse] = null
     val sub1 = SubscriptionOnResponse("foo1")
     val sub2 = SubscriptionOnResponse("foo2")
-    SubscriptionsStateStack(published = _)
+    SubscriptionsStateStack()
       .withRegisteredPromise(sub1)
       .withRegisteredPromise(sub2)
+      .withNextState(published = _)
       .withPublishedRequestFor(sub1)
       .withConsumedSubscription(sub1)
       .withPublishedRequestFor(sub2)
@@ -58,9 +61,10 @@ class SubscriptionsStateStackSpec extends FlatSpec with Matchers {
     var published: Set[SubscriptionOnResponse] = null
     val sub1 = SubscriptionOnResponse("foo1")
     val sub2 = SubscriptionOnResponse("foo2")
-    SubscriptionsStateStack(published = _)
+    SubscriptionsStateStack()
       .withRegisteredPromise(sub1)
       .withRegisteredPromise(sub2)
+      .withNextState(published = _)
       .withPublishedRequestFor(sub1)
       .withAbortedRequestFor(sub2)
 

@@ -15,16 +15,15 @@
  */
 package rhttpc.actor
 
-import akka.actor.Actor.Receive
-import akka.actor.{FSM, ActorSystem, PoisonPill}
+import akka.actor.{ActorSystem, FSM, PoisonPill}
 import akka.persistence._
-import akka.testkit.{TestProbe, ImplicitSender, TestActorRef, TestKit}
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit}
 import org.scalatest._
 import rhttpc.actor.impl.{AbstractSnapshotter, NotifyAboutRecoveryCompleted}
 import rhttpc.client.ReliableClientBaseSpec
-import scala.concurrent.duration._
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.language.postfixOps
 
 class ReliableFSMSpec
@@ -93,6 +92,12 @@ trait MockSnapshotter[S, D] extends AbstractSnapshotter { this: FSM[S, D] =>
         self ! RecoveryCompleted
     }
     handleOfferAndThanSendCompleted orElse receiveRecover
+  }
+
+  whenUnhandled {
+    case Event(event, _) if handleRecover.isDefinedAt(event) =>
+      handleRecover(event)
+      stay()
   }
 
   override def deleteSnapshots(criteria: SnapshotSelectionCriteria): Unit = {}

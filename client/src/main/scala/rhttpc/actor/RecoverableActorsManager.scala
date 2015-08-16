@@ -52,9 +52,9 @@ private class RecoverableActorsManager(persistenceCategory: String, childPropsCr
           Future.successful(Unit)
         }
       recoveryFinishedFuture.foreach { _ =>
+        self ! BecomeRecovered
         originalSender ! ActorsRecovered
         registry ! PoisonPill
-        self ! BecomeRecovered
       }
     case BecomeRecovered =>
       context.become(recovered)
@@ -70,9 +70,8 @@ private class RecoverableActorsManager(persistenceCategory: String, childPropsCr
       }
   }
 
+  case object BecomeRecovered
 }
-
-case object BecomeRecovered
 
 object RecoverableActorsManager {
   def props(persistenceCategory: String, childPropsCreate: String => Props): Props =

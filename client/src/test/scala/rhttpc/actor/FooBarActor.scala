@@ -55,7 +55,7 @@ class FooBarActor(protected val id: String, client: ReliableClient[String]) exte
       stay()
     case Event(StopYourself, _) =>
       stop()
-    case Event(event, _) if handleRecover.isDefinedAt(event) =>
+    case Event(event, _) if handleRecover.isDefinedAt(event) => // whenUnhandled doesn't append handlers so it must be duplicated
       handleRecover(event)
       stay()
   }

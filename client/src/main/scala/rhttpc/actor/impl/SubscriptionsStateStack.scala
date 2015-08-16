@@ -54,8 +54,6 @@ case class SubscriptionsStateStack private (stack: List[SubscriptionsState]) {
 
 object SubscriptionsStateStack {
   def apply(): SubscriptionsStateStack = SubscriptionsStateStack(List(SubscriptionsState()))
-
-  def apply(onAllRequestsPublished: Set[SubscriptionOnResponse] => Unit): SubscriptionsStateStack = SubscriptionsStateStack(List(SubscriptionsState(onAllRequestsPublished)))
   
   private def completeSubscriptionOnStack(s: List[SubscriptionsState])
                                          (sub: SubscriptionOnResponse,

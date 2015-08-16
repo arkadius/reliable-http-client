@@ -30,7 +30,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
   @volatile var ackOnReplySubscriptionFuture: Future[Any] = _
-  private var consumer: ActorRef = _
+  @volatile private var consumer: ActorRef = _
 
   def publicationPromise: Promise[Unit] = {
     awaitCond(() => _publicationPromise != null)
