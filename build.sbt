@@ -69,7 +69,9 @@ lazy val server = (project in file("server")).
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           % "logback-classic"               % logbackV
       )
-    }
+    },
+    dockerExposedPorts := Seq(5005),
+    dockerEntrypoint := Seq("bin/server", "-jvm-debug", "5005")
   ).
   dependsOn(api)
 

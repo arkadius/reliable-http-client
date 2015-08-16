@@ -57,7 +57,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       fixture.fooBarClient.currentState(id.toString)
     }) shouldEqual (0 to max).map(_ => "WaitingForResponseState")
 
-    fixture.restartApp(waitForReply = 30, waitForRestart = 30)
+    fixture.restartApp(waitForReply = 10, waitForRestart = 10)
 
     await((0 to max).map { id =>
       fixture.fooBarClient.currentState(id.toString)
@@ -120,16 +120,17 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   private def startServices()(implicit docker: DockerClient): (String, String, String) = {
     val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
     val rhttpcServerContainerId = docker.containerStartFromScratch(serverName, "server", appVersion) { cmd =>
+      val portBindings = new Ports()
+      portBindings.bind(ExposedPort.tcp(5005), Ports.Binding(5005))
       cmd.withLinks(
         new Link(echoName, "sampleecho"),
         new Link(rabbitMqName, "rabbitmq")
-      )
+      ).withPortBindings(portBindings)
     }
     val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp", appVersion) { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(8081), Ports.Binding(8081))
-      cmd.withPortBindings(portBindings)
-      cmd.withLinks(
+      cmd.withPortBindings(portBindings).withLinks(
         new Link(rabbitMqName, "rabbitmq")
       )
     }

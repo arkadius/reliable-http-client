@@ -27,9 +27,9 @@ import rhttpc.api.Correlated
 import rhttpc.api.transport.amqp.QueuePublisherDeclaringQueueIfNotExist
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object ServerApp extends App {
   import Json4sSupport._
@@ -43,10 +43,12 @@ object ServerApp extends App {
   val graph = FlowGraph.closed() { implicit builder =>
     import FlowGraph.Implicits._
 
+    val batchSize = 10
+
     val source = RabbitSource(
       "rhttpc-request-source",
       rabbitMq,
-      channel(qos = 10),
+      channel(qos = batchSize),
       consume(queue("rhttpc-request")),
       body(as[Correlated[HttpRequest]])
     ).akkaGraph.map {
@@ -55,7 +57,13 @@ object ServerApp extends App {
         t
     }
 
-    val httpClient = Http().outgoingConnection("sampleecho", 8082).mapAsync(10)(_.toStrict(1 minute))
+    val httpClient = Http().newHostConnectionPool[String]("sampleecho", 8082).mapAsync(batchSize) {
+      case (tryResponse, id) =>
+        tryResponse match {
+          case Success(response) => response.toStrict(1 minute).map(strict => (Success(strict), id))
+          case failure => Future.successful((failure, id))
+        }
+    }
 
     val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
       "rhttpc-response-sink",
@@ -63,32 +71,25 @@ object ServerApp extends App {
       ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisherDeclaringQueueIfNotExist("rhttpc-response"))
     ).akkaGraph
 
-    val unzipAckAndCorrelatedRequest = builder.add(UnzipWith[(Promise[Unit], Correlated[HttpRequest]), Promise[Unit], Correlated[HttpRequest]] {
-      case (ackPromise, correlated) =>
+    val unzipAckAndCorrelatedRequest = builder.add(UnzipWith[(Promise[Unit], Correlated[HttpRequest]), Promise[Unit], (HttpRequest, String)] {
+      case (ackPromise, correlated@Correlated(request, id)) =>
         ackPromise.future.onComplete {
           case Success(_) => actorSystem.log.debug(s"Publishing of $correlated successfully acknowledged")
           case Failure(ex) => actorSystem.log.error(s"Publishing of $correlated acknowledgement failed", ex)
         }
+        (ackPromise, (request, id))
+    })
+
+    val zipAckAndCorrelatedResponse = builder.add(ZipWith[Promise[Unit], (Try[HttpResponse], String), (Promise[Unit], Correlated[HttpResponse])] {
+      case (ackPromise, (tryResponse, id)) =>
+        val correlated = Correlated(tryResponse.get, id) // FIXME Try[T] delivery and transformation to msg/Status.Failure in SubscriptionManager
         (ackPromise, correlated)
     })
-    val unzipRequestAndCorrelationId = builder.add(UnzipWith[Correlated[HttpRequest], HttpRequest, String] { correlated =>
-      (correlated.msg, correlated.correlationId)
-    })
-
-    val zipResponseAndCorrelationId = builder.add(ZipWith[HttpResponse, String, Correlated[HttpResponse]] { (msg, correlationId) =>
-      val correlated = Correlated(msg, correlationId)
-      actorSystem.log.debug(s"Reply with $correlated")
-      correlated
-    })
-    val zipAckAndCorrelatedResponse = builder.add(Zip[Promise[Unit], Correlated[HttpResponse]]())
 
     source ~> unzipAckAndCorrelatedRequest.in
-              unzipAckAndCorrelatedRequest.out0                                                                                       ~> zipAckAndCorrelatedResponse.in0
-              unzipAckAndCorrelatedRequest.out1 ~> unzipRequestAndCorrelationId.in
-                                                   unzipRequestAndCorrelationId.out0 ~> httpClient ~> zipResponseAndCorrelationId.in0
-                                                   unzipRequestAndCorrelationId.out1               ~> zipResponseAndCorrelationId.in1
-                                                                                                      zipResponseAndCorrelationId.out ~> zipAckAndCorrelatedResponse.in1
-                                                                                                                                         zipAckAndCorrelatedResponse.out ~> sink
+              unzipAckAndCorrelatedRequest.out0                 ~> zipAckAndCorrelatedResponse.in0
+              unzipAckAndCorrelatedRequest.out1 ~> httpClient   ~> zipAckAndCorrelatedResponse.in1
+                                                                   zipAckAndCorrelatedResponse.out ~> sink
   }
 
   graph.run()
