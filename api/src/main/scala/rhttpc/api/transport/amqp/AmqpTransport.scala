@@ -40,8 +40,8 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
   override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
-    val rabbitControl = data.actorSystem.actorOf(Props[RabbitControl])
-    import data.actorSystem.dispatcher
+    val rabbitControl = data.actorFactory.actorOf(Props[RabbitControl])
+    import data.actorFactory.dispatcher
     import data.formats
     import data.subMsgManifest
     import com.spingo.op_rabbit.Json4sSupport._
@@ -49,7 +49,7 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   }
 }
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem)
+case class AmqpTransportCreateData[PubMsg, SubMsg](actorFactory: ActorRefFactory)
                                                   (implicit val formats: Formats,
                                                    val subMsgManifest: Manifest[SubMsg]) extends TransportCreateData[PubMsg, SubMsg]
 

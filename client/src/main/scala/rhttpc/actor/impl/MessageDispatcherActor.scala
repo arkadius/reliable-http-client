@@ -15,9 +15,11 @@
  */
 package rhttpc.actor.impl
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Status, Actor, ActorLogging, ActorRef}
 import rhttpc.api.Correlated
 import rhttpc.client._
+
+import scala.util.{Failure, Success, Try}
 
 private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
 
@@ -49,8 +51,12 @@ private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
         case None =>
           log.warning(s"Confirmed subscription promise: $sub was missing")
       }
-    case c@Correlated(msg, correlationId) =>
+    case c@Correlated(msg: Try[_], correlationId) =>
       val sub = SubscriptionOnResponse(correlationId)
+      val underlyingOrFailure = msg match {
+        case Success(underlying) => underlying
+        case Failure(ex) => Status.Failure(ex)
+      }
       (subscriptions.get(sub), promisesOnPending.get(sub)) match {
         case (Some(consumer), optionalPending) =>
           optionalPending.foreach { pending =>
@@ -58,14 +64,14 @@ private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
           }
           log.debug(s"Consuming message: $c")
           subscriptions -= sub
-          consumer forward MessageFromSubscription(msg, sub) // consumer should ack
+          consumer forward MessageFromSubscription(underlyingOrFailure, sub) // consumer should ack
         case (None, Some(None)) =>
           log.debug(s"Adding pending message: $c")
-          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(msg)))
+          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(underlyingOrFailure)))
         case (None, Some(Some(pending))) =>
           log.error(s"There already was pending message: $pending for subscription. Overriding it.")
           pending.ack()
-          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(msg)))
+          promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(underlyingOrFailure)))
         case (None, None) =>
           log.error(s"No subscription (promise) registered for $c. Will be skipped.")
           // TODO: DLQ

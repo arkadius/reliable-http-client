@@ -57,7 +57,7 @@ object ServerApp extends App {
         t
     }
 
-    val httpClient = Http().newHostConnectionPool[String]("sampleecho", 8082).mapAsync(batchSize) {
+    val httpClient = Http().superPool[String]().mapAsync(batchSize) {
       case (tryResponse, id) =>
         tryResponse match {
           case Success(response) => response.toStrict(1 minute).map(strict => (Success(strict), id))
@@ -65,10 +65,10 @@ object ServerApp extends App {
         }
     }
 
-    val sink = ConfirmedPublisherSink[Correlated[HttpResponse]](
+    val sink = ConfirmedPublisherSink[Correlated[Try[HttpResponse]]](
       "rhttpc-response-sink",
       rabbitMq,
-      ConfirmedMessage.factory[Correlated[HttpResponse]](QueuePublisherDeclaringQueueIfNotExist("rhttpc-response"))
+      ConfirmedMessage.factory[Correlated[Try[HttpResponse]]](QueuePublisherDeclaringQueueIfNotExist("rhttpc-response"))
     ).akkaGraph
 
     val unzipAckAndCorrelatedRequest = builder.add(UnzipWith[(Promise[Unit], Correlated[HttpRequest]), Promise[Unit], (HttpRequest, String)] {
@@ -80,10 +80,9 @@ object ServerApp extends App {
         (ackPromise, (request, id))
     })
 
-    val zipAckAndCorrelatedResponse = builder.add(ZipWith[Promise[Unit], (Try[HttpResponse], String), (Promise[Unit], Correlated[HttpResponse])] {
+    val zipAckAndCorrelatedResponse = builder.add(ZipWith[Promise[Unit], (Try[HttpResponse], String), (Promise[Unit], Correlated[Try[HttpResponse]])] {
       case (ackPromise, (tryResponse, id)) =>
-        val correlated = Correlated(tryResponse.get, id) // FIXME Try[T] delivery and transformation to msg/Status.Failure in SubscriptionManager
-        (ackPromise, correlated)
+        (ackPromise, Correlated(tryResponse, id))
     })
 
     source ~> unzipAckAndCorrelatedRequest.in

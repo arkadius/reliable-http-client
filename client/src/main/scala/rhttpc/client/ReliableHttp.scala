@@ -19,22 +19,27 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
 import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
-import rhttpc.actor._
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.api.Correlated
+import rhttpc.api.json4s.Json4sSerializer
 import rhttpc.api.transport.PubSubTransport
+import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.Failure
+import scala.util.{Try, Failure}
 
 object ReliableHttp {
-  def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[HttpRequest]]): ReliableClient[HttpRequest] = {
+  def apply()(implicit actorFactory: ActorRefFactory): ReliableClient[HttpRequest] = {
+    import Json4sSerializer.formats
+    implicit val transport = AmqpTransportFactory.create(
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorFactory)
+    )
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)
   }

@@ -24,6 +24,8 @@ import rhttpc.actor.impl.{ConfirmOrRegisterSubscription, MessageDispatcherActor,
 import rhttpc.api.Correlated
 import rhttpc.client.{MessageFromSubscription, SubscriptionOnResponse}
 
+import scala.util.Success
+
 class MessageDispatcherActorSpec
   extends TestKit(ActorSystem("MessageDispatcherActorSpec"))
   with ImplicitSender
@@ -40,7 +42,7 @@ class MessageDispatcherActorSpec
     actor ! ConfirmOrRegisterSubscription(sub, replyMock.ref)
 
     val ackProbe = TestProbe()
-    ackProbe.send(actor, Correlated("foo", sub.correlationId))
+    ackProbe.send(actor, Correlated(Success("foo"), sub.correlationId))
     replyMock.expectMsg(MessageFromSubscription("foo", sub))
 
     ackProbe.expectNoMsg()
@@ -57,7 +59,7 @@ class MessageDispatcherActorSpec
     actor ! RegisterSubscriptionPromise(sub)
 
     val ackProbe = TestProbe()
-    ackProbe.send(actor, Correlated("foo", sub.correlationId))
+    ackProbe.send(actor, Correlated(Success("foo"), sub.correlationId))
 
     val replyMock = TestProbe()
     actor ! ConfirmOrRegisterSubscription(sub, replyMock.ref)

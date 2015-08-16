@@ -23,9 +23,6 @@ import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import rhttpc.actor.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
-import rhttpc.api.Correlated
-import rhttpc.api.json4s.Json4sSerializer
-import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
 import rhttpc.client._
 
 import scala.concurrent.duration._
@@ -33,19 +30,14 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.language.postfixOps
 
 object SampleApp extends App with Directives {
-  import Json4sSerializer.formats
   implicit val system = ActorSystem("rhttpc-sample")
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  implicit val transport = AmqpTransportFactory.create(
-    AmqpTransportCreateData[Correlated[HttpRequest], Correlated[HttpResponse]](system)
-  )
-
   private val rhttpc = ReliableHttp()
   val client = new DelayedEchoClient {
     override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
-      rhttpc.send(HttpRequest().withMethod(HttpMethods.POST).withEntity(msg))
+      rhttpc.send(HttpRequest().withUri("http://sampleecho:8082").withMethod(HttpMethods.POST).withEntity(msg))
     }
   }
 

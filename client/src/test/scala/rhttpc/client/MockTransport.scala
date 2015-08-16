@@ -15,16 +15,15 @@
  */
 package rhttpc.client
 
-import akka.actor.{ActorRef, Status}
-import akka.util.Timeout
+import akka.actor.ActorRef
 import akka.pattern._
+import akka.util.Timeout
 import rhttpc.api.Correlated
 import rhttpc.api.transport.{PubSubTransport, Publisher, Subscriber}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends PubSubTransport[Correlated[String]] {
   @volatile private var _publicationPromise: Promise[Unit] = _
@@ -42,11 +41,8 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       _publicationPromise = Promise[Unit]()
       replySubscriptionPromise = Promise[String]()
       implicit val timeout = Timeout(5 seconds)
-      replySubscriptionPromise.future.onComplete {
-        case Success(msg) =>
-          ackOnReplySubscriptionFuture = consumer ? Correlated(msg, request.correlationId)
-        case Failure(ex) =>
-          ackOnReplySubscriptionFuture = consumer ? Correlated(Status.Failure(ex), request.correlationId)
+      replySubscriptionPromise.future.onComplete { result =>
+        ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.correlationId)
       }
       _publicationPromise.future
     }
