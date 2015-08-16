@@ -34,7 +34,7 @@ private[rhttpc] trait PersistentActorWithNotifications { this: AbstractSnapshott
   }
 
   private def deleteSnapshotsLogging(maxSequenceNr: Option[Long]): Unit = {
-    log.debug(s"Deleting all snapshots for $persistenceId until: ${maxSequenceNr.map(_+1)}...")
+    log.debug(s"Deleting all snapshots for $persistenceId until (inclusive): $maxSequenceNr...")
     deleteSnapshots(SnapshotSelectionCriteria(maxSequenceNr = maxSequenceNr.getOrElse(Int.MaxValue)))
   }
 
