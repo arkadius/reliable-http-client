@@ -74,7 +74,7 @@ private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueN
     def config = channel(qos = 10) {
       consume(queue(queueName)) {
         body(as[Sub]) { msg =>
-          implicit val timeout = Timeout(60 seconds)
+          implicit val timeout = Timeout(1 minute)
           ack(consumer ? msg)
         }
       }

@@ -21,11 +21,13 @@ private[rhttpc] trait SubscriptionsHolder[S, D] extends PublicationListener with
   
   protected def subscriptionManager: SubscriptionManager
 
+  // FIXME: test & fix situation when there is no request in first step
   private var subscriptionStates: SubscriptionsStateStack = SubscriptionsStateStack()
 
   override protected def onSubscriptionsOffered(subscriptionsOffered: Set[SubscriptionOnResponse]): Unit = {
-    val withRegistered = subscriptionsOffered.foldLeft(SubscriptionsStateStack(_ => Unit))(_.withRegisteredPromise(_))
-    subscriptionStates = subscriptionsOffered.foldLeft(withRegistered)(_.withPublishedRequestFor(_)).withNextState(_ => Unit)
+    val withRegistered = subscriptionsOffered.foldLeft(SubscriptionsStateStack())(_.withRegisteredPromise(_))
+    // _ => Unit is because for all promises will be published request immediately and it shouldn't cause saving of state
+    subscriptionStates = subscriptionsOffered.foldLeft(withRegistered.withNextState(_ => Unit))(_.withPublishedRequestFor(_))
     subscriptionsOffered.foreach(subscriptionManager.confirmOrRegister(_, self))
   }
 

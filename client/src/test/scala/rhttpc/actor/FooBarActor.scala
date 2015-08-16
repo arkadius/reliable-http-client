@@ -13,34 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.sample
+package rhttpc.actor
 
 import akka.actor._
-import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
-import akka.pattern._
-import rhttpc.actor.ReliableFSM
-import rhttpc.client.SubscriptionManager
+import rhttpc.client.{ReliableClient, SubscriptionManager}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-private class FooBarActor(protected val id: String, protected val subscriptionManager: SubscriptionManager, client: DelayedEchoClient) extends ReliableFSM[FooBarState, FooBarData] {
+class FooBarActor(protected val id: String, client: ReliableClient[String]) extends MockReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher
 
   override protected def persistenceCategory: String = FooBarActor.persistenceCategory
+
+  override protected def subscriptionManager: SubscriptionManager = client.subscriptionManager
 
   startWith(InitState, EmptyData)
 
   when(InitState) {
     case Event(SendMsg(msg), _) =>
-      client.requestResponse(msg) pipeTo this
+      client.send(msg) pipeTo this
       goto(WaitingForResponseState) replyingAfterSave()
   }
   
   when(WaitingForResponseState) {
-    case Event(httpResponse: HttpResponse, _) =>
-      self forward httpResponse.entity.asInstanceOf[HttpEntity.Strict].data.utf8String
-      stay()
     case Event("foo", _) => goto(FooState) acknowledgingAfterSave()
     case Event("bar", _) => goto(BarState) acknowledgingAfterSave()
   }
@@ -59,13 +55,16 @@ private class FooBarActor(protected val id: String, protected val subscriptionMa
       stay()
     case Event(StopYourself, _) =>
       stop()
+    case Event(event, _) if handleRecover.isDefinedAt(event) =>
+      handleRecover(event)
+      stay()
   }
 }
 
 object FooBarActor {
   val persistenceCategory = "foobar"
   
-  def props(id: String, subscriptionManager: SubscriptionManager, client: DelayedEchoClient): Props = Props(new FooBarActor(id, subscriptionManager, client))
+  def props(id: String, client: ReliableClient[String]): Props = Props(new FooBarActor(id, client))
 }
 
 sealed trait FooBarState

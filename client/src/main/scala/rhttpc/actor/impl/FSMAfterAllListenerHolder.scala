@@ -22,6 +22,10 @@ private[rhttpc]trait FSMAfterAllListenerHolder[S, D] { this: FSM[S, D] =>
   private var currentAfterAllListener: Option[RecipientWithMsg] = None
 
   implicit class StateExt(state: this.State) {
+    def acknowledgingAfterSave() = {
+      replyingAfterSave()
+    }
+
     def replyingAfterSave(msg: Any = StateSaved) = {
       currentAfterAllListener = Some(new RecipientWithMsg(sender(), msg))
       state
