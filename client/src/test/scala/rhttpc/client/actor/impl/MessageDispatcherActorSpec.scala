@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.client.actor.impl
 
 import java.util.UUID
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
+import rhttpc.actor.impl.{ConfirmOrRegisterSubscription, MessageDispatcherActor, RegisterSubscriptionPromise}
 import rhttpc.api.Correlated
+import rhttpc.client.{MessageFromSubscription, SubscriptionOnResponse}
 
 class MessageDispatcherActorSpec
   extends TestKit(ActorSystem("MessageDispatcherActorSpec"))

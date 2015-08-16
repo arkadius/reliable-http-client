@@ -18,6 +18,7 @@ package rhttpc.client
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
+import rhttpc.actor.impl.{AbortSubscription, ConfirmOrRegisterSubscription, MessageDispatcherActor, RegisterSubscriptionPromise}
 import rhttpc.api.transport.PubSubTransport
 
 import scala.concurrent.duration._

@@ -13,26 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package akka.persistence
 
-import akka.actor.FSM
-import akka.persistence.RecipientWithMsg
+import rhttpc.actor.impl.AbstractSnapshotter
 
-trait FSMAfterAllListenerHolder[S, D] { this: FSM[S, D] =>
-  private var currentAfterAllListener: Option[RecipientWithMsg] = None
+// this trait must be in akka.persistence package because of updateLastSequenceNr package protected access
+trait AkkaPersistentSnapshotter extends AbstractSnapshotter with PersistentActor {
 
-  implicit class StateExt(state: this.State) {
-    def replyingAfterSave(msg: Any = StateSaved) = {
-      currentAfterAllListener = Some(new RecipientWithMsg(sender(), msg))
-      state
-    }
+  override def receiveCommand: Receive = {
+    case _ => throw new IllegalArgumentException("Should be used receive method instead")
   }
 
-  protected def useCurrentAfterAllListener(): Option[RecipientWithMsg] = {
-    val tmp = currentAfterAllListener
-    currentAfterAllListener = None
-    tmp
+
+  override def saveSnapshotWithSeqNr(snapshot: Any, seqNr: Long): Unit = {
+    updateLastSequenceNr(seqNr)
+    saveSnapshot(snapshot)
   }
+
 }
-
-case object StateSaved

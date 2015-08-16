@@ -24,6 +24,7 @@ import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.actor._
+import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.api.Correlated
 import rhttpc.api.transport.PubSubTransport
 
@@ -94,3 +95,5 @@ class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Futur
     promise.future
   }
 }
+
+class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)

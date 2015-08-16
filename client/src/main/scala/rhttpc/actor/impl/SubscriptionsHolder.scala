@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.actor.impl
 
 import rhttpc.client._
 
-trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] {
+private[rhttpc] trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] {
   
   protected def subscriptionManager: SubscriptionManager
 

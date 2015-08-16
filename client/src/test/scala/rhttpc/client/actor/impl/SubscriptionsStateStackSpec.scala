@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.client.actor.impl
 
 import org.scalatest._
+import rhttpc.actor.impl.SubscriptionsStateStack
+import rhttpc.client.SubscriptionOnResponse
 
 class SubscriptionsStateStackSpec extends FlatSpec with Matchers {
 

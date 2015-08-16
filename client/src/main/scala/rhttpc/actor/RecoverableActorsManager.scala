@@ -18,6 +18,7 @@ package rhttpc.actor
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
+import rhttpc.actor.impl.{GetIdsWithStoredSnapshots, IdsWithStoredSnapshots, NotifyAboutRecoveryCompleted, SnapshotsRegistry}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._

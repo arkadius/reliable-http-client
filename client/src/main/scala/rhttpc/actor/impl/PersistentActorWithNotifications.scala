@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package akka.persistence
+package rhttpc.actor.impl
 
 import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.{ActorLogging, ActorRef}
-import rhttpc.actor.SnapshotsRegistry
+import akka.persistence.{SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotMetadata, SnapshotSelectionCriteria}
 
-// this trait must be in akka.persistence package because of updateLastSequenceNr package protected access
-trait PersistentActorWithNotifications extends PersistentActor { this: ActorLogging =>
+private[rhttpc] trait PersistentActorWithNotifications { this: AbstractSnapshotter with ActorLogging =>
   override def persistenceId: String = SnapshotsRegistry.persistenceId(persistenceCategory, id)
 
   protected def persistenceCategory: String
@@ -44,8 +43,7 @@ trait PersistentActorWithNotifications extends PersistentActor { this: ActorLogg
     listener.foreach { listener =>
       listenersForSnapshotSave += sequenceNr -> listener
     }
-    updateLastSequenceNr(sequenceNr)
-    saveSnapshot(snapshot)
+    saveSnapshotWithSeqNr(snapshot, sequenceNr)
   }
 
   protected val handleSnapshotEvents: Receive = {

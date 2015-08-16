@@ -18,7 +18,6 @@ package rhttpc.sample
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.actor._
-import akka.persistence._
 import akka.testkit._
 import org.scalatest._
 import rhttpc.actor._

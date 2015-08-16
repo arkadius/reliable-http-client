@@ -19,10 +19,9 @@ import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import akka.util.Timeout
 import org.scalatest._
-import rhttpc.actor.NoAckException
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 
 class ReliableClientFutureSpec extends TestKit(ActorSystem("ReliableClientFutureSpec")) with ReliableClientBaseSpec with Matchers {

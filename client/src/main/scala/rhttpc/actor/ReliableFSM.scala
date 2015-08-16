@@ -17,12 +17,15 @@ package rhttpc.actor
 
 import akka.actor.FSM._
 import akka.actor._
-import akka.persistence.{PersistentActorWithNotifications, SnapshotOffer}
+import akka.persistence.{AkkaPersistentSnapshotter, SnapshotOffer}
+import rhttpc.actor.impl._
 import rhttpc.client.SubscriptionOnResponse
 
-trait ReliableFSM[S, D]
+trait ReliableFSM[S, D] extends AkkaPersistentSnapshotter with AbstractReliableFSM[S, D]
+
+trait AbstractReliableFSM[S, D]
   extends PersistentFSM[S, D]
-  with SubscriptionsHolder[S, D] {
+  with SubscriptionsHolder[S, D] { self: AbstractSnapshotter =>
 
   override def receive: Receive =
     handleNotifyAboutRecoveryCompleted orElse
@@ -36,7 +39,7 @@ trait PersistentFSM[S, D]
   with FSM[S, D]
   with FSMAfterAllListenerHolder[S, D]
   with FSMStateTransitionRegistrar[S, D]
-  with NotifierAboutRecoveryCompleted { self: StateTransitionHandler[S, D]  =>
+  with NotifierAboutRecoveryCompleted { self: AbstractSnapshotter with StateTransitionHandler[S, D]  =>
 
   private var ownLastSequenceNr = 0L
   
@@ -48,10 +51,6 @@ trait PersistentFSM[S, D]
   override def receiveRecover: Receive =
     handleSnapshotOffer orElse
       handleRecoveryCompleted
-
-  override def receiveCommand: Receive = {
-    case _ => throw new IllegalArgumentException("Should be used receive method instead")
-  }
 
   private val handleSnapshotOffer: Receive = {
     case SnapshotOffer(metadata, snapshot) =>
@@ -80,3 +79,5 @@ case class FSMState[S, D](state: S, data: D, subscriptions: Set[SubscriptionOnRe
 object FSMState {
   def apply[S, D](data: FinishedJobAfterTransitionData[S, D]): FSMState[S, D] = FSMState(data.state, data.data, data.subscriptions)
 }
+
+case object StateSaved

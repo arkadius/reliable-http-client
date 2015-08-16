@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.actor.impl
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import rhttpc.api.Correlated
+import rhttpc.client._
 
-class MessageDispatcherActor extends Actor with ActorLogging {
+private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
 
   private var promisesOnPending: Map[SubscriptionOnResponse, Option[PendingMessage]] = Map.empty
 
@@ -81,8 +82,8 @@ class MessageDispatcherActor extends Actor with ActorLogging {
   }
 }
 
-case class RegisterSubscriptionPromise(sub: SubscriptionOnResponse)
+private[rhttpc] case class RegisterSubscriptionPromise(sub: SubscriptionOnResponse)
 
-case class ConfirmOrRegisterSubscription(sub: SubscriptionOnResponse, consumer: ActorRef)
+private[rhttpc] case class ConfirmOrRegisterSubscription(sub: SubscriptionOnResponse, consumer: ActorRef)
 
-case class AbortSubscription(sub: SubscriptionOnResponse)
+private[rhttpc] case class AbortSubscription(sub: SubscriptionOnResponse)

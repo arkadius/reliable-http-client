@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.actor.impl
 
 import akka.actor.{Actor, Props, Status}
 import rhttpc.client._
@@ -47,10 +47,8 @@ private class PromiseSubscriptionCommandsListener(pubPromise: ReplyFuture, reply
   pubPromise.pipeTo(this)
 }
 
-object PromiseSubscriptionCommandsListener {
+private[rhttpc] object PromiseSubscriptionCommandsListener {
   def props(pubPromise: ReplyFuture, replyPromise: Promise[Any])
            (request: Any, subscriptionManager: SubscriptionManager): Props =
     Props(new PromiseSubscriptionCommandsListener(pubPromise, replyPromise)(request, subscriptionManager))
 }
-
-class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
