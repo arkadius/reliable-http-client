@@ -1,6 +1,6 @@
 # reliable-http-client
 
-Reliable Http Client using *RabbitMQ* as a proxy for HTTP calls. Providing persistent Akka FSM Actors (using akka-persistence) for recovery of subscriptions for responses.
+*Reliable Http Client* use *RabbitMQ* as a proxy for HTTP calls. It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
 ## Idea
 
