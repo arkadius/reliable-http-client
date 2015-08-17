@@ -1,6 +1,6 @@
 # reliable-http-client
 
-*Reliable Http Client* use *RabbitMQ* as a proxy for HTTP calls. It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
+*Reliable Http Client* uses *RabbitMQ* as a proxy for HTTP calls. It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
 ## Idea
 
@@ -91,10 +91,22 @@ class FooBarActor(rhttpc: ReliableHttp) extends ReliableFSM[FooBarState, FooBarD
 
 Slightly difference is that instead of `rhttpc.send(request).toFuture.pipeTo self` we are doing `rhttpc.send(request).pipeTo this`. Also our actor extends *ReliableFSM* which handles messages from queues and persist actor's state. If our application was shutdowned in *WaitingForResponseState*, after restart actor will recover their state and handle response. Full example you can check out [here](https://github.com/arkadius/reliable-http-client/blob/master/sample/sample-app/src/main/scala/rhttpc/sample/SampleApp.scala). There are also [*Docker* tests](https://github.com/arkadius/reliable-http-client/blob/master/sample/test/src/test/scala/rhttpc/test/DeliveryResponseAfterRestartWithDockerSpec.scala) that reproduce this situation. All you need to run them is installed *Docker*.
 
+## Architecture
+
+Big picture:
+![Bit picture](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-arch.png)
+
+Request-response sequence:
+![Request-response](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-request-response.png)
 
 ## Status
 
 WIP
+
+# 3rd part libraries
+
+*rhttpc* uses [op-rabbit](https://github.com/SpinGo/op-rabbit) for communication thru *AMQP*. It uses [akka-persistence](https://github.com/akka/akka) for storing of snapshots of FSM states.
+
 
 # License
 
