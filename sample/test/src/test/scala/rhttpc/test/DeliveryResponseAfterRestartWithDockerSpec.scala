@@ -37,7 +37,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val id = "123"
     await(fixture.fooBarClient.foo(id))
     await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitForReply = 10, waitForRestart = 10)
+    fixture.restartApp(applicationDownTime = 10, waitForRestartComplete = 10)
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
@@ -57,7 +57,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       fixture.fooBarClient.currentState(id.toString)
     }) shouldEqual (0 to max).map(_ => "WaitingForResponseState")
 
-    fixture.restartApp(waitForReply = 10, waitForRestart = 10)
+    fixture.restartApp(applicationDownTime = 10, waitForRestartComplete = 10)
 
     await((0 to max).map { id =>
       fixture.fooBarClient.currentState(id.toString)
@@ -75,12 +75,12 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   class FixtureParam(val fooBarClient: FooBarClient)
                     (docker: DockerClient, appContainerId: String) {
-    def restartApp(waitForReply: Long, waitForRestart: Long) = {
+    def restartApp(applicationDownTime: Long, waitForRestartComplete: Long) = {
       docker.stopContainerCmd(appContainerId).exec()
-      Thread.sleep(waitForReply * 1000)
+      Thread.sleep(applicationDownTime * 1000)
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      Thread.sleep(waitForRestart * 1000) // wait for start
+      Thread.sleep(waitForRestartComplete * 1000) // wait for start
       logger.info("App restarted")
     }
   }
