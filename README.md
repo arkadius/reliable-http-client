@@ -33,14 +33,14 @@ system.actorOf(Props(new Actor {
   def receive = {
     case DoJob =>
       val request = HttpRequest().withUri("http://ws-host:port").withMethod(HttpMethods.POST).withEntity(msg)
-      rhttpc.send(request).toFuture.pipeTo self
+      rhttpc.send(request).toFuture pipeTo self
     case Response =>
       // handle respone
   }
 }))
 ```
 
-The example above cause that request/response will be send thru *amqp* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *amqp* durable queue.
+The example above cause that request/response will be send thru *AMQP* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *AMQP* durable queue.
 But after restart our application won't know what to do with response - in which state was sending actor. So we need to also persist state of our actor including acknowledged published requests.
 It can be achived by *ReliableFSM* delivered by this project.
 
@@ -62,7 +62,7 @@ class FooBarActor(rhttpc: ReliableHttp) extends ReliableFSM[FooBarState, FooBarD
   when(InitState) {
     case Event(SendMsg(msg), _) =>
       val request = HttpRequest().withUri("http://ws-host:port").withMethod(HttpMethods.POST).withEntity(msg)
-      rhttpc.send(request).pipeTo this
+      rhttpc.send(request) pipeTo this
       goto(WaitingForResponseState) replyingAfterSave()
   }
   
@@ -90,7 +90,7 @@ class FooBarActor(rhttpc: ReliableHttp) extends ReliableFSM[FooBarState, FooBarD
 }
 ```
 
-Slightly difference is that instead of `rhttpc.send(request).toFuture.pipeTo self` we are doing `rhttpc.send(request).pipeTo this`. Also our actor extends *ReliableFSM* which handles messages from queues and persist actor's state. If our application was shutdowned in *WaitingForResponseState*, after restart actor will recover their state and handle response. Full example you can check out [here](https://github.com/arkadius/reliable-http-client/blob/master/sample/sample-app/src/main/scala/rhttpc/sample/SampleApp.scala). There are also [*Docker* tests](https://github.com/arkadius/reliable-http-client/blob/master/sample/test/src/test/scala/rhttpc/test/DeliveryResponseAfterRestartWithDockerSpec.scala) that reproduce this situation. All you need to run them is installed *Docker*. If you have one, just run `sbt testProj:test 2>&1 | tee test.log`
+Slightly difference is that instead of `rhttpc.send(request).toFuture pipeTo self` we are doing `rhttpc.send(request) pipeTo this`. Also our actor extends *ReliableFSM* which handles messages from queues and persist actor's state. If our application was shutdowned in *WaitingForResponseState*, after restart actor will recover their state and handle response. Full example you can check out [here](https://github.com/arkadius/reliable-http-client/blob/master/sample/sample-app/src/main/scala/rhttpc/sample/SampleApp.scala). There are also [*Docker* tests](https://github.com/arkadius/reliable-http-client/blob/master/sample/test/src/test/scala/rhttpc/test/DeliveryResponseAfterRestartWithDockerSpec.scala) that reproduce this situation. All you need to run them is installed *Docker*. If you have one, just run `sbt testProj:test 2>&1 | tee test.log`
 
 ## Architecture
 
