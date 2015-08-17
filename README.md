@@ -40,7 +40,7 @@ system.actorOf(Props(new Actor {
 ```
 
 The example above cause that request/response will be send thru *amqp* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *amqp* durable queue.
-But after restart our application won't know what to do with response - in which state was sending actor. So we need to also persist state of our actor including acknowledged subscriptions on responses.
+But after restart our application won't know what to do with response - in which state was sending actor. So we need to also persist state of our actor including acknowledged published requests.
 It can be achived by *ReliableFSM* delivered by this project.
 
 ```scala
