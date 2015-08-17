@@ -100,12 +100,12 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
     val rabbitmqContainerId = startRabbitMq()
 
-    val (echoContainerId, rhttpcServerContainerId, appContainerId) = startServices()
+    val (echoContainerId, rhttpcProxyContainerId, appContainerId) = startServices()
 
     val fooBarClient = new FooBarClient(dispatch.url("http://localhost:8081"))
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
     if (result.isSucceeded) {
-      stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
+      stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcProxyContainerId, appContainerId)
     }
     result
   }
