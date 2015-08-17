@@ -2,9 +2,10 @@
 
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+[![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
+
 *Reliable Http Client* uses *RabbitMQ* as a proxy for HTTP calls. It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
-[![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 
 ## Idea
 
