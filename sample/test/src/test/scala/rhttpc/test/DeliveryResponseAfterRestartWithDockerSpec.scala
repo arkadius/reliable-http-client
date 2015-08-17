@@ -87,7 +87,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   val rabbitMqName = "rabbitmq_1"
   val echoName = "test_sampleecho_1"
-  val serverName = "test_server_1"
+  val serverName = "test_rhttpcproxy_1"
   val appVersion = "0.0.1-SNAPSHOT"
 
   override protected def withFixture(test: OneArgTest): Outcome = {

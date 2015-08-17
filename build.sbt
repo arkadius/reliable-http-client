@@ -9,7 +9,7 @@ val commonSettings =
   graphSettings ++
   licenseSettings ++
   Seq(
-    organization  := "org.github",
+    organization  := "rhttpc",
     scalaVersion  := "2.11.7",
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
@@ -29,9 +29,10 @@ val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
 val spingoV = "1.0.0-M16"
 
-lazy val api = (project in file("api")).
+lazy val api = (project in file("rhttpc-api")).
   settings(commonSettings).
   settings(
+    name := "rhttpc-api",
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
@@ -42,9 +43,10 @@ lazy val api = (project in file("api")).
     }
   )
 
-lazy val client = (project in file("client")).
+lazy val client = (project in file("rhttpc-client")).
   settings(commonSettings).
   settings(
+    name := "rhttpc-client",
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
@@ -58,11 +60,12 @@ lazy val client = (project in file("client")).
   ).
   dependsOn(api)
 
-lazy val server = (project in file("server")).
+lazy val proxy = (project in file("rhttpc-proxy")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
   enablePlugins(JavaAppPackaging).
   settings(
+    name := "rhttpc-proxy",
     libraryDependencies ++= {
       Seq(
         "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV,
@@ -75,7 +78,7 @@ lazy val server = (project in file("server")).
   ).
   dependsOn(api)
 
-lazy val sampleEcho = (project in file("sample-echo")).
+lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
   enablePlugins(JavaAppPackaging).
@@ -90,7 +93,7 @@ lazy val sampleEcho = (project in file("sample-echo")).
     dockerExposedPorts := Seq(8082)
   )
 
-lazy val sampleApp = (project in file("sample-app")).
+lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
   enablePlugins(JavaAppPackaging).
@@ -108,7 +111,7 @@ lazy val sampleApp = (project in file("sample-app")).
   ).
   dependsOn(client)
 
-lazy val testProj = (project in file("test")).
+lazy val testProj = (project in file("sample/test")).
   settings(commonSettings).
   settings(
     libraryDependencies ++= {
@@ -121,7 +124,7 @@ lazy val testProj = (project in file("test")).
       )
     },
     Keys.test <<= (Keys.test in Test).dependsOn(
-      publishLocal in Docker in server,
+      publishLocal in Docker in proxy,
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
     )
