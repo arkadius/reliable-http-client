@@ -93,10 +93,11 @@ Slightly difference is that instead of `rhttpc.send(request).toFuture.pipeTo sel
 
 ## Architecture
 
-Big picture:
+### Big picture
 ![Bit picture](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-arch.png)
 
-Request-response sequence:
+### Request-response sequence
+
 ![Request-response](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-request-response.png)
 
 ## Status
