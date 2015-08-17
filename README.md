@@ -3,12 +3,9 @@
 [![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-*Reliable Http Client* uses *RabbitMQ* as a proxy for HTTP calls. It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
-
+*Reliable Http Client* is a HTTP client tunneling *Akka* HttpRequest/HttpResponse over [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol). It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
 ## Idea
-
-The idea is to create mechanism that proxing all http request-response communication thru [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol).
 
 Consinder situation:
 
