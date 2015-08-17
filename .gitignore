@@ -8,6 +8,6 @@ out
 tags
 .*.swp
 .*.swo
-.*.log
+*.log
 journal/
 snapshots/
