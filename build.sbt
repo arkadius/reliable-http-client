@@ -20,7 +20,7 @@ val commonSettings =
     )
   )
 
-val akkaV = "2.3.12"
+val akkaV = "2.4-M3"
 val akkaStreamsV = "1.0"
 val json4sV = "3.2.11"
 val logbackV = "1.1.3"
@@ -36,6 +36,7 @@ lazy val api = (project in file("rhttpc-api")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"       %% "akka-actor"                    % akkaV,
         "com.spingo"              %% "op-rabbit-json4s"              % spingoV exclude("ch.qos.logback", "logback-classic"),
         "org.json4s"              %% "json4s-native"                 % json4sV,
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
@@ -49,7 +50,9 @@ lazy val client = (project in file("rhttpc-client")).
     name := "rhttpc-client",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-persistence-experimental" % akkaV,
+        "com.typesafe.akka"       %% "akka-persistence"              % akkaV,
+        "org.iq80.leveldb"          % "leveldb"                      % "0.7",
+        "org.fusesource.leveldbjni" % "leveldbjni-all"               % "1.8",
         "org.slf4j"                % "slf4j-api"                     % slf4jV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
@@ -74,7 +77,7 @@ lazy val proxy = (project in file("rhttpc-proxy")).
       )
     },
     dockerExposedPorts := Seq(5005),
-    dockerEntrypoint := Seq("bin/server", "-jvm-debug", "5005")
+    dockerEntrypoint := Seq("bin/rhttpc-proxy", "-jvm-debug", "5005")
   ).
   dependsOn(api)
 

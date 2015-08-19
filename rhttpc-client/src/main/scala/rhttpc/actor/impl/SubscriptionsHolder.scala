@@ -40,7 +40,7 @@ private[rhttpc] trait SubscriptionsHolder[S, D] extends PublicationListener with
     }
   }
 
-  override protected val handleSubscriptionMessages: Receive = {
+  protected val handleSubscriptionMessages: Receive = {
     case RequestPublished(subscription) =>
       // TODO: timeouts for missing MessageFromSubscription
       subscriptionManager.confirmOrRegister(subscription, self)

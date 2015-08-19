@@ -25,8 +25,6 @@ private[rhttpc] trait StateTransitionHandler[S, D] {
   protected def onStateTransition(transitionData: TransitionData[S, D]): Unit
 
   protected def onFinishedJobAfterTransition(afterAllData: FinishedJobAfterTransitionData[S, D]): Unit
-
-  protected def handleSubscriptionMessages: Receive
 }
 
 private[rhttpc] trait FSMStateTransitionRegistrar[S, D] { self: FSM[S, D] with StateTransitionHandler[S, D] with FSMAfterAllListenerHolder[S, D] =>

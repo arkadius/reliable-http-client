@@ -18,7 +18,7 @@ package rhttpc.actor.impl
 import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.{ActorLogging, ActorRef}
-import akka.persistence.{SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotMetadata, SnapshotSelectionCriteria}
+import akka.persistence._
 
 private[rhttpc] trait PersistentActorWithNotifications { this: AbstractSnapshotter with ActorLogging =>
   override def persistenceId: String = SnapshotsRegistry.persistenceId(persistenceCategory, id)
@@ -51,11 +51,19 @@ private[rhttpc] trait PersistentActorWithNotifications { this: AbstractSnapshott
       log.debug(s"State saved for: $metadata")
       deleteSnapshotsLogging(Some(metadata.sequenceNr-1))
       replyToListenerForSaveIfWaiting(metadata)
+    case DeleteSnapshotsSuccess(criteria) =>
+      log.debug(s"Snapshots with criteria: $criteria deleted")
     case SaveSnapshotFailure(metadata, cause) =>
-      val stringWriter = new StringWriter()
-      val printWriter = new PrintWriter(stringWriter)
-      cause.printStackTrace(printWriter)
-      log.error(s"State save failure for: $metadata.\nError: $stringWriter")
+      log.error(s"State save failure for: $metadata.\nError: ${printStackTrace(cause)}")
+    case DeleteSnapshotsFailure(criteria, cause) =>
+      log.warning(s"Delete snapshots with criteria failure: $criteria.\nError: ${printStackTrace(cause)}")
+  }
+
+  private def printStackTrace(cause: Throwable): String = {
+    val stringWriter = new StringWriter()
+    val printWriter = new PrintWriter(stringWriter)
+    cause.printStackTrace(printWriter)
+    stringWriter.toString
   }
 
   private def replyToListenerForSaveIfWaiting(metadata: SnapshotMetadata): Unit = {

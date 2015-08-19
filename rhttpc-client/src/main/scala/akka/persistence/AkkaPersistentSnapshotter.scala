@@ -15,19 +15,18 @@
  */
 package akka.persistence
 
+import akka.persistence.SnapshotProtocol.SaveSnapshot
 import rhttpc.actor.impl.AbstractSnapshotter
 
-// this trait must be in akka.persistence package because of updateLastSequenceNr package protected access
+// this trait must be in akka.persistence package because of snapshotStore package protected access
 trait AkkaPersistentSnapshotter extends AbstractSnapshotter with PersistentActor {
 
   override def receiveCommand: Receive = {
     case _ => throw new IllegalArgumentException("Should be used receive method instead")
   }
 
-
   override def saveSnapshotWithSeqNr(snapshot: Any, seqNr: Long): Unit = {
-    updateLastSequenceNr(seqNr)
-    saveSnapshot(snapshot)
+    snapshotStore ! SaveSnapshot(SnapshotMetadata(snapshotterId, seqNr), snapshot)
   }
 
 }
