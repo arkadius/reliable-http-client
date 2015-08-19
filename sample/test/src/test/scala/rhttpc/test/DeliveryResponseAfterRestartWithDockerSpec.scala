@@ -87,7 +87,6 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   val rabbitMqName = "rabbitmq_1"
   val echoName = "test_sampleecho_1"
-  val serverName = "test_rhttpcproxy_1"
   val appVersion = "0.0.1-SNAPSHOT"
 
   override protected def withFixture(test: OneArgTest): Outcome = {
@@ -119,7 +118,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   private def startServices()(implicit docker: DockerClient): (String, String, String) = {
     val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
-    val rhttpcServerContainerId = docker.containerStartFromScratch(serverName, "server", appVersion) { cmd =>
+    val rhttpcServerContainerId = docker.containerStartFromScratch("test_rhttpcproxy_1", "rhttpc-proxy", appVersion) { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(5005), Ports.Binding(5005))
       cmd.withLinks(
