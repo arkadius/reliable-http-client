@@ -29,7 +29,8 @@ import rhttpc.api.transport._
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
+import scala.util.control.Exception._
 
 // TODO: actor-based, connection recovery
 private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg], connection: Connection) extends PubSubTransport[PubMsg] {
@@ -60,9 +61,29 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
     import collection.convert.wrapAsScala._
     val factory = new ConnectionFactory()
-    val connection = factory.newConnection(data.actorSystem.settings.config.getStringList("rabbitmq.hosts").map(com.rabbitmq.client.Address.parseAddress).toArray)
+    factory.setAutomaticRecoveryEnabled(true)
+
+    val connection = retry(n = 10, delay = 5000) {
+      catching(classOf[IOException]) withTry {
+        val hosts = data.actorSystem.settings.config.getStringList("rabbitmq.hosts")
+        val addresses = hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
+        factory.newConnection(addresses)
+      }
+    }
+
     new AmqpTransport[PubMsg, SubMsg](data, connection)
   }
+
+  private def retry[T](n: Int, delay: Long)(fn: => Try[T]): T = {
+    fn match {
+      case Success(x) => x
+      case _ if n > 1 =>
+        Thread.sleep(delay)
+        retry(n - 1, delay)(fn)
+      case Failure(e) => throw e
+    }
+  }
+
 }
 
 case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, qos: Int = 10)

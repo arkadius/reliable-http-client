@@ -1,0 +1,18 @@
+rabbitmq:
+  image: rabbitmq:3.5.4-management
+
+rhttpcproxy:
+  image: rhttpc-proxy:0.0.1-SNAPSHOT
+  links:
+    - rabbitmq
+    - sampleecho
+
+sampleecho:
+  image: sampleecho:0.0.1-SNAPSHOT
+
+sampleapp:
+  image: sampleapp:0.0.1-SNAPSHOT
+  links:
+    - rabbitmq
+  ports:
+    - "8081:8081"
