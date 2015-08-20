@@ -31,13 +31,13 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
   it should "be in init state initially" in withNextFooBar { fooBarActor =>
     fooBarActor ! CurrentState
-    expectMsg(InitState)
+    expectMsg(5 seconds, InitState)
   }
 
   it should "go into waiting state after send msg command" in withNextFooBar { fooBarActor =>
     fooBarActor ! SendMsg("foo")
     fooBarActor ! CurrentState
-    expectMsg(WaitingForResponseState)
+    expectMsg(5 seconds, WaitingForResponseState)
   }
 
   it should "go into foo state after echo response" in withNextFooBar { fooBarActor =>
@@ -62,10 +62,10 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with Fl
 
     val restoredActor = createFooBar(id)
     restoredActor ! CurrentState
-    expectMsg(WaitingForResponseState)
+    expectMsg(5 seconds, WaitingForResponseState)
     restoredActor ! "foo"
     restoredActor ! CurrentState
-    expectMsg(FooState)
+    expectMsg(5 seconds, FooState)
     gracefulStop(restoredActor)
   }
 
