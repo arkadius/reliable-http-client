@@ -62,7 +62,9 @@ object DockerEnrichments {
     }
 
     private def filterContainerByName(containerName: String) = {
-      docker.listContainersCmd.withShowAll(true).exec().filter(_.getNames.exists(_.contains(containerName)))
+      docker.listContainersCmd.withShowAll(true).exec().filter { container =>
+        Option(container.getNames).toSeq.flatten.exists(_.contains(containerName))
+      }
     }
 
     def attachLogging(containerId: String) = {
