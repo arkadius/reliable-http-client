@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.server
+package rhttpc.proxy
 
 import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
@@ -24,18 +24,17 @@ import com.spingo.op_rabbit._
 import com.spingo.op_rabbit.consumer.Directives._
 import com.spingo.op_rabbit.stream._
 import rhttpc.api.Correlated
-import rhttpc.api.transport.amqp.QueuePublisherDeclaringQueueIfNotExist
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-object ServerApp extends App {
+object ProxyApp extends App {
   import Json4sSupport._
   import rhttpc.api.json4s.Json4sSerializer._
 
-  implicit val actorSystem = ActorSystem("rhttpc-server")
+  implicit val actorSystem = ActorSystem("rhttpc-proxy")
   implicit val materializer = ActorMaterializer()
   implicit val ec: ExecutionContext = actorSystem.dispatcher
   val rabbitMq = actorSystem.actorOf(Props[RabbitControl])

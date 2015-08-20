@@ -15,80 +15,135 @@
  */
 package rhttpc.api.transport.amqp
 
+import java.io._
+
 import akka.actor._
+import akka.agent.Agent
 import akka.pattern._
 import akka.util.Timeout
-import com.spingo._
-import com.spingo.op_rabbit._
+import com.rabbitmq.client._
 import org.json4s.Formats
-import rhttpc.api.transport.{Subscriber, _}
+import org.json4s.native._
+import rhttpc.api.transport._
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
+import scala.util.{Failure, Success}
 
-private[amqp] class AmqpTransport[PubMsg, SubMsg](val rabbitControl: ActorRef)
-                                                 (implicit val marshaller: RabbitMarshaller[PubMsg],
-                                                  val unmarshaller: RabbitUnmarshaller[SubMsg],
-                                                  val executionContext: ExecutionContext) extends PubSubTransport[PubMsg] {
-  override def publisher(queueName: String): Publisher[PubMsg] = new AmqpPublisher(this, queueName)
+// TODO: actor-based, connection recovery
+private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg], connection: Connection) extends PubSubTransport[PubMsg] {
+  override def publisher(queueName: String): Publisher[PubMsg] = {
+    val channel = connection.createChannel()
+    channel.queueDeclare(queueName, true, false, false, null)
+    val publisher = new AmqpPublisher(data, channel, queueName)
+    channel.addConfirmListener(publisher)
+    channel.confirmSelect()
+    publisher
+  }
 
-  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new AmqpSubscriber(this, queueName, consumer)
+  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = {
+    new AmqpSubscriber(data, connection, queueName, consumer)
+  }
 }
 
 object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
   override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
-    val rabbitControl = data.actorFactory.actorOf(Props[RabbitControl])
-    import data.actorFactory.dispatcher
-    import data.formats
-    import data.subMsgManifest
-    import com.spingo.op_rabbit.Json4sSupport._
-    new AmqpTransport[PubMsg, SubMsg](rabbitControl)
+    import collection.convert.wrapAsScala._
+    val factory = new ConnectionFactory()
+    val connection = factory.newConnection(data.actorSystem.settings.config.getStringList("rabbitmq.hosts").map(com.rabbitmq.client.Address.parseAddress).toArray)
+    new AmqpTransport[PubMsg, SubMsg](data, connection)
   }
 }
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](actorFactory: ActorRefFactory)
-                                                  (implicit val formats: Formats,
-                                                   val subMsgManifest: Manifest[SubMsg]) extends TransportCreateData[PubMsg, SubMsg]
+case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem)
+                                                  (implicit val subMsgManifest: Manifest[SubMsg],
+                                                   val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
 
-private[amqp] class AmqpPublisher[PubMsg](transport: AmqpTransport[PubMsg, _], queueName: String) extends Publisher[PubMsg] {
+private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
+                                                    channel: Channel,
+                                                    queueName: String) extends Publisher[PubMsg] with ConfirmListener {
+  import data.actorSystem.dispatcher
+
+  private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
+
   override def publish(msg: PubMsg): Future[Unit] = {
-    import transport.{executionContext, marshaller}
-    implicit val timeout = Timeout(10 seconds)
-    (transport.rabbitControl ? ConfirmedMessage(QueuePublisherDeclaringQueueIfNotExist(queueName), msg)).mapTo[Boolean].map { ack =>
-      if (!ack) throw new NoPubMsgAckException(msg)
+    val bos = new ByteArrayOutputStream()
+    val writer = new OutputStreamWriter(bos, "UTF-8")
+    try {
+      import data.formats
+      Serialization.write(msg, writer)
+    } finally {
+      writer.close()
+    }
+    val ackPromise = Promise[Unit]()
+    for {
+      _ <- seqNoOnAckPromiseAgent.alter { curr =>
+        val publishSeqNo = channel.getNextPublishSeqNo
+        data.actorSystem.log.debug(s"PUBLISH: $publishSeqNo")
+        channel.basicPublish("", queueName, null, bos.toByteArray)
+        curr + (publishSeqNo -> ackPromise)
+      }
+      ack <- ackPromise.future
+    } yield ack
+  }
+
+  override def handleAck(deliveryTag: Long, multiple: Boolean): Unit = {
+    data.actorSystem.log.debug(s"ACK: $deliveryTag, multiple = $multiple")
+    confirm(deliveryTag, multiple)(_.success(Unit))
+  }
+
+  override def handleNack(deliveryTag: Long, multiple: Boolean): Unit = {
+    data.actorSystem.log.debug(s"NACK: $deliveryTag, multiple = $multiple")
+    confirm(deliveryTag, multiple)(_.failure(NoPubMsgAckException))
+  }
+
+  private def confirm(deliveryTag: Long, multiple: Boolean)(complete: Promise[Unit] => Unit): Unit = {
+    seqNoOnAckPromiseAgent.alter { curr =>
+      val (toAck, rest) = curr.partition {
+        case (seqNo, ackPromise) =>
+          seqNo == deliveryTag || multiple && seqNo <= deliveryTag
+      }
+      toAck.foreach {
+        case (seqNo, ackPromise) => complete(ackPromise)
+      }
+      rest
     }
   }
 
   override def close(): Future[Unit] = {
-    Future.successful(Unit) // TODO: should close the channel?
+    Future.successful(Unit) // TODO: clean shutdown
   }
 }
 
-private[amqp] class AmqpSubscriber[Sub](transport: AmqpTransport[_, Sub], queueName: String, consumer: ActorRef) extends Subscriber {
-  private val subscription = new op_rabbit.consumer.Subscription {
-    import transport.{executionContext, unmarshaller}
-    // A qos of 3 will cause up to 3 concurrent messages to be processed at any given time.
-    def config = channel(qos = 10) {
-      consume(queue(queueName)) {
-        body(as[Sub]) { msg =>
-          implicit val timeout = Timeout(1 minute)
-          ack(consumer ? msg)
+private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
+                                        connection: Connection,
+                                        queueName: String,
+                                        consumer: ActorRef) extends Subscriber {
+  override def run(): Unit = {
+    val channel = connection.createChannel()
+    channel.basicQos(10)
+    channel.queueDeclare(queueName, true, false, false, null)
+    val queueConsumer = new DefaultConsumer(channel) {
+      override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
+        import data.actorSystem.dispatcher
+        import data.formats
+        val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
+        implicit val timeout = Timeout(1 minute)
+        (consumer ? msg).onComplete {
+          case Success(_) => channel.basicAck(envelope.getDeliveryTag, false)
+          case Failure(_) => channel.basicNack(envelope.getDeliveryTag, false, true)
         }
       }
     }
-  }
-
-  override def run(): Unit = {
-    transport.rabbitControl ! subscription
+    channel.basicConsume(queueName, false, queueConsumer)
   }
 
   override def stop(): Future[Unit] = {
-    subscription.close()
-    subscription.closed
+    Future.successful(Unit) // TODO: clean shutdown
   }
 }
 
-class NoPubMsgAckException(msg: Any) extends Exception(s"No acknowledgement for published msg: $msg")
+case object NoPubMsgAckException extends Exception(s"No acknowledgement for published message")

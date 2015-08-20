@@ -41,7 +41,7 @@ object DockerEnrichments {
     }
 
     private def containerCleanCreateByName(containerName: String, image: String)
-                                  (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
+                                          (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
       filterContainerByName(containerName).foreach { container =>
         logger.warn(s"Found container for name: $containerName: $container. Removing ...")
         docker.removeContainerCmd(container.getId).withForce().exec()

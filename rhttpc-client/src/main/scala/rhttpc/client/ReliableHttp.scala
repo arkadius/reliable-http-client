@@ -27,7 +27,7 @@ import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.api.Correlated
 import rhttpc.api.json4s.Json4sSerializer
 import rhttpc.api.transport.PubSubTransport
-import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
+import rhttpc.api.transport.amqp._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -35,7 +35,7 @@ import scala.language.postfixOps
 import scala.util.{Try, Failure}
 
 object ReliableHttp {
-  def apply()(implicit actorFactory: ActorRefFactory): ReliableClient[HttpRequest] = {
+  def apply()(implicit actorFactory: ActorSystem): ReliableClient[HttpRequest] = {
     import Json4sSerializer.formats
     implicit val transport = AmqpTransportFactory.create(
       AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorFactory)
@@ -45,7 +45,7 @@ object ReliableHttp {
   }
 }
 
-class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[Correlated[Request]]) {
+class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)(implicit actorFactory: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr

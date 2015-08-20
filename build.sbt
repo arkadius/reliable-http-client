@@ -22,6 +22,7 @@ val commonSettings =
 
 val akkaV = "2.4-M3"
 val akkaStreamsV = "1.0"
+val amqpcV = "3.5.4"
 val json4sV = "3.2.11"
 val logbackV = "1.1.3"
 val slf4jV = "1.7.7"
@@ -37,7 +38,8 @@ lazy val api = (project in file("rhttpc-api")).
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
         "com.typesafe.akka"       %% "akka-actor"                    % akkaV,
-        "com.spingo"              %% "op-rabbit-json4s"              % spingoV exclude("ch.qos.logback", "logback-classic"),
+        "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
+        "com.rabbitmq"             % "amqp-client"                   % amqpcV,
         "org.json4s"              %% "json4s-native"                 % json4sV,
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
@@ -72,6 +74,7 @@ lazy val proxy = (project in file("rhttpc-proxy")).
     libraryDependencies ++= {
       Seq(
         "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV,
+        "com.spingo"              %% "op-rabbit-json4s"              % spingoV,
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           % "logback-classic"               % logbackV
       )

@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.transport.amqp
+package rhttpc.proxy
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.Channel
-import com.spingo.op_rabbit.{RabbitHelpers, MessagePublisher}
+import com.spingo.op_rabbit.{MessagePublisher, RabbitHelpers}
 
 case class QueuePublisherDeclaringQueueIfNotExist(queue: String) extends MessagePublisher {
   private var verified = false
