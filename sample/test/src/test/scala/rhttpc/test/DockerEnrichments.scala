@@ -15,9 +15,13 @@
  */
 package rhttpc.test
 
+import java.io._
+import java.nio.ByteBuffer
+
 import com.github.dockerjava.api._
 import com.github.dockerjava.api.command.CreateContainerCmd
 import org.apache.commons.io.IOUtils
+import org.apache.commons.lang.StringEscapeUtils
 import org.slf4j.LoggerFactory
 
 import scala.collection.convert.wrapAsScala._
@@ -32,7 +36,7 @@ object DockerEnrichments {
       val images = docker.listImagesCmd().exec().toList
       if (!images.exists(_.getRepoTags.contains(image))) {
         logger.info(s"Not found image: $image. Pulling ...")
-        docker.pullImageCmd(repo).withTag(tag).exec()
+        UnescapingWriter.copyToSysOut(docker.pullImageCmd(repo).withTag(tag).exec())
       }
       val containerId = containerCleanCreateByName(containerName, image)(prepareCreateCommand)
       docker.startContainerCmd(containerId).exec()
@@ -65,7 +69,7 @@ object DockerEnrichments {
       val loggingThread = new Thread {
         override def run(): Unit = {
           val input = docker.logContainerCmd(containerId).withStdOut().withStdErr().withFollowStream().withTail(0).exec()
-          IOUtils.copy(input, System.out)
+          DockerLogStreamReader.copyToSysOut(input)
         }
       }
       loggingThread.setDaemon(true)
@@ -78,6 +82,43 @@ object DockerEnrichments {
       logger.info(s"Container shutdown successful: $containerId. Removing ...")
       docker.removeContainerCmd(containerId).withForce().exec()
       logger.info(s"Container remove successful: $containerId")
+    }
+  }
+}
+
+class UnescapingWriter(out: Writer) extends Writer {
+  override def flush(): Unit = out.flush()
+
+  override def write(cbuf: Array[Char], off: Int, len: Int): Unit = {
+    StringEscapeUtils.unescapeJava(out, new String(cbuf, off, len) + "\n")
+  }
+
+  override def close(): Unit = out.close()
+}
+
+object UnescapingWriter {
+  def copyToSysOut(from: InputStream) = {
+    IOUtils.copy(new BufferedReader(new InputStreamReader(from)), new UnescapingWriter(new OutputStreamWriter(System.out)))
+  }
+}
+
+object DockerLogStreamReader {
+  def copyToSysOut(from: InputStream) = {
+    readDockerRawStream(from, System.out)
+  }
+
+  private def readDockerRawStream(rawStream: InputStream, out: OutputStream) {
+    val header = Array.ofDim[Byte](8)
+    while (rawStream.read(header) > 0) {
+      val headerBuffer = ByteBuffer.wrap(header)
+      headerBuffer.get
+      headerBuffer.get
+      headerBuffer.get
+      headerBuffer.get
+      val size = headerBuffer.getInt
+      val streamOutputBuffer = Array.ofDim[Byte](size)
+      rawStream.read(streamOutputBuffer)
+      out.write(streamOutputBuffer)
     }
   }
 }
