@@ -107,7 +107,7 @@ WIP
 
 # 3rd part libraries
 
-*rhttpc* uses [op-rabbit](https://github.com/SpinGo/op-rabbit) for communication thru *AMQP*. It also uses [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states.
+*rhttpc* uses [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication thru *AMQP*. It also uses [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states.
 
 
 # License
