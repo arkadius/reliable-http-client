@@ -1,6 +1,6 @@
 # reliable-http-client
 
-[![circle-ci](https://circleci.com/gh/circleci/mongofinil/tree/master.svg?style=shield&circle-token=b14acf911433d315298235b0c2fbf7b2670a92a8)](https://circleci.com/gh/arkadius/reliable-http-client/tree/master)
+[![circle-ci](https://circleci.com/gh/arkadius/reliable-http-client/tree/master.svg?style=shield&circle-token=1287932dad2962d954d6eac289d36cb4f5a05e2b)](https://circleci.com/gh/arkadius/reliable-http-client/tree/master)
 [![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
