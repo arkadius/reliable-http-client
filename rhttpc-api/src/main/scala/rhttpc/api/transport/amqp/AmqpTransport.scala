@@ -58,7 +58,7 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   }
 }
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem)
+case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, qos: Int = 10)
                                                   (implicit val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
 
@@ -124,7 +124,7 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
                                         consumer: ActorRef) extends Subscriber {
   override def run(): Unit = {
     val channel = connection.createChannel()
-    channel.basicQos(10)
+    channel.basicQos(data.qos)
     channel.queueDeclare(queueName, true, false, false, null)
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {

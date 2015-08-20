@@ -73,8 +73,6 @@ lazy val proxy = (project in file("rhttpc-proxy")).
     name := "rhttpc-proxy",
     libraryDependencies ++= {
       Seq(
-        "com.spingo"              %% "op-rabbit-akka-stream"         % spingoV,
-        "com.spingo"              %% "op-rabbit-json4s"              % spingoV,
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           % "logback-classic"               % logbackV
       )

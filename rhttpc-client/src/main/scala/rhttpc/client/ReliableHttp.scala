@@ -35,10 +35,10 @@ import scala.language.postfixOps
 import scala.util.{Try, Failure}
 
 object ReliableHttp {
-  def apply()(implicit actorFactory: ActorSystem): ReliableClient[HttpRequest] = {
+  def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
     import Json4sSerializer.formats
     implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorFactory)
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem)
     )
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)

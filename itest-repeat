@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for i in `seq 20`; do
+  echo $i
+  sbt testProj/test 2>&1 > test.log
+  if [ $? -ne 0 ]; then
+    break
+  fi
+done
