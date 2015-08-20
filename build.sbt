@@ -15,8 +15,7 @@ val commonSettings =
     license := apache2("Copyright 2015 the original author or authors."),
     removeExistingHeaderBlock := true,
     resolvers ++= Seq(
-      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
-      "SpinGo OSS" at "http://spingo-oss.s3.amazonaws.com/repositories/releases"
+      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
     )
   )
 
@@ -28,7 +27,6 @@ val logbackV = "1.1.3"
 val slf4jV = "1.7.7"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
-val spingoV = "1.0.0-M16"
 
 lazy val api = (project in file("rhttpc-api")).
   settings(commonSettings).
