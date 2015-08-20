@@ -1,11 +1,4 @@
-env:
-  global:
-    - BRANCH=v1.1.0
-
-sudo: true
-
-install:
-  - curl -sLo - http://j.mp/install-travis-docker | sh -xe
+sudo: required
 
 language: scala
 
@@ -15,5 +8,8 @@ scala:
 jdk:
   - oraclejdk8
 
+services:
+  - docker
+
 script:
-  - ./run 'sbt test'
+  - sudo sbt test
