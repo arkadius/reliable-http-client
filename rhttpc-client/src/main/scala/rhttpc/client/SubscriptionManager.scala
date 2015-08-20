@@ -48,7 +48,7 @@ object SubscriptionManager {
 private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
-  private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor], "subscription-manager")
+  private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor])
 
   private val transportSub = transport.subscriber("rhttpc-response", dispatcher)
 

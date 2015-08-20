@@ -30,7 +30,7 @@ private class RecoverableActorsManager(persistenceCategory: String, childPropsCr
 
   override def receive: Receive = {
     case RecoverAllActors =>
-      val registry = context.actorOf(SnapshotsRegistry.props(persistenceCategory), "registry")
+      val registry = context.actorOf(SnapshotsRegistry.props(persistenceCategory), s"$persistenceCategory-registry")
       registry ! GetIdsWithStoredSnapshots
       context.become(waitForIdsWithStoredSnapshots(registry, sender()))
   }
