@@ -130,6 +130,8 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         import data.actorSystem.dispatcher
         import data.formats
+        import data.subMsgManifest
+        if (false) subMsgManifest // to avoid imports optimization
         val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
         implicit val timeout = Timeout(1 minute)
         (consumer ? msg).onComplete {
