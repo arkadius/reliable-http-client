@@ -73,4 +73,9 @@ object ProxyApp extends App {
 
   subscriber.run()
 
+  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run(): Unit = {
+      transport.close()
+    }
+  })
 }

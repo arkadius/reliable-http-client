@@ -24,6 +24,8 @@ trait PubSubTransport[PubMsg] {
   def publisher(queueName: String): Publisher[PubMsg]
 
   def subscriber(queueName: String, consumer: ActorRef): Subscriber
+
+  def close(): Unit
 }
 
 trait PubSubTransportFactory {
@@ -37,11 +39,11 @@ trait TransportCreateData[PubMsg, SubMsg]
 trait Publisher[Msg] {
   def publish(msg: Msg): Future[Unit]
 
-  def close(): Future[Unit]
+  def close(): Unit
 }
 
 trait Subscriber {
   def run(): Unit
   
-  def stop(): Future[Unit]
+  def stop(): Unit
 }

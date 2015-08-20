@@ -70,13 +70,11 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
   }
 
   override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
-    for {
-      _ <- transportSub.stop()
-      dispatcherStopped <- gracefulStop(dispatcher, 30 seconds).map(stopped =>
-        if (!stopped)
-          throw new IllegalStateException("Subscription manager hasn't been stopped correctly")
-      )
-    } yield dispatcherStopped
+    transportSub.stop()
+    gracefulStop(dispatcher, 30 seconds).map(stopped =>
+      if (!stopped)
+        throw new IllegalStateException("Subscription manager hasn't been stopped correctly")
+    )
   }
 }
 

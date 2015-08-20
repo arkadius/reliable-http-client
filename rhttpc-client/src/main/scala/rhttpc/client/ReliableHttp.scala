@@ -73,10 +73,10 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    for {
-      _ <- publisher.close()
-      subMgrStopped <- subscriptionManager.stop()
-    } yield subMgrStopped
+    publisher.close()
+    subscriptionManager.stop().map { _ =>
+      transport.close()
+    }
   }
 }
 

@@ -47,7 +47,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       _publicationPromise.future
     }
 
-    override def close(): Future[Unit] = Future.successful(Unit)
+    override def close(): Unit = {}
   }
 
   override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new Subscriber {
@@ -55,6 +55,8 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
     override def run(): Unit = {}
 
-    override def stop(): Future[Unit] = Future.successful(Unit)
+    override def stop(): Unit = {}
   }
+
+  override def close(): Unit = {}
 }

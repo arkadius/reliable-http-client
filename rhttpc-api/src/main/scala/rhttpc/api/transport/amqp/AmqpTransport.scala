@@ -43,7 +43,14 @@ private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportC
   }
 
   override def subscriber(queueName: String, consumer: ActorRef): Subscriber = {
-    new AmqpSubscriber(data, connection, queueName, consumer)
+    val channel = connection.createChannel()
+    channel.basicQos(data.qos)
+    channel.queueDeclare(queueName, true, false, false, null)
+    new AmqpSubscriber(data, channel, queueName, consumer)
+  }
+
+  override def close(): Unit = {
+    connection.close()
   }
 }
 
@@ -113,19 +120,16 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
     }
   }
 
-  override def close(): Future[Unit] = {
-    Future.successful(Unit) // TODO: clean shutdown
+  override def close(): Unit = {
+    channel.close()
   }
 }
 
 private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
-                                        connection: Connection,
+                                        channel: Channel,
                                         queueName: String,
                                         consumer: ActorRef) extends Subscriber {
   override def run(): Unit = {
-    val channel = connection.createChannel()
-    channel.basicQos(data.qos)
-    channel.queueDeclare(queueName, true, false, false, null)
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         import data.actorSystem.dispatcher
@@ -143,8 +147,8 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
     channel.basicConsume(queueName, false, queueConsumer)
   }
 
-  override def stop(): Future[Unit] = {
-    Future.successful(Unit) // TODO: clean shutdown
+  override def stop(): Unit = {
+    channel.close()
   }
 }
 

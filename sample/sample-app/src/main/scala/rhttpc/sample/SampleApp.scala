@@ -67,5 +67,11 @@ object SampleApp extends App with Directives {
     }
   }
 
-  Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081)
+  Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081).map { binding =>
+    Runtime.getRuntime.addShutdownHook(new Thread {
+      override def run(): Unit = {
+        Await.result(rhttpc.close(), 10 seconds)
+      }
+    })
+  }
 }
