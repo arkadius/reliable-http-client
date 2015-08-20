@@ -10,6 +10,3 @@ jdk:
 
 services:
   - docker
-
-script:
-  - sudo sbt test
