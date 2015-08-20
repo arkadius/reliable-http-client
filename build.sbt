@@ -125,7 +125,7 @@ lazy val testProj = (project in file("sample/test")).
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
     },
-    Keys.test <<= (Keys.test in Test).dependsOn(
+    Keys.test in Test <<= (Keys.test in Test).dependsOn(
       publishLocal in Docker in proxy,
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
