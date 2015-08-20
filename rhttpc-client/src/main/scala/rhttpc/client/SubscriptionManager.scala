@@ -17,8 +17,7 @@ package rhttpc.client
 
 import akka.actor._
 import akka.pattern._
-import akka.util.Timeout
-import rhttpc.actor.impl.{AbortSubscription, ConfirmOrRegisterSubscription, MessageDispatcherActor, RegisterSubscriptionPromise}
+import rhttpc.actor.impl._
 import rhttpc.api.transport.PubSubTransport
 
 import scala.concurrent.duration._
@@ -61,7 +60,6 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
   }
 
   override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
-    implicit val timeout = Timeout(30 seconds)
     dispatcher ! ConfirmOrRegisterSubscription(subscription, consumer)
   }
 
