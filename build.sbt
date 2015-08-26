@@ -9,7 +9,7 @@ val commonSettings =
   graphSettings ++
   licenseSettings ++
   Seq(
-    organization  := "rhttpc",
+    organization  := "org.rhttpc",
     scalaVersion  := "2.11.7",
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
@@ -92,7 +92,9 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
         "ch.qos.logback"           %  "logback-classic"              % logbackV
       )
     },
-    dockerExposedPorts := Seq(8082)
+    dockerExposedPorts := Seq(8082),
+    Keys.publish := (),
+    publishArtifact := false
   )
 
 lazy val sampleApp = (project in file("sample/sample-app")).
@@ -109,7 +111,9 @@ lazy val sampleApp = (project in file("sample/sample-app")).
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
     },
-    dockerExposedPorts := Seq(8081)
+    dockerExposedPorts := Seq(8081),
+    Keys.publish := (),
+    publishArtifact := false
   ).
   dependsOn(client)
 
@@ -129,18 +133,22 @@ lazy val testProj = (project in file("sample/test")).
       publishLocal in Docker in proxy,
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
-    )
+    ),
+    Keys.publish := (),
+    publishArtifact := false
   )
 
 
 releaseProcess := Seq[ReleaseStep](
-  checkSnapshotDependencies,              // : ReleaseStep
-  inquireVersions,                        // : ReleaseStep
-  runTest,                                // : ReleaseStep
-  setReleaseVersion,                      // : ReleaseStep
-  commitReleaseVersion,                   // : ReleaseStep, performs the initial git checks
-  tagRelease,                             // : ReleaseStep
-  setNextVersion,                         // : ReleaseStep
-  commitNextVersion,                      // : ReleaseStep
-  pushChanges                             // : ReleaseStep, also checks that an upstream branch is properly configured
+  checkSnapshotDependencies,
+  inquireVersions,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  ReleaseStep(action = Command.process("publishSigned", _)),
+  setNextVersion,
+  commitNextVersion,
+  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+  pushChanges
 )
