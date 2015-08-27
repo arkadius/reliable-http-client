@@ -19,3 +19,5 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.0.3")
 addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "0.5.1")
 
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.0.0")
+
+addSbtPlugin("com.github.sdb" % "xsbt-filter" % "0.4")

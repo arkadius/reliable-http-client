@@ -15,6 +15,8 @@
  */
 package rhttpc.test
 
+import java.util.Properties
+
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.model._
 import com.github.dockerjava.core.DockerClientBuilder
@@ -88,7 +90,6 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   val repo = "arkadius"
   val rabbitMqName = "rabbitmq_1"
   val echoName = "test_sampleecho_1"
-  val appVersion = "0.0.1-SNAPSHOT"
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config =
@@ -141,6 +142,12 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     Thread.sleep(5000) // wait for start
     logger.info("App started")
     (echoContainerId, rhttpcServerContainerId, appContainerId)
+  }
+
+  private lazy val appVersion: String = {
+    val props = new Properties()
+    props.load(getClass.getResourceAsStream("/project.properties"))
+    props.getProperty("app.version")
   }
 
   private def stopAndRemoveContainers(constainerIds: String*)

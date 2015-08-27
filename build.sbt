@@ -4,8 +4,10 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import net.virtualvoid.sbt.graph.Plugin._
 import sbt.Keys._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import FilterKeys._
 
 val commonSettings =
+  filterSettings ++
   graphSettings ++
   licenseSettings ++
   Seq(
