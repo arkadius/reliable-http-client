@@ -171,11 +171,6 @@ lazy val testProj = (project in file("sample/test")).
 
 publishArtifact := false
 
-lazy val dockerPublishProxy = ReleaseStep { st: State =>
-  val extracted = Project.extract(st)
-  extracted.runAggregated(publish in Docker in proxy, st)
-}
-
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
@@ -184,7 +179,6 @@ releaseProcess := Seq[ReleaseStep](
   commitReleaseVersion,
   tagRelease,
   ReleaseStep(action = Command.process("publishSigned", _)),
-  dockerPublishProxy,
   setNextVersion,
   commitNextVersion,
   ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
