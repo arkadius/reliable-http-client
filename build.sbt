@@ -16,6 +16,7 @@ val commonSettings =
     licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
     removeExistingHeaderBlock := true,
+    dockerRepository := Some("arkadius"),
     resolvers ++= Seq(
       "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
     )
