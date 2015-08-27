@@ -85,6 +85,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     }
   }
 
+  val repo = "arkadius"
   val rabbitMqName = "rabbitmq_1"
   val echoName = "test_sampleecho_1"
   val appVersion = "0.0.1-SNAPSHOT"
@@ -121,8 +122,8 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   }
 
   private def startServices()(implicit docker: DockerClient): (String, String, String) = {
-    val echoContainerId = docker.containerStartFromScratch(echoName, "sampleecho", appVersion)(identity)
-    val rhttpcServerContainerId = docker.containerStartFromScratch("test_rhttpcproxy_1", "rhttpc-proxy", appVersion) { cmd =>
+    val echoContainerId = docker.containerStartFromScratch(echoName, s"$repo/sampleecho", appVersion)(identity)
+    val rhttpcServerContainerId = docker.containerStartFromScratch("test_rhttpcproxy_1", s"$repo/rhttpc-proxy", appVersion) { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(5005), Ports.Binding(5005))
       cmd.withLinks(
@@ -130,7 +131,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
         new Link(rabbitMqName, "rabbitmq")
       ).withPortBindings(portBindings)
     }
-    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", "sampleapp", appVersion) { cmd =>
+    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", s"$repo/sampleapp", appVersion) { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(8081), Ports.Binding(8081))
       cmd.withPortBindings(portBindings).withLinks(

@@ -64,7 +64,7 @@ object AmqpTransportFactory extends PubSubTransportFactory {
     factory.setAutomaticRecoveryEnabled(true)
 
     val connection = retry(n = 10, delay = 5000) {
-      catching(classOf[Exception]) withTry { // Could By IOException or TimeoutException
+      Try { // Could By IOException or TimeoutException
         val hosts = data.actorSystem.settings.config.getStringList("rabbitmq.hosts")
         val addresses = hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
         factory.newConnection(addresses)
