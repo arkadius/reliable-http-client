@@ -13,11 +13,39 @@ val commonSettings =
     scalaVersion  := "2.11.7",
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
+    licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
+    homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
     removeExistingHeaderBlock := true,
     resolvers ++= Seq(
       "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
     )
   )
+
+val publishSettings = Seq(
+  publishMavenStyle := true,
+  publishTo := {
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+  },
+  publishArtifact in Test := false,
+  pomExtra in Global := {
+    <scm>
+      <connection>scm:git:github.com/arkadius/reliable-http-client.git</connection>
+      <developerConnection>scm:git:git@github.com:arkadius/reliable-http-client.git</developerConnection>
+      <url>github.com/arkadius/reliable-http-client</url>
+    </scm>
+    <developers>
+      <developer>
+        <id>ark_adius</id>
+        <name>Arek Burdach</name>
+        <url>https://github.com/arkadius</url>
+      </developer>
+    </developers>
+  }
+)
 
 val akkaV = "2.4-M3"
 val akkaStreamsV = "1.0"
@@ -30,6 +58,7 @@ val scalaTestV = "3.0.0-M7"
 
 lazy val api = (project in file("rhttpc-api")).
   settings(commonSettings).
+  settings(publishSettings).
   settings(
     name := "rhttpc-api",
     libraryDependencies ++= {
@@ -46,13 +75,12 @@ lazy val api = (project in file("rhttpc-api")).
 
 lazy val client = (project in file("rhttpc-client")).
   settings(commonSettings).
+  settings(publishSettings).
   settings(
     name := "rhttpc-client",
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-persistence"              % akkaV,
-        "org.iq80.leveldb"          % "leveldb"                      % "0.7",
-        "org.fusesource.leveldbjni" % "leveldbjni-all"               % "1.8",
         "org.slf4j"                % "slf4j-api"                     % slf4jV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
@@ -76,7 +104,8 @@ lazy val proxy = (project in file("rhttpc-proxy")).
       )
     },
     dockerExposedPorts := Seq(5005),
-    dockerEntrypoint := Seq("bin/rhttpc-proxy", "-jvm-debug", "5005")
+    dockerEntrypoint := Seq("bin/rhttpc-proxy", "-jvm-debug", "5005"),
+    publishArtifact := false
   ).
   dependsOn(api)
 
@@ -93,7 +122,6 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
       )
     },
     dockerExposedPorts := Seq(8082),
-    Keys.publish := (),
     publishArtifact := false
   )
 
@@ -105,6 +133,8 @@ lazy val sampleApp = (project in file("sample/sample-app")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
+        "org.iq80.leveldb"          % "leveldb"                      % "0.7",
+        "org.fusesource.leveldbjni" % "leveldbjni-all"               % "1.8",
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"           % "logback-classic"               % logbackV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
@@ -112,7 +142,6 @@ lazy val sampleApp = (project in file("sample/sample-app")).
       )
     },
     dockerExposedPorts := Seq(8081),
-    Keys.publish := (),
     publishArtifact := false
   ).
   dependsOn(client)
@@ -134,10 +163,10 @@ lazy val testProj = (project in file("sample/test")).
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
     ),
-    Keys.publish := (),
     publishArtifact := false
   )
 
+publishArtifact := false
 
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
