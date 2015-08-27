@@ -2,16 +2,16 @@ rabbitmq:
   image: rabbitmq:3.5.4-management
 
 rhttpcproxy:
-  image: arkadius/rhttpc-proxy:0.0.1-SNAPSHOT
+  image: arkadius/rhttpc-proxy:0.1.0
   links:
     - rabbitmq
     - sampleecho
 
 sampleecho:
-  image: arkadius/sampleecho:0.0.1-SNAPSHOT
+  image: arkadius/sampleecho:0.1.1-SNAPSHOT
 
 sampleapp:
-  image: arkadius/sampleapp:0.0.1-SNAPSHOT
+  image: arkadius/sampleapp:0.1.1-SNAPSHOT
   links:
     - rabbitmq
   ports:
