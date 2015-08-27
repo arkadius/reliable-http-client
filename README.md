@@ -6,7 +6,7 @@
 
 *Reliable Http Client* is a HTTP client tunneling *Akka* HttpRequest/HttpResponse over [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol). It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
-## How to usue
+## How to use
 
 Firstly you need to add client lib to your project dependencies
 ```sbt
