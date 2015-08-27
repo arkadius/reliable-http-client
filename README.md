@@ -6,6 +6,15 @@
 
 *Reliable Http Client* is a HTTP client tunneling *Akka* HttpRequest/HttpResponse over [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol). It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
 
+## How to usue
+
+Firstly you need to add client lib to your project dependencies
+```sbt
+libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.1.0"
+```
+
+Then you need to integrate your application with rhttpc. You can check out [sample](https://github.com/arkadius/reliable-http-client/tree/master/sample) to see how to do it. You also need to start *rhttpc-proxy* which will communicate with your external services. There is published docker image on docker hub. You can use it by docker compose. [Here](https://github.com/arkadius/reliable-http-client/blob/master/sample/docker-compose.yml) is sample docker-compose file which will run all together.
+
 ## Idea
 
 Consinder situation:
@@ -101,10 +110,6 @@ Slightly difference is that instead of `rhttpc.send(request).toFuture pipeTo sel
 ### Request-response sequence
 
 ![Request-response](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-request-response.png)
-
-## Status
-
-WIP
 
 # 3rd part libraries
 
