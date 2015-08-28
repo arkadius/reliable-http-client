@@ -50,7 +50,7 @@ system.actorOf(Props(new Actor {
 }))
 ```
 
-The example above cause that request/response will be send thru *AMQP* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *AMQP* durable queue.
+The example above cause that request/response will be send through *AMQP* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *AMQP* durable queue.
 But after restart our application won't know what to do with response - in which state was sending actor. So we need to also persist state of our actor including acknowledged published requests.
 It can be achived by *ReliableFSM* delivered by this project.
 
@@ -113,7 +113,7 @@ Slightly difference is that instead of `rhttpc.send(request).toFuture pipeTo sel
 
 # 3rd part libraries
 
-*rhttpc* uses [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication thru *AMQP*. It also uses [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states.
+*rhttpc* uses [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication through *AMQP*. It also uses [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states.
 
 
 # License
