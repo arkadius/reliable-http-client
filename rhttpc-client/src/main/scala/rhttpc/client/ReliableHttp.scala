@@ -19,7 +19,7 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.HttpRequest
 import akka.pattern._
 import akka.stream.Materializer
 import akka.util.Timeout
@@ -30,20 +30,16 @@ import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.api.Correlated
-import rhttpc.transport.json4s.Json4sSerializer
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Try}
+import scala.util.Failure
 
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    import Json4sSerializer.formats
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
-    )
+    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
@@ -55,10 +51,7 @@ object ReliableHttp {
   }
 
   def apply(connection: Connection)(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
-    import Json4sSerializer.formats
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
-    )
+    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)
   }
@@ -66,10 +59,7 @@ object ReliableHttp {
   def withEmbeddedProxy(connection: Connection)(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val proxy = ReliableHttpProxy(connection, batchSize = 10)
     proxy.run()
-    import Json4sSerializer.formats
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
-    )
+    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
@@ -85,10 +75,7 @@ object ReliableHttp {
     val connection = AmqpConnectionFactory.create(actorSystem)
     val proxy = ReliableHttpProxy(connection, batchSize = 10)
     proxy.run()
-    import Json4sSerializer.formats
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
-    )
+    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {

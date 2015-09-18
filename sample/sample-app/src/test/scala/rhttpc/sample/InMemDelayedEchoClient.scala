@@ -18,7 +18,7 @@ package rhttpc.sample
 import java.util.UUID
 
 import akka.actor.{ActorRef, ActorSystem}
-import rhttpc.client.{ReplyFuture, RequestPublished, SubscriptionManager, SubscriptionOnResponse}
+import rhttpc.client._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,19 +28,24 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
 
   private val subOnMsg: collection.concurrent.Map[SubscriptionOnResponse, String] = collection.concurrent.TrieMap()
 
-  val subscriptionManager: SubscriptionManager = new SubscriptionManager {
-    override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
-      system.scheduler.scheduleOnce(delay) {
-        subOnMsg.remove(subscription).foreach { msg =>
-          consumer ! msg
+  val subscriptionManager: SubscriptionManager with SubscriptionInternalManagement =
+    new SubscriptionManager with SubscriptionInternalManagement {
+      override def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit = {
+        system.scheduler.scheduleOnce(delay) {
+          subOnMsg.remove(subscription).foreach { msg =>
+            consumer ! msg
+          }
         }
       }
+
+      override def registerPromise(subscription: SubscriptionOnResponse): Unit = {}
+
+      override def abort(subscription: SubscriptionOnResponse): Unit = {}
+
+      override def run(): Unit = {}
+
+      override def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
     }
-
-    override def run(): Unit = {}
-
-    override def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
-  }
 
   override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
     val uniqueSubOnResponse = SubscriptionOnResponse(UUID.randomUUID().toString)

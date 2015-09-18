@@ -17,13 +17,12 @@ package rhttpc.proxy
 
 import akka.actor._
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.HttpResponse
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.transport.PubSubTransport
-import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpTransportCreateData, AmqpTransportFactory}
+import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
 import rhttpc.transport.api.Correlated
-import rhttpc.transport.json4s.Json4sSerializer
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -31,12 +30,8 @@ import scala.util.{Failure, Success, Try}
 object ReliableHttpProxy {
   def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    import Json4sSerializer.formats
-    val batchSize = 10
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[Try[HttpResponse]], Correlated[HttpRequest]](actorSystem, connection, qos = batchSize)
-    )
-    new ReliableHttpProxy(batchSize) {
+    implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
+    new ReliableHttpProxy(batchSize = 10) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
         recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
           connection.close()
@@ -47,10 +42,7 @@ object ReliableHttpProxy {
 
   def apply(connection: Connection, batchSize: Int)
            (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
-    import Json4sSerializer.formats
-    implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[Try[HttpResponse]], Correlated[HttpRequest]](actorSystem, connection, qos = batchSize)
-    )
+    implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
     new ReliableHttpProxy(batchSize)
   }
 
@@ -71,9 +63,8 @@ class ReliableHttpProxy(protected val batchSize: Int)
 
   private val publisher = transport.publisher("rhttpc-response")
 
-  override protected def handleResponse(originalSender: ActorRef, correlatedResponse: Correlated[Try[HttpResponse]])
-                                       (log: LoggingAdapter)
-                                       (implicit ec: ExecutionContext): Future[Unit] = {
+  override protected def handleResponse(correlatedResponse: Correlated[Try[HttpResponse]])
+                                       (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit] = {
     val ackFuture = publisher.publish(correlatedResponse)
     ackFuture.onComplete {
       case Success(_) => log.debug(s"Publishing of $correlatedResponse successfully acknowledged")

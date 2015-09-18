@@ -34,7 +34,7 @@ trait SubscriptionManager {
   def stop()(implicit ec: ExecutionContext): Future[Unit]
 }
 
-private[client] trait SubscriptionInternalManagement {
+private[rhttpc] trait SubscriptionInternalManagement {
   def registerPromise(subscription: SubscriptionOnResponse): Unit
 
   def abort(subscription: SubscriptionOnResponse): Unit

@@ -55,16 +55,16 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
         Source.single((req, correlationId)).via(httpClient).runForeach {
           case (tryResponse, id) =>
             val correlated = Correlated(tryResponse, id)
-            handleResponse(originalSender, correlated)(log) pipeTo originalSender
+            implicit val logImplicit = log
+            handleResponse(correlated) pipeTo originalSender
         }
     }
   }))
 
   private val subscriber = transport.subscriber("rhttpc-request", consumingActor)
   
-  protected def handleResponse(originalSender: ActorRef, correlatedResponse: Correlated[Try[HttpResponse]])
-                              (log: LoggingAdapter)
-                              (implicit ec: ExecutionContext): Future[Unit]
+  protected def handleResponse(correlatedResponse: Correlated[Try[HttpResponse]])
+                              (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit]
 
   def run() {
     subscriber.run()
