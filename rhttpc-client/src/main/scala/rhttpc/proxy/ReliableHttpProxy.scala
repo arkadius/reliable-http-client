@@ -38,7 +38,7 @@ object ReliableHttpProxy {
     )
     new ReliableHttpProxy(batchSize) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        super.close().map { _ =>
+        recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
           connection.close()
         }
       }
@@ -52,6 +52,15 @@ object ReliableHttpProxy {
       AmqpTransportCreateData[Correlated[Try[HttpResponse]], Correlated[HttpRequest]](actorSystem, connection, qos = batchSize)
     )
     new ReliableHttpProxy(batchSize)
+  }
+
+  private def recovered[T](future: Future[T], action: String)
+                          (implicit actorSystem: ActorSystem) = {
+    import actorSystem.dispatcher
+    future.recover {
+      case ex =>
+        actorSystem.log.error(ex, s"Exception while $action")
+    }
   }
 }
 
