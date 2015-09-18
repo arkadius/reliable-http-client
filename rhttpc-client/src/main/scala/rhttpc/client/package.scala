@@ -15,8 +15,21 @@
  */
 package rhttpc
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpRequest
+
+import scala.concurrent.Future
 
 package object client {
   type ReliableHttp = ReliableClient[HttpRequest]
+
+
+  def recovered[T](future: Future[T], action: String)
+                  (implicit actorSystem: ActorSystem) = {
+    import actorSystem.dispatcher
+    future.recover {
+      case ex =>
+        actorSystem.log.error(ex, s"Exception while $action")
+    }
+  }
 }

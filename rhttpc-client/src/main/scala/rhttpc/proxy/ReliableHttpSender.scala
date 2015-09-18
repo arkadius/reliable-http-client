@@ -22,6 +22,7 @@ import akka.http.scaladsl.model._
 import akka.pattern._
 import akka.stream.Materializer
 import akka.stream.scaladsl._
+import org.slf4j.LoggerFactory
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.api.Correlated
 
@@ -33,7 +34,9 @@ import scala.util.{Success, Try}
 abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
                                   materialize: Materializer,
                                   transport: PubSubTransport[Correlated[Try[HttpResponse]]]) {
-  
+
+  private val log = LoggerFactory.getLogger(getClass)
+
   protected def batchSize: Int
 
   private val consumingActor = actorSystem.actorOf(Props(new Actor with ActorLogging {
@@ -54,16 +57,16 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
         // TODO: backpresure, move to flows
         Source.single((req, correlationId)).via(httpClient).runForeach {
           case (tryResponse, id) =>
-            val correlated = Correlated(tryResponse, id)
             implicit val logImplicit = log
-            handleResponse(correlated) pipeTo originalSender
+            handleResponse(tryResponse)(req, id) pipeTo originalSender
         }
     }
   }))
 
   private val subscriber = transport.subscriber("rhttpc-request", consumingActor)
   
-  protected def handleResponse(correlatedResponse: Correlated[Try[HttpResponse]])
+  protected def handleResponse(tryResponse: Try[HttpResponse])
+                              (forRequest: HttpRequest, correlationId: String)
                               (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit]
 
   def run() {
@@ -71,7 +74,9 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
   }
   
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    subscriber.stop()
+    Try(subscriber.stop()).recover {
+      case ex => log.error("Exception while stopping subscriber", ex)
+    }
     gracefulStop(consumingActor, 30 seconds).map(stopped =>
       if (!stopped)
         throw new IllegalStateException("Consuming actor hasn't been stopped correctly")

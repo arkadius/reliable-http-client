@@ -63,7 +63,7 @@ object AmqpConnectionFactory {
 
     retry(n = 10, delay = 5000) {
       Try { // Could By IOException or TimeoutException
-      val hosts = actorSystem.settings.config.getStringList("rabbitmq.hosts")
+        val hosts = actorSystem.settings.config.getStringList("rabbitmq.hosts")
         val addresses = hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
         factory.newConnection(addresses)
       }

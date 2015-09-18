@@ -17,21 +17,23 @@ package rhttpc.proxy
 
 import akka.actor._
 import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
-import rhttpc.transport.PubSubTransport
+import rhttpc.proxy.processor.{AckAction, HttpResponseProcessor, PublishingEveryResponseProcessor}
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
 import rhttpc.transport.api.Correlated
+import rhttpc.transport.{PubSubTransport, Publisher}
+import rhttpc.client._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object ReliableHttpProxy {
   def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
     val connection = AmqpConnectionFactory.create(actorSystem)
     implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
-    new ReliableHttpProxy(batchSize = 10) {
+    new ReliableHttpProxy(PublishingEveryResponseProcessor, batchSize = 10) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
         recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
           connection.close()
@@ -40,42 +42,38 @@ object ReliableHttpProxy {
     }
   }
 
-  def apply(connection: Connection, batchSize: Int)
+  def apply(connection: Connection, responseProcessor: HttpResponseProcessor, batchSize: Int)
            (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
     implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
-    new ReliableHttpProxy(batchSize)
-  }
-
-  private def recovered[T](future: Future[T], action: String)
-                          (implicit actorSystem: ActorSystem) = {
-    import actorSystem.dispatcher
-    future.recover {
-      case ex =>
-        actorSystem.log.error(ex, s"Exception while $action")
-    }
+    new ReliableHttpProxy(responseProcessor, batchSize)
   }
 }
 
-class ReliableHttpProxy(protected val batchSize: Int)
+class ReliableHttpProxy(responseProcessor: HttpResponseProcessor, protected val batchSize: Int)
                        (implicit actorSystem: ActorSystem,
                         materialize: Materializer,
                         transport: PubSubTransport[Correlated[Try[HttpResponse]]]) extends ReliableHttpSender {
 
   private val publisher = transport.publisher("rhttpc-response")
 
-  override protected def handleResponse(correlatedResponse: Correlated[Try[HttpResponse]])
+  override protected def handleResponse(tryResponse: Try[HttpResponse])
+                                       (forRequest: HttpRequest, correlationId: String)
                                        (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit] = {
-    val ackFuture = publisher.publish(correlatedResponse)
-    ackFuture.onComplete {
-      case Success(_) => log.debug(s"Publishing of $correlatedResponse successfully acknowledged")
-      case Failure(ex) => log.error(s"Publishing of $correlatedResponse acknowledgement failed", ex)
-    }
-    ackFuture
+    val context = HttpProxyContext(forRequest, correlationId, publisher, log, ec)
+    responseProcessor.handleResponse(context).applyOrElse(tryResponse, (_: Try[HttpResponse]) => AckAction())
   }
 
   override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    super.close().map { _ =>
+    recovered(super.close(), "closing ReliableHttpSender").map { _ =>
       publisher.close()
     }
   }
+}
+
+case class HttpProxyContext(request: HttpRequest,
+                            correlationId: String,
+                            publisher: Publisher[Correlated[Try[HttpResponse]]],
+                            log: LoggingAdapter,
+                            ec: ExecutionContext) {
+  implicit val executionContext = ec
 }

@@ -19,7 +19,7 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern._
 import akka.stream.Materializer
 import akka.util.Timeout
@@ -27,6 +27,7 @@ import com.rabbitmq.client.Connection
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
+import rhttpc.proxy.processor.{AcknowledgingSuccessResponseProcessor, HttpResponseProcessor}
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.api.Correlated
@@ -34,7 +35,7 @@ import rhttpc.transport.api.Correlated
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.Failure
+import scala.util.{Failure, Success, Try}
 
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
@@ -56,8 +57,27 @@ object ReliableHttp {
     new ReliableClient[HttpRequest](subMgr)
   }
 
-  def withEmbeddedProxy(connection: Connection)(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val proxy = ReliableHttpProxy(connection, batchSize = 10)
+  def publisher(connection: Connection, isSuccess: PartialFunction[Try[HttpResponse], Unit])
+               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val processor = AcknowledgingSuccessResponseProcessor(isSuccess)
+    withEmbeddedProxy(connection, processor)
+  }
+
+  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    publisher {
+      case Success(response) if response.status.isSuccess() =>
+    }
+  }
+
+  def publisher(isSuccess: PartialFunction[Try[HttpResponse], Unit])
+               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val processor = AcknowledgingSuccessResponseProcessor(isSuccess)
+    withEmbeddedProxy(processor)
+  }
+
+  def withEmbeddedProxy(connection: Connection, responseProcessor: HttpResponseProcessor)
+                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
     proxy.run()
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
@@ -71,9 +91,10 @@ object ReliableHttp {
     }
   }
 
-  def withEmbeddedProxy()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+  def withEmbeddedProxy(responseProcessor: HttpResponseProcessor)
+                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    val proxy = ReliableHttpProxy(connection, batchSize = 10)
+    val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
     proxy.run()
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
@@ -84,15 +105,6 @@ object ReliableHttp {
           _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
         } yield connection.close()
       }
-    }
-  }
-
-  private def recovered[T](future: Future[T], action: String)
-                          (implicit actorSystem: ActorSystem) = {
-    import actorSystem.dispatcher
-    future.recover {
-      case ex =>
-        actorSystem.log.error(ex, s"Exception while $action")
     }
   }
 }
@@ -125,10 +137,7 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    subscriptionManager.stop().recover {
-      case ex =>
-        log.error("Exception while stopping subscriptionManager", ex)
-    }.map { _ =>
+    recovered(subscriptionManager.stop(), "stopping subscriptionManager").map { _ =>
       publisher.close()
     }
   }
