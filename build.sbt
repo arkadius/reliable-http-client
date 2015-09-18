@@ -59,7 +59,7 @@ val slf4jV = "1.7.7"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
 
-lazy val api = (project in file("rhttpc-api")).
+lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
   settings(publishSettings).
   settings(
@@ -92,9 +92,9 @@ lazy val client = (project in file("rhttpc-client")).
       )
     }
   ).
-  dependsOn(api)
+  dependsOn(transport)
 
-lazy val proxy = (project in file("rhttpc-proxy")).
+lazy val proxyApp = (project in file("rhttpc-proxy")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
   enablePlugins(JavaAppPackaging).
@@ -110,7 +110,7 @@ lazy val proxy = (project in file("rhttpc-proxy")).
     dockerEntrypoint := Seq("bin/rhttpc-proxy", "-jvm-debug", "5005"),
     publishArtifact := false
   ).
-  dependsOn(api)
+  dependsOn(client)
 
 lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(commonSettings).
@@ -162,7 +162,7 @@ lazy val testProj = (project in file("sample/test")).
       )
     },
     Keys.test in Test <<= (Keys.test in Test).dependsOn(
-      publishLocal in Docker in proxy,
+      publishLocal in Docker in proxyApp,
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
     ),

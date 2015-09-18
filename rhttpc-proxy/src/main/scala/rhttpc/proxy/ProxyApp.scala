@@ -15,67 +15,25 @@
  */
 package rhttpc.proxy
 
-import akka.actor.{Actor, ActorSystem, Props}
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.pattern._
+import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl._
-import rhttpc.api.Correlated
-import rhttpc.api.json4s.Json4sSerializer
-import rhttpc.api.transport.amqp.{AmqpTransportCreateData, AmqpTransportFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
 
 object ProxyApp extends App {
-
   implicit val actorSystem = ActorSystem("rhttpc-proxy")
-  implicit val materializer = ActorMaterializer()
-  import Json4sSerializer.formats
   import actorSystem.dispatcher
+  implicit val materializer = ActorMaterializer()
 
-  val batchSize = 10
-  val transport = AmqpTransportFactory.create(
-    AmqpTransportCreateData[Correlated[Try[HttpResponse]], Correlated[HttpRequest]](actorSystem, qos = batchSize)
-  )
-
-  val publisher = transport.publisher("rhttpc-response")
-
-  val httpClient = Http().superPool[String]().mapAsync(batchSize) {
-    case (tryResponse, id) =>
-      tryResponse match {
-        case Success(response) => response.toStrict(1 minute).map(strict => (Success(strict), id))
-        case failure => Future.successful((failure, id))
-      }
-  }
-
-  // TODO: backpresure, move to flows
-  val subscriber = transport.subscriber("rhttpc-request", actorSystem.actorOf(Props(new Actor {
-    override def receive: Receive = {
-      case correlated@Correlated(req: HttpRequest, correlationId) =>
-        actorSystem.log.debug(s"Got $correlated")
-        val originalSender = sender()
-        Source.single((req, correlationId)).via(httpClient).runForeach {
-          case (tryResponse, id) =>
-            val correlated = Correlated(tryResponse, id)
-            val ackFuture = publisher.publish(correlated)
-            ackFuture.onComplete {
-              case Success(_) => actorSystem.log.debug(s"Publishing of $correlated successfully acknowledged")
-              case Failure(ex) => actorSystem.log.error(s"Publishing of $correlated acknowledgement failed", ex)
-            }
-            ackFuture pipeTo originalSender
-        }
-    }
-  })))
-
-  subscriber.run()
+  val proxy = ReliableHttpProxy()
 
   Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {
-      transport.close()
+      Await.result(proxy.close(), 5 minutes)
     }
   })
+
+  proxy.run()
 }

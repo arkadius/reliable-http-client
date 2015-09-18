@@ -19,29 +19,94 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern._
+import akka.stream.Materializer
 import akka.util.Timeout
+import com.rabbitmq.client.Connection
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
-import rhttpc.api.Correlated
-import rhttpc.api.json4s.Json4sSerializer
-import rhttpc.api.transport.PubSubTransport
-import rhttpc.api.transport.amqp._
+import rhttpc.proxy.ReliableHttpProxy
+import rhttpc.transport.PubSubTransport
+import rhttpc.transport.amqp._
+import rhttpc.transport.api.Correlated
+import rhttpc.transport.json4s.Json4sSerializer
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Try, Failure}
+import scala.util.{Failure, Try}
 
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
+    val connection = AmqpConnectionFactory.create(actorSystem)
     import Json4sSerializer.formats
     implicit val transport = AmqpTransportFactory.create(
-      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem)
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
+    )
+    val subMgr = SubscriptionManager()
+    new ReliableClient[HttpRequest](subMgr) {
+      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+        recovered(super.close(), "closing ReliableHttp").map { _ =>
+          connection.close()
+        }
+      }
+    }
+  }
+
+  def apply(connection: Connection)(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
+    import Json4sSerializer.formats
+    implicit val transport = AmqpTransportFactory.create(
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
     )
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)
+  }
+
+  def withEmbeddedProxy(connection: Connection)(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val proxy = ReliableHttpProxy(connection, batchSize = 10)
+    proxy.run()
+    import Json4sSerializer.formats
+    implicit val transport = AmqpTransportFactory.create(
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
+    )
+    val subMgr = SubscriptionManager()
+    new ReliableClient[HttpRequest](subMgr) {
+      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+        for {
+          _ <- recovered(super.close(), "closing ReliableHttp")
+          proxyCloseResult <- proxy.close()
+        } yield proxyCloseResult
+      }
+    }
+  }
+
+  def withEmbeddedProxy()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val connection = AmqpConnectionFactory.create(actorSystem)
+    val proxy = ReliableHttpProxy(connection, batchSize = 10)
+    proxy.run()
+    import Json4sSerializer.formats
+    implicit val transport = AmqpTransportFactory.create(
+      AmqpTransportCreateData[Correlated[HttpRequest], Correlated[Try[HttpResponse]]](actorSystem, connection)
+    )
+    val subMgr = SubscriptionManager()
+    new ReliableClient[HttpRequest](subMgr) {
+      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+        for {
+          _ <- recovered(super.close(), "closing ReliableHttp")
+          _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
+        } yield connection.close()
+      }
+    }
+  }
+
+  private def recovered[T](future: Future[T], action: String)
+                          (implicit actorSystem: ActorSystem) = {
+    import actorSystem.dispatcher
+    future.recover {
+      case ex =>
+        actorSystem.log.error(ex, s"Exception while $action")
+    }
   }
 }
 
@@ -73,9 +138,11 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    publisher.close()
-    subscriptionManager.stop().map { _ =>
-      transport.close()
+    subscriptionManager.stop().recover {
+      case ex =>
+        log.error("Exception while stopping subscriptionManager", ex)
+    }.map { _ =>
+      publisher.close()
     }
   }
 }

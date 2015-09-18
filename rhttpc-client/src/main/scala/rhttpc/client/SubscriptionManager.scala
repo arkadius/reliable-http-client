@@ -17,12 +17,14 @@ package rhttpc.client
 
 import akka.actor._
 import akka.pattern._
+import org.slf4j.LoggerFactory
 import rhttpc.actor.impl._
-import rhttpc.api.transport.PubSubTransport
+import rhttpc.transport.PubSubTransport
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.Try
 
 trait SubscriptionManager {
   def run(): Unit
@@ -47,6 +49,8 @@ object SubscriptionManager {
 private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
+  private val log = LoggerFactory.getLogger(getClass)
+
   private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor])
 
   private val transportSub = transport.subscriber("rhttpc-response", dispatcher)
@@ -68,10 +72,12 @@ private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFa
   }
 
   override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
-    transportSub.stop()
+    Try(transportSub.stop()).recover {
+      case ex => log.error("Exception while stopping subscriber", ex)
+    }
     gracefulStop(dispatcher, 30 seconds).map(stopped =>
       if (!stopped)
-        throw new IllegalStateException("Subscription manager hasn't been stopped correctly")
+        throw new IllegalStateException("Graceful stop failed")
     )
   }
 }

@@ -13,22 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.json4s
+package rhttpc.transport.api
 
-import akka.http.scaladsl.model.ContentType
-import akka.util.ByteString
-import org.json4s.JsonAST.{JObject, JString}
-import org.json4s._
-
-object ByteStringSerializer extends CustomSerializer[ByteString](implicit formats => (
-  {
-    case JObject(_ :: ("value", JString(value)) :: Nil) =>
-      ByteString(value)
-  },
-  {
-    case bs: ByteString => JObject(
-      formats.typeHintFieldName -> JString(classOf[ContentType].getName),
-      "value" -> JString(bs.utf8String)
-    )
-  }
-))
+case class Correlated[T](msg: T, correlationId: String)

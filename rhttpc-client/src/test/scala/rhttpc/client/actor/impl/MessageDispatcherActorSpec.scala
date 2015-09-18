@@ -21,8 +21,8 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
 import rhttpc.actor.impl.{ConfirmOrRegisterSubscription, MessageDispatcherActor, RegisterSubscriptionPromise}
-import rhttpc.api.Correlated
 import rhttpc.client.{MessageFromSubscription, SubscriptionOnResponse}
+import rhttpc.transport.api.Correlated
 
 import scala.util.Success
 

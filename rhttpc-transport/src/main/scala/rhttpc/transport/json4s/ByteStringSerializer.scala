@@ -13,18 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.json4s
+package rhttpc.transport.json4s
 
-import org.json4s.TypeHints
+import akka.http.scaladsl.model.ContentType
+import akka.util.ByteString
+import org.json4s.JsonAST.{JObject, JString}
+import org.json4s._
 
-import scala.util.control.Exception._
-
-object AllTypeHints extends TypeHints {
-  override def containsHint(clazz: Class[_]): Boolean = true
-
-  override def classFor(hint: String): Option[Class[_]] = catching(classOf[ClassNotFoundException]) opt Class.forName(hint)
-
-  override def hintFor(clazz: Class[_]): String = clazz.getName
-
-  override val hints: List[Class[_]] = Nil
-}
+object ByteStringSerializer extends CustomSerializer[ByteString](implicit formats => (
+  {
+    case JObject(_ :: ("value", JString(value)) :: Nil) =>
+      ByteString(value)
+  },
+  {
+    case bs: ByteString => JObject(
+      formats.typeHintFieldName -> JString(classOf[ContentType].getName),
+      "value" -> JString(bs.utf8String)
+    )
+  }
+))

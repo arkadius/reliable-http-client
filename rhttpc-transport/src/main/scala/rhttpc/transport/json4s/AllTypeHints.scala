@@ -13,6 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api
+package rhttpc.transport.json4s
 
-case class Correlated[T](msg: T, correlationId: String)
+import org.json4s.TypeHints
+
+import scala.util.control.Exception._
+
+object AllTypeHints extends TypeHints {
+  override def containsHint(clazz: Class[_]): Boolean = true
+
+  override def classFor(hint: String): Option[Class[_]] = catching(classOf[ClassNotFoundException]) opt Class.forName(hint)
+
+  override def hintFor(clazz: Class[_]): String = clazz.getName
+
+  override val hints: List[Class[_]] = Nil
+}

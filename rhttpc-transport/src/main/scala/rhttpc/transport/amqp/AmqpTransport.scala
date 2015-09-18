@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.transport.amqp
+package rhttpc.transport.amqp
 
 import java.io._
 
@@ -24,18 +24,17 @@ import akka.util.Timeout
 import com.rabbitmq.client._
 import org.json4s.Formats
 import org.json4s.native._
-import rhttpc.api.transport._
+import rhttpc.transport._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Try, Failure, Success}
-import scala.util.control.Exception._
+import scala.util.{Failure, Success, Try}
 
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg], connection: Connection) extends PubSubTransport[PubMsg] {
+private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg]) extends PubSubTransport[PubMsg] {
   override def publisher(queueName: String): Publisher[PubMsg] = {
-    val channel = connection.createChannel()
+    val channel = data.connection.createChannel()
     channel.queueDeclare(queueName, true, false, false, null)
     val publisher = new AmqpPublisher(data, channel, queueName)
     channel.addConfirmListener(publisher)
@@ -44,14 +43,10 @@ private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportC
   }
 
   override def subscriber(queueName: String, consumer: ActorRef): Subscriber = {
-    val channel = connection.createChannel()
+    val channel = data.connection.createChannel()
     channel.basicQos(data.qos)
     channel.queueDeclare(queueName, true, false, false, null)
     new AmqpSubscriber(data, channel, queueName, consumer)
-  }
-
-  override def close(): Unit = {
-    connection.close()
   }
 }
 
@@ -59,19 +54,24 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
   override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
+    new AmqpTransport[PubMsg, SubMsg](data)
+  }
+
+}
+
+object AmqpConnectionFactory {
+  def create(actorSystem: ActorSystem): Connection = {
     import collection.convert.wrapAsScala._
     val factory = new ConnectionFactory()
     factory.setAutomaticRecoveryEnabled(true)
 
-    val connection = retry(n = 10, delay = 5000) {
+    retry(n = 10, delay = 5000) {
       Try { // Could By IOException or TimeoutException
-        val hosts = data.actorSystem.settings.config.getStringList("rabbitmq.hosts")
+      val hosts = actorSystem.settings.config.getStringList("rabbitmq.hosts")
         val addresses = hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
         factory.newConnection(addresses)
       }
     }
-
-    new AmqpTransport[PubMsg, SubMsg](data, connection)
   }
 
   private def retry[T](n: Int, delay: Long)(fn: => Try[T]): T = {
@@ -83,10 +83,9 @@ object AmqpTransportFactory extends PubSubTransportFactory {
       case Failure(e) => throw e
     }
   }
-
 }
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, qos: Int = 10)
+case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, connection: Connection, qos: Int = 10)
                                                   (implicit val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
 
@@ -154,8 +153,7 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         import data.actorSystem.dispatcher
-        import data.formats
-        import data.subMsgManifest
+        import data.{formats, subMsgManifest}
         if (false) subMsgManifest // to avoid imports optimization
         val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
         implicit val timeout = Timeout(1 minute)

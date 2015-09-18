@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.api.transport
+package rhttpc.transport
 
 import akka.actor.ActorRef
 
@@ -24,8 +24,6 @@ trait PubSubTransport[PubMsg] {
   def publisher(queueName: String): Publisher[PubMsg]
 
   def subscriber(queueName: String, consumer: ActorRef): Subscriber
-
-  def close(): Unit
 }
 
 trait PubSubTransportFactory {
