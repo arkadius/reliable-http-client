@@ -148,12 +148,22 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
 }
 
 class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Future[PublicationResult])
-                 (request: Any, subscriptionManager: SubscriptionManager) {
+                 (request: Any, subscriptionManager: SubscriptionManager with SubscriptionInternalManagement) {
   def pipeTo(listener: PublicationListener)(implicit ec: ExecutionContext): Unit = {
     // we can notice about promise registered in this place - message won't be consumed before RegisterSubscriptionPromise
     // in dispatcher actor because of mailbox processing in order
     listener.subscriptionPromiseRegistered(subscription)
     publicationFuture pipeTo listener.self
+  }
+
+  def toPublicationFuture(implicit ec: ExecutionContext): Future[Unit.type] = {
+    publicationFuture.map {
+      case RequestPublished(_) =>
+        subscriptionManager.abort(subscription) // we are not interested about response so we need to clean up after registration promise
+        Unit
+      case RequestAborted(_, ex) =>
+        throw new NoAckException(request, ex)
+    }
   }
 
   def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
