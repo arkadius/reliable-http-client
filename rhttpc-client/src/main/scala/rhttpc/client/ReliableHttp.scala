@@ -29,7 +29,7 @@ import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.proxy.processor.{AcknowledgingSuccessResponseProcessor, HttpResponseProcessor}
 import rhttpc.transport.amqp._
-import rhttpc.transport.api.{PubSubTransport, Correlated}
+import rhttpc.transport.api.{Correlated, PubSubTransport}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -39,6 +39,7 @@ import scala.util.{Failure, Success, Try}
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -51,6 +52,7 @@ object ReliableHttp {
   }
 
   def apply(connection: Connection)(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)
@@ -78,6 +80,7 @@ object ReliableHttp {
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
     proxy.run()
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -93,6 +96,7 @@ object ReliableHttp {
   def withEmbeddedProxy(responseProcessor: HttpResponseProcessor)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
+    import actorSystem.dispatcher
     val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
     proxy.run()
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)

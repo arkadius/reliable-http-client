@@ -16,16 +16,18 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
-import rhttpc.transport._
-import rhttpc.transport.api.{Subscriber, Publisher, PubSubTransport}
+import com.rabbitmq.client.AMQP.Queue.DeclareOk
+import rhttpc.transport.api.{PubSubTransport, Publisher, Subscriber}
 
 import scala.language.postfixOps
 
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg]) extends PubSubTransport[PubMsg] {
+private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg],
+                                                            declarePublisherQueue: AmqpQueueCreateData => DeclareOk,
+                                                            declareSubscriberQueue: AmqpQueueCreateData => DeclareOk) extends PubSubTransport[PubMsg] {
   override def publisher(queueName: String): Publisher[PubMsg] = {
     val channel = data.connection.createChannel()
-    channel.queueDeclare(queueName, true, false, false, null)
+    declarePublisherQueue(AmqpQueueCreateData(channel, queueName))
     val publisher = new AmqpPublisher(data, channel, queueName)
     channel.addConfirmListener(publisher)
     channel.confirmSelect()
@@ -34,8 +36,7 @@ private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportC
 
   override def subscriber(queueName: String, consumer: ActorRef): Subscriber = {
     val channel = data.connection.createChannel()
-    channel.basicQos(data.qos)
-    channel.queueDeclare(queueName, true, false, false, null)
+    declareSubscriberQueue(AmqpQueueCreateData(channel, queueName))
     new AmqpSubscriber(data, channel, queueName, consumer)
   }
 }

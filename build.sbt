@@ -82,7 +82,8 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
         "net.ceedubs"             %% "ficus"                         % ficusV,
         "com.rabbitmq"             % "amqp-client"                   % amqpcV,
-        "org.json4s"              %% "json4s-native"                 % json4sV
+        "org.json4s"              %% "json4s-native"                 % json4sV,
+        "org.slf4j"                % "slf4j-api"                     % slf4jV
       )
     }
   ).
@@ -97,7 +98,6 @@ lazy val client = (project in file("rhttpc-client")).
       Seq(
         "com.typesafe.akka"       %% "akka-persistence"              % akkaV,
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "org.slf4j"                % "slf4j-api"                     % slf4jV,
         "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV         % "test",

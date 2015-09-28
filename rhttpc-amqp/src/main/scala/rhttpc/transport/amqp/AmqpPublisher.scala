@@ -20,7 +20,7 @@ import java.io._
 import akka.agent.Agent
 import com.rabbitmq.client._
 import org.json4s.native._
-import rhttpc.transport._
+import org.slf4j.LoggerFactory
 import rhttpc.transport.api.Publisher
 
 import scala.concurrent.{Future, Promise}
@@ -29,8 +29,9 @@ import scala.language.postfixOps
 private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
                                                     channel: Channel,
                                                     queueName: String) extends Publisher[PubMsg] with ConfirmListener {
+  private val logger = LoggerFactory.getLogger(getClass)
 
-  import data.actorSystem.dispatcher
+  import data.executionContext
 
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
@@ -47,7 +48,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
     for {
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
-        data.actorSystem.log.debug(s"PUBLISH: $publishSeqNo")
+        logger.debug(s"PUBLISH: $publishSeqNo")
         channel.basicPublish("", queueName, null, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
@@ -56,12 +57,12 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
   }
 
   override def handleAck(deliveryTag: Long, multiple: Boolean): Unit = {
-    data.actorSystem.log.debug(s"ACK: $deliveryTag, multiple = $multiple")
+    logger.debug(s"ACK: $deliveryTag, multiple = $multiple")
     confirm(deliveryTag, multiple)(_.success(Unit))
   }
 
   override def handleNack(deliveryTag: Long, multiple: Boolean): Unit = {
-    data.actorSystem.log.debug(s"NACK: $deliveryTag, multiple = $multiple")
+    logger.debug(s"NACK: $deliveryTag, multiple = $multiple")
     confirm(deliveryTag, multiple)(_.failure(NoPubMsgAckException))
   }
 

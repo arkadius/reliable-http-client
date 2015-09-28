@@ -15,19 +15,38 @@
  */
 package rhttpc.transport.amqp
 
-import akka.actor.ActorSystem
-import com.rabbitmq.client.Connection
+import com.rabbitmq.client._
 import org.json4s.Formats
 import rhttpc.transport.api.{PubSubTransport, PubSubTransportFactory, TransportCreateData}
 
-object AmqpTransportFactory extends PubSubTransportFactory {
+import scala.concurrent.ExecutionContext
+
+trait AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
-  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
-    new AmqpTransport[PubMsg, SubMsg](data)
+  protected def declarePublisherQueue(in: AmqpQueueCreateData) = {
+    in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
   }
+
+  protected def declareSubscriberQueue(in: AmqpQueueCreateData) = {
+    in.channel.basicQos(10)
+    in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
+  }
+
+  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
+    new AmqpTransport[PubMsg, SubMsg](
+      data = data,
+      declarePublisherQueue = declarePublisherQueue,
+      declareSubscriberQueue = declareSubscriberQueue)
+  }
+
 }
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, connection: Connection, qos: Int = 10)
-                                                  (implicit val subMsgManifest: Manifest[SubMsg],
+object AmqpTransportFactory extends AmqpTransportFactory
+
+case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection)
+                                                  (implicit val executionContext: ExecutionContext,
+                                                   val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
+
+case class AmqpQueueCreateData(channel: Channel, queueName: String)

@@ -33,7 +33,7 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
                                         channel: Channel,
                                         queueName: String,
                                         consumer: ActorRef) extends Subscriber {
-  import data.actorSystem.dispatcher
+  import data.executionContext
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {

@@ -31,6 +31,7 @@ import scala.util.Try
 object ReliableHttpProxy {
   def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
     val connection = AmqpConnectionFactory.create(actorSystem)
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
     new ReliableHttpProxy(PublishingEveryResponseProcessor, batchSize = 10) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
@@ -43,6 +44,7 @@ object ReliableHttpProxy {
 
   def apply(connection: Connection, responseProcessor: HttpResponseProcessor, batchSize: Int)
            (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
     new ReliableHttpProxy(responseProcessor, batchSize)
   }
