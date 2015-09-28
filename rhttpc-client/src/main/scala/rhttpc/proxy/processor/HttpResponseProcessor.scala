@@ -17,7 +17,7 @@ package rhttpc.proxy.processor
 
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import rhttpc.proxy.HttpProxyContext
-import rhttpc.transport.api.Correlated
+import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}

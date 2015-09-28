@@ -17,7 +17,7 @@ package rhttpc.actor.impl
 
 import akka.actor.{Status, Actor, ActorLogging, ActorRef}
 import rhttpc.client._
-import rhttpc.transport.api.Correlated
+import rhttpc.transport.protocol.Correlated
 
 import scala.util.{Failure, Success, Try}
 

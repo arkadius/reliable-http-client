@@ -21,7 +21,7 @@ import akka.agent.Agent
 import com.rabbitmq.client._
 import org.json4s.native._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.api.Publisher
+import rhttpc.transport.Publisher
 
 import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps

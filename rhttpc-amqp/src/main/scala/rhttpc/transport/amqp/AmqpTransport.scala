@@ -17,7 +17,7 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
-import rhttpc.transport.api.{PubSubTransport, Publisher, Subscriber}
+import rhttpc.transport._
 
 import scala.language.postfixOps
 

@@ -22,8 +22,9 @@ import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.client._
 import rhttpc.proxy.processor.{AckAction, HttpResponseProcessor, PublishingEveryResponseProcessor}
+import rhttpc.transport.{Publisher, PubSubTransport}
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
-import rhttpc.transport.api.{Correlated, PubSubTransport, Publisher}
+import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try

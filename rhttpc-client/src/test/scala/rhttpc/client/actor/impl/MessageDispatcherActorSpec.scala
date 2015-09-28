@@ -22,7 +22,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
 import rhttpc.actor.impl.{ConfirmOrRegisterSubscription, MessageDispatcherActor, RegisterSubscriptionPromise}
 import rhttpc.client.{MessageFromSubscription, SubscriptionOnResponse}
-import rhttpc.transport.api.Correlated
+import rhttpc.transport.protocol.Correlated
 
 import scala.util.Success
 

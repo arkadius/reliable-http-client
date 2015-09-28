@@ -17,7 +17,7 @@ package rhttpc.transport.amqp
 
 import com.rabbitmq.client._
 import org.json4s.Formats
-import rhttpc.transport.api.{PubSubTransport, PubSubTransportFactory, TransportCreateData}
+import rhttpc.transport._
 
 import scala.concurrent.ExecutionContext
 

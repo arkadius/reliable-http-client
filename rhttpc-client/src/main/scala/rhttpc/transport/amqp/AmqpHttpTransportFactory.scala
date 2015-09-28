@@ -17,7 +17,8 @@ package rhttpc.transport.amqp
 
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
-import rhttpc.transport.api.{Correlated, PubSubTransport}
+import rhttpc.transport.PubSubTransport
+import rhttpc.transport.protocol.Correlated
 import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
 
 import scala.concurrent.ExecutionContext
