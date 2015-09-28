@@ -17,13 +17,12 @@ package rhttpc.transport.amqp
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import com.rabbitmq.client.{Connection, ConnectionFactory}
+import com.rabbitmq.client.Connection
 import org.json4s.Formats
 import rhttpc.transport.api.Correlated
 import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
 import rhttpc.transport.{PubSubTransport, PubSubTransportFactory, TransportCreateData}
-
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
@@ -55,28 +54,3 @@ case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, con
                                                   (implicit val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
 
-object AmqpConnectionFactory {
-  def create(actorSystem: ActorSystem): Connection = {
-    import collection.convert.wrapAsScala._
-    val factory = new ConnectionFactory()
-    factory.setAutomaticRecoveryEnabled(true)
-
-    retry(n = 10, delay = 5000) {
-      Try { // Could By IOException or TimeoutException
-        val hosts = actorSystem.settings.config.getStringList("rabbitmq.hosts")
-        val addresses = hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
-        factory.newConnection(addresses)
-      }
-    }
-  }
-
-  private def retry[T](n: Int, delay: Long)(fn: => Try[T]): T = {
-    fn match {
-      case Success(x) => x
-      case _ if n > 1 =>
-        Thread.sleep(delay)
-        retry(n - 1, delay)(fn)
-      case Failure(e) => throw e
-    }
-  }
-}
