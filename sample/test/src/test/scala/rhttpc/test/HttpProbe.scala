@@ -1,6 +1,7 @@
 package rhttpc.test
 
 import dispatch._
+import dispatch.Defaults.timer
 
 import scala.concurrent._
 import scala.concurrent.duration._
