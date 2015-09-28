@@ -119,8 +119,6 @@ lazy val proxyApp = (project in file("rhttpc-proxy")).
         "ch.qos.logback"           % "logback-classic"               % logbackV
       )
     },
-    dockerExposedPorts := Seq(5005),
-    dockerEntrypoint := Seq("bin/rhttpc-proxy", "-jvm-debug", "5005"),
     publishArtifact := false
   ).
   dependsOn(client)
