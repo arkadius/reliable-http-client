@@ -50,7 +50,7 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4-M3"
+val akkaV = "2.4.0-RC3"
 val akkaStreamsV = "1.0"
 val ficusV = "1.1.2"
 val amqpcV = "3.5.4"
