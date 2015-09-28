@@ -97,9 +97,9 @@ object ReliableHttp {
   def withEmbeddedProxy(responseProcessor: HttpResponseProcessor)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    import actorSystem.dispatcher
     val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
     proxy.run()
+    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -113,7 +113,8 @@ object ReliableHttp {
   }
 }
 
-class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)(implicit actorFactory: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
+class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)
+                             (implicit actorFactory: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
