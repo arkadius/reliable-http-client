@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport.json4s
+package rhttpc.actor.json4s
 
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
-import org.json4s._
 import org.json4s.native.Serialization._
 
 class Json4sSerializer(system: ExtendedActorSystem) extends Serializer {
   import Json4sSerializer._
+  import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats.formats
 
   override def identifier: Int = ID
 
@@ -46,9 +46,4 @@ class Json4sSerializer(system: ExtendedActorSystem) extends Serializer {
 object Json4sSerializer {
   private val UTF8: Charset = Charset.forName("UTF-8")
   private val ID: Int = ByteBuffer.wrap("json4s".getBytes(UTF8)).getInt
-
-  implicit val formats: Formats = new DefaultFormats {
-    override val typeHints: TypeHints = AllTypeHints
-  } + ObjectSerializer + ContentTypeSerializer + ByteStringSerializer + UriSerializer
-
 }

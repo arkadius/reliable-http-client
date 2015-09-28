@@ -59,15 +59,14 @@ val slf4jV = "1.7.7"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M7"
 
-lazy val transport = (project in file("rhttpc-transport")).
+lazy val transport = (project in file("rhttpc-amqp")).
   settings(commonSettings).
   settings(publishSettings).
   settings(
-    name := "rhttpc-api",
+    name := "rhttpc-amqp",
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "com.typesafe.akka"       %% "akka-actor"                    % akkaV,
         "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
         "com.rabbitmq"             % "amqp-client"                   % amqpcV,
         "org.json4s"              %% "json4s-native"                 % json4sV,

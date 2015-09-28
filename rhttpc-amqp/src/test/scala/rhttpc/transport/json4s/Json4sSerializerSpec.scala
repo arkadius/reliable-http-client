@@ -21,7 +21,7 @@ import org.scalatest._
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class Json4sSerializerSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
-  implicit val formats = Json4sSerializer.formats
+  implicit val formats = Json4sHttpRequestResponseFormats.formats
 
   val data = Table[HttpRequest](
     "request",
