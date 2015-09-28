@@ -82,7 +82,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       Thread.sleep(waitForReply * 1000)
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
-      HttpProbe(appPort).await()
+      HttpProbe(appHealthCheckUrl).await()
       logger.info("App restarted")
     }
   }
@@ -91,6 +91,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   val rabbitMqName = "rabbitmq_1"
   val echoName = "test_sampleecho_1"
   val appPort = 8081
+  val appHealthCheckUrl = s"http://localhost:$appPort/healthcheck"
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config =
@@ -117,7 +118,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       portBindings.bind(ExposedPort.tcp(mgmtPort), Ports.Binding(mgmtPort)) // management
       cmd.withPortBindings(portBindings)
     }
-    HttpProbe(mgmtPort).await()
+    HttpProbe(s"http://localhost:$mgmtPort").await()
     logger.info("RabbitMQ started")
     rabbitmqContainerId
   }
@@ -137,7 +138,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
         new Link(rabbitMqName, "rabbitmq")
       )
     }
-    HttpProbe(appPort).await()
+    HttpProbe(appHealthCheckUrl).await()
     logger.info("App started")
     (echoContainerId, rhttpcServerContainerId, appContainerId)
   }

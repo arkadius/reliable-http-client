@@ -52,20 +52,26 @@ object SampleApp extends App with Directives {
 
   subscriptionManager.run()
 
-  val route = path(Segment) { id =>
-    (post & entity(as[String])) { msg =>
-      complete {
-        implicit val sendMsgTimeout = Timeout(5 seconds)
-        (manager ? SendMsgToChild(id, SendMsg(msg))).map(_ => "OK")
+  val route =
+    path("healthcheck") {
+      get {
+        complete("OK")
       }
     } ~
-    get {
-      complete {
-        implicit val currentStateTimeout = Timeout(5 seconds)
-        (manager ? SendMsgToChild(id, CurrentState)).mapTo[FooBarState].map(_.toString)
+    path(Segment) { id =>
+      (post & entity(as[String])) { msg =>
+        complete {
+          implicit val sendMsgTimeout = Timeout(5 seconds)
+          (manager ? SendMsgToChild(id, SendMsg(msg))).map(_ => "OK")
+        }
+      } ~
+      get {
+        complete {
+          implicit val currentStateTimeout = Timeout(5 seconds)
+          (manager ? SendMsgToChild(id, CurrentState)).mapTo[FooBarState].map(_.toString)
+        }
       }
     }
-  }
 
   Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081).map { binding =>
     Runtime.getRuntime.addShutdownHook(new Thread {
