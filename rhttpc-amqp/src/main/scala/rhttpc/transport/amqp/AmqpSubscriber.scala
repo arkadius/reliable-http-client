@@ -23,6 +23,7 @@ import akka.util.Timeout
 import com.rabbitmq.client._
 import org.json4s.native._
 import rhttpc.transport._
+import rhttpc.transport.api.Subscriber
 
 import scala.concurrent.duration._
 import scala.language.postfixOps

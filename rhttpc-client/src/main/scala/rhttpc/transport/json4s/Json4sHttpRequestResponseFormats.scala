@@ -15,7 +15,7 @@
  */
 package rhttpc.transport.json4s
 
-import org.json4s.{TypeHints, DefaultFormats, Formats}
+import org.json4s.{DefaultFormats, Formats, TypeHints}
 
 object Json4sHttpRequestResponseFormats {
 

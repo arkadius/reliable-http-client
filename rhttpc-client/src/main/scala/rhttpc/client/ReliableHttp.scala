@@ -28,9 +28,8 @@ import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.proxy.processor.{AcknowledgingSuccessResponseProcessor, HttpResponseProcessor}
-import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
-import rhttpc.transport.api.Correlated
+import rhttpc.transport.api.{PubSubTransport, Correlated}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}

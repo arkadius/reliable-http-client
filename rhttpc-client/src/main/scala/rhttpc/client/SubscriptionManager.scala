@@ -19,7 +19,7 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl._
-import rhttpc.transport.PubSubTransport
+import rhttpc.transport.api.PubSubTransport
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

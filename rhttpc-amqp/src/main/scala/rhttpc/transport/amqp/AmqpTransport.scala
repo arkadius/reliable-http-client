@@ -17,6 +17,7 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import rhttpc.transport._
+import rhttpc.transport.api.{Subscriber, Publisher, PubSubTransport}
 
 import scala.language.postfixOps
 

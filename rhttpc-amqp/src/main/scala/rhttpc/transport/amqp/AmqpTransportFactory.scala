@@ -16,13 +16,9 @@
 package rhttpc.transport.amqp
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
 import org.json4s.Formats
-import rhttpc.transport.api.Correlated
-import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
-import rhttpc.transport.{PubSubTransport, PubSubTransportFactory, TransportCreateData}
-import scala.util.Try
+import rhttpc.transport.api.{PubSubTransport, PubSubTransportFactory, TransportCreateData}
 
 object AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
@@ -32,25 +28,6 @@ object AmqpTransportFactory extends PubSubTransportFactory {
   }
 }
 
-object AmqpHttpTransportFactory {
-  def createRequestResponseTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[HttpRequest]] = {
-    import Json4sHttpRequestResponseFormats.formats
-    AmqpTransportFactory.create(
-      AmqpTransportCreateData(actorSystem, connection)
-    )
-  }
-
-  def createResponseRequestTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[Try[HttpResponse]]] = {
-    import Json4sHttpRequestResponseFormats.formats
-    AmqpTransportFactory.create(
-      AmqpTransportCreateData(actorSystem, connection)
-    )
-  }
-}
-
 case class AmqpTransportCreateData[PubMsg, SubMsg](actorSystem: ActorSystem, connection: Connection, qos: Int = 10)
                                                   (implicit val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
-

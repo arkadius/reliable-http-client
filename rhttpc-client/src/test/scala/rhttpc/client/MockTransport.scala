@@ -18,8 +18,7 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.transport.api.Correlated
-import rhttpc.transport.{PubSubTransport, Publisher, Subscriber}
+import rhttpc.transport.api.{Correlated, PubSubTransport, Publisher, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}

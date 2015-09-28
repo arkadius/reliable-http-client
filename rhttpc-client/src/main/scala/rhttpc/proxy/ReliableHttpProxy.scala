@@ -20,11 +20,10 @@ import akka.event.LoggingAdapter
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
+import rhttpc.client._
 import rhttpc.proxy.processor.{AckAction, HttpResponseProcessor, PublishingEveryResponseProcessor}
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
-import rhttpc.transport.api.Correlated
-import rhttpc.transport.{PubSubTransport, Publisher}
-import rhttpc.client._
+import rhttpc.transport.api.{Correlated, PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
