@@ -48,7 +48,7 @@ object SampleApp extends App with Directives {
     id => FooBarActor.props(id, subscriptionManager, client)
   ), "foobar")
 
-  Await.result((manager ? RecoverAllActors)(Timeout(5 seconds)), 10 seconds)
+  Await.result((manager ? RecoverAllActors)(Timeout(20 seconds)), 15 seconds)
 
   subscriptionManager.run()
 
