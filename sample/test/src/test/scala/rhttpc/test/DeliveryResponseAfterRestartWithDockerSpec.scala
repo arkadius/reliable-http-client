@@ -105,9 +105,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
     val fooBarClient = new FooBarClient(dispatch.url("http://localhost:8081"))
     val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
-    if (result.isSucceeded) {
-      stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
-    }
+    stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, rhttpcServerContainerId, appContainerId)
     result
   }
 
@@ -152,11 +150,18 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   private def stopAndRemoveContainers(constainerIds: String*)
                                      (implicit docker: DockerClient): Unit = {
+
+    constainerIds.toList.reverse.foreach { containerId =>
+      try {
+        docker.stopAndRemoveContainer(containerId)
+      } catch {
+        case NonFatal(ex) => logger.warn(s"Exception during cleanup after container with id: $containerId", ex)
+      }
+    }
     try {
-      constainerIds.toList.reverse.foreach(docker.stopAndRemoveContainer)
       docker.close()
     } catch {
-      case NonFatal(ex) => logger.warn("Exception during cleanup", ex)
+      case NonFatal(ex) => logger.warn("Exception during closing docker", ex)
     }
   }
 }
