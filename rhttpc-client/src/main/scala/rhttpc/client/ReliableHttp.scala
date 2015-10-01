@@ -27,7 +27,7 @@ import com.rabbitmq.client.Connection
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
-import rhttpc.proxy.processor.{AcknowledgingSuccessResponseProcessor, HttpResponseProcessor}
+import rhttpc.proxy.processor.{SuccessRecognizer, AcknowledgingMatchingSuccessResponseProcessor, HttpResponseProcessor}
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
@@ -59,9 +59,11 @@ object ReliableHttp {
     new ReliableClient[HttpRequest](subMgr)
   }
 
-  def publisher(connection: Connection, isSuccess: PartialFunction[Try[HttpResponse], Unit])
+  def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
                (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val processor = AcknowledgingSuccessResponseProcessor(isSuccess)
+    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
+      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+    }
     withEmbeddedProxy(connection, processor)
   }
 
@@ -71,9 +73,11 @@ object ReliableHttp {
     }
   }
 
-  def publisher(isSuccess: PartialFunction[Try[HttpResponse], Unit])
+  def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
                (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val processor = AcknowledgingSuccessResponseProcessor(isSuccess)
+    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
+      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+    }
     withEmbeddedProxy(processor)
   }
 

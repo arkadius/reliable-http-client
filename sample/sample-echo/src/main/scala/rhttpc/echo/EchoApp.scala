@@ -16,6 +16,7 @@
 package rhttpc.echo
 
 import akka.actor.ActorSystem
+import akka.agent.Agent
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
 import akka.pattern._
@@ -31,15 +32,47 @@ object EchoApp extends App with Directives {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  val route = (post & entity(as[String])) { msg =>
-    complete {
-      system.log.debug(s"Got: $msg")
-      after(5 seconds, system.scheduler) {
-        system.log.debug(s"Reply with: $msg")
-        Future.successful(msg)
+  val retryAgent = Agent(Map.empty[String, Int])
+
+  val route = (post & entity(as[String])) {
+    case request@FailNTimesThanReplyWithMessage(failsCount, eventualMessage) =>
+      complete {
+        retryAgent.alter { currectRetryMap =>
+          val current = currectRetryMap.getOrElse(request, 0)
+          val next = current + 1
+          if (next > failsCount) {
+            currectRetryMap - request
+          } else {
+            currectRetryMap + (request -> next)
+          }
+        }.flatMap { retryMapAfterChange =>
+          retryMapAfterChange.get(request) match {
+            case Some(retry) => Future.failed(new Exception(s"Failed $retry time"))
+            case None => Future.successful(eventualMessage)
+          }
+        }
       }
-    }
+    case msg =>
+      complete {
+        system.log.debug(s"Got: $msg")
+        after(5 seconds, system.scheduler) {
+          system.log.debug(s"Reply with: $msg")
+          Future.successful(msg)
+        }
+      }
   }
 
   Http().bindAndHandle(route, interface = "0.0.0.0", port = 8082)
+}
+
+
+
+
+object FailNTimesThanReplyWithMessage {
+  private val Regex = "fail-(\\d*)-times-than-reply-with-(.*)".r("failsCount", "eventualMessage")
+
+  def unapply(str: String): Option[(Int, String)] = str match {
+    case Regex(failsCount, eventualMessage) => Some(failsCount.toInt, eventualMessage)
+    case other => None
+  }
 }

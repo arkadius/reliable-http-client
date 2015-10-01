@@ -15,7 +15,7 @@
  */
 package rhttpc.proxy.processor
 
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.HttpResponse
 import rhttpc.proxy.HttpProxyContext
 import rhttpc.transport.protocol.Correlated
 
@@ -32,58 +32,6 @@ trait HttpResponseProcessor {
 class OrElseProcessor(left: HttpResponseProcessor, right: HttpResponseProcessor) extends HttpResponseProcessor {
   override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] =
     left.handleResponse(ctx) orElse right.handleResponse(ctx)
-}
-
-// It's gives at-least-once-send, fire-and-forget. If you want to be close to once, keep proxy in separate process.
-object AcknowledgingEverySuccessResponseProcessor extends AcknowledgingSuccessResponseProcessor({case _ => })
-
-// It's gives at-least-once-delivery, fire-and-forget. If you want to be close to once, keep proxy in separate process.
-case class AcknowledgingSuccessResponseProcessor(isSuccess: PartialFunction[Try[HttpResponse], Unit]) extends HttpResponseProcessor {
-  override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
-    case msg if isSuccess.isDefinedAt(msg) =>
-      ctx.log.debug(s"Success message for ${ctx.correlationId}, sending ACK")
-      AckAction()
-    case Failure(ex) =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
-      NackAction(ex)
-    case other =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK")
-      NackAction(new IllegalArgumentException(s"Failure message: $other"))
-  }
-}
-
-// Useful if you want to be close to exact-one-delivery to not idempotent external systems. You should handle if there
-// will be no acknowledge for published response e.g. by some kind of dead letter. Also it will be better if proxy
-// will be in external process which will be exited rearly
-case class PublishingEveryResponseWithoutWaitingOnAckProcessor(onPublishAckFailure: FailureWithRequest => Unit) extends HttpResponseProcessor {
-  override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
-    case every =>
-      import ctx.executionContext
-      PublishAckAction(ctx)(every).onFailure {
-        case ex => onPublishAckFailure(FailureWithRequest(ex, ctx.request, ctx.correlationId))
-      }
-      Future.successful(Unit)
-  }
-}
-
-case class FailureWithRequest(failure: Throwable, req: HttpRequest, correlationId: String)
-
-// It's gives at-least-once-send. If you want to be close to once, keep proxy in separate process.
-object PublishingEveryResponseProcessor extends PublishingSuccessResponseProcessor({case _ => })
-
-// It's gives at-least-once-delivery. If you want to be close to once, keep proxy in separate process.
-case class PublishingSuccessResponseProcessor(isSuccess: PartialFunction[Try[HttpResponse], Unit]) extends HttpResponseProcessor {
-  override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
-    case msg if isSuccess.isDefinedAt(msg) =>
-      ctx.log.debug(s"Success message for ${ctx.correlationId}, sending ACK")
-      PublishAckAction(ctx)(msg)
-    case Failure(ex) =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
-      NackAction(ex)
-    case other =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK")
-      NackAction(new IllegalArgumentException(s"Failure message: $other"))
-  }
 }
 
 object AckAction {

@@ -21,10 +21,10 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.client._
-import rhttpc.proxy.processor.{AckAction, HttpResponseProcessor, PublishingEveryResponseProcessor}
-import rhttpc.transport.{Publisher, PubSubTransport}
+import rhttpc.proxy.processor._
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -34,7 +34,7 @@ object ReliableHttpProxy {
     val connection = AmqpConnectionFactory.create(actorSystem)
     import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
-    new ReliableHttpProxy(PublishingEveryResponseProcessor, batchSize = 10) {
+    new ReliableHttpProxy(PublishingSuccessStatusInResponseProcessor, batchSize = 10) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
         recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
           connection.close()

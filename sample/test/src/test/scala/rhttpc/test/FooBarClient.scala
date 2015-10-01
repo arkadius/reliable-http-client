@@ -32,4 +32,8 @@ class FooBarClient(baseUrl: Req) {
 
   def currentState(id: String)(implicit ec: ExecutionContext): Future[String] =
     Http(baseUrl / id OK as.String)
+
+  def retriedFoo(id: String, retryCount: Int)(implicit ec: ExecutionContext): Future[Any] =
+    Http(baseUrl / id << s"fail-$retryCount-times-than-reply-with-foo")
+
 }

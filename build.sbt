@@ -131,8 +131,10 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"           %  "logback-classic"              % logbackV
+        "ch.qos.logback"           %  "logback-classic"              % logbackV,
+        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
       )
     },
     dockerExposedPorts := Seq(8082),
