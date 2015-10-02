@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.proxy.processor
+package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model._
 import rhttpc.proxy.HttpProxyContext
@@ -22,15 +22,19 @@ import scala.concurrent.Future
 import scala.util._
 
 trait NackingNonSuccessResponseProcessor extends HttpResponseProcessor {
-  override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] =
-    handleSuccess(ctx) orElse {
-      case Failure(ex) =>
-        ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
-        NackAction(ex)
-      case nonSuccess =>
-        ctx.log.error(s"Non-success message for ${ctx.correlationId}, sending NACK")
-        NackAction(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"))
+
+  override def processResponse(response: Try[HttpResponse], ctx: HttpProxyContext): Future[Unit] = {
+    (handleSuccess(ctx) orElse handleFailure(ctx))(response)
   }
 
   protected def handleSuccess(ctx:  HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]]
+
+  private def handleFailure(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
+    case Failure(ex) =>
+      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
+      NackAction(ex)
+    case nonSuccess =>
+      ctx.log.error(s"Non-success message for ${ctx.correlationId}, sending NACK")
+      NackAction(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"))
+  }
 }

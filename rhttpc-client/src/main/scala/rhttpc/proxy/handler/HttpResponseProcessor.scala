@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.proxy.processor
+package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model.HttpResponse
 import rhttpc.proxy.HttpProxyContext
@@ -24,14 +24,12 @@ import scala.util.{Failure, Success, Try}
 
 trait HttpResponseProcessor {
   // return future of ack
-  def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]]
-  
-  def orElse(other: HttpResponseProcessor): HttpResponseProcessor = new OrElseProcessor(this, other)
+  def processResponse(response: Try[HttpResponse], ctx: HttpProxyContext): Future[Unit]
 }
 
-class OrElseProcessor(left: HttpResponseProcessor, right: HttpResponseProcessor) extends HttpResponseProcessor {
-  override def handleResponse(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] =
-    left.handleResponse(ctx) orElse right.handleResponse(ctx)
+object AckingProcessor extends HttpResponseProcessor {
+  override def processResponse(response: Try[HttpResponse], ctx: HttpProxyContext): Future[Unit] =
+    AckAction()
 }
 
 object AckAction {

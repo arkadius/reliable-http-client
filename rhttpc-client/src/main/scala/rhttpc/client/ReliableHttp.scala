@@ -27,7 +27,7 @@ import com.rabbitmq.client.Connection
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
-import rhttpc.proxy.processor.{SuccessRecognizer, AcknowledgingMatchingSuccessResponseProcessor, HttpResponseProcessor}
+import rhttpc.proxy.handler._
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
@@ -64,13 +64,12 @@ object ReliableHttp {
     val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
       override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
     }
-    withEmbeddedProxy(connection, processor)
+    withEmbeddedProxy(connection, new EveryResponseHandler(processor))
   }
 
   def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    publisher {
-      case Success(response) if response.status.isSuccess() =>
-    }
+    val processor = AcknowledgingSuccessStatusInResponseProcessor
+    withEmbeddedProxy(new EveryResponseHandler(processor))
   }
 
   def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
@@ -78,12 +77,12 @@ object ReliableHttp {
     val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
       override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
     }
-    withEmbeddedProxy(processor)
+    withEmbeddedProxy(new EveryResponseHandler(processor))
   }
 
-  def withEmbeddedProxy(connection: Connection, responseProcessor: HttpResponseProcessor)
+  def withEmbeddedProxy(connection: Connection, responseHandler: HttpResponseHandler)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
+    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize = 10)
     proxy.run()
     import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
@@ -98,10 +97,10 @@ object ReliableHttp {
     }
   }
 
-  def withEmbeddedProxy(responseProcessor: HttpResponseProcessor)
+  def withEmbeddedProxy(responseHandler: HttpResponseHandler)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    val proxy = ReliableHttpProxy(connection, responseProcessor, batchSize = 10)
+    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize = 10)
     proxy.run()
     import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
