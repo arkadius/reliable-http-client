@@ -15,13 +15,17 @@
  */
 package rhttpc.proxy.handler
 
+import java.util.concurrent.TimeUnit
+
 import akka.http.scaladsl.model._
 import rhttpc.proxy.HttpProxyContext
 
-import scala.concurrent.Future
+import scala.concurrent._
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util._
 
-trait NackingNonSuccessResponseProcessor extends HttpResponseProcessor {
+trait DelayedNackingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   override def processResponse(response: Try[HttpResponse], ctx: HttpProxyContext): Future[Unit] = {
     (handleSuccess(ctx) orElse handleFailure(ctx))(response)
@@ -31,10 +35,17 @@ trait NackingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   private def handleFailure(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case Failure(ex) =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
-      NackAction(ex)
+      ctx.log.error(s"Failure message for ${ctx.correlationId}, will send NACK after $specifiedDelay", ex)
+      DelayedNackAction(ctx)(ex, delay(ctx))
     case nonSuccess =>
-      ctx.log.error(s"Non-success message for ${ctx.correlationId}, sending NACK")
-      NackAction(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"))
+      ctx.log.error(s"Non-success message for ${ctx.correlationId}, will send NACK after $specifiedDelay")
+      DelayedNackAction(ctx)(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"), delay(ctx))
   }
+
+  private def delay(ctx: HttpProxyContext): FiniteDuration = {
+    ctx.actorSystem.settings.config.getDuration("rhttpc.proxy.retryDelay", TimeUnit.MILLISECONDS).millis
+  }
+
+  protected def specifiedDelay: Option[FiniteDuration] = None
+
 }

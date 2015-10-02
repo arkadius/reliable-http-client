@@ -67,7 +67,7 @@ class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batc
                                        (forRequest: HttpRequest, correlationId: String)
                                        (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit] = {
     val responseProcessor = responseHandler.handleForRequest.applyOrElse(forRequest, (_: HttpRequest) => AckingProcessor)
-    val context = HttpProxyContext(forRequest, correlationId, log, ec)
+    val context = HttpProxyContext(forRequest, correlationId, log, actorSystem)
     responseProcessor.processResponse(tryResponse, context)
   }
 }
@@ -75,6 +75,8 @@ class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batc
 case class HttpProxyContext(request: HttpRequest,
                             correlationId: String,
                             log: LoggingAdapter,
-                            ec: ExecutionContext) {
-  implicit val executionContext = ec
+                            actorSystem: ActorSystem) {
+  implicit def executionContext = actorSystem.dispatcher
+
+  def scheduler = actorSystem.scheduler
 }

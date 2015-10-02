@@ -41,7 +41,7 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
         if (false) subMsgManifest // to avoid imports optimization
         import data.formats
         val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
-        implicit val timeout = Timeout(1 minute)
+        implicit val timeout = Timeout(5 minute)
         (consumer ? msg).onComplete {
           case Success(_) => channel.basicAck(envelope.getDeliveryTag, false)
           case Failure(_) => channel.basicNack(envelope.getDeliveryTag, false, true)

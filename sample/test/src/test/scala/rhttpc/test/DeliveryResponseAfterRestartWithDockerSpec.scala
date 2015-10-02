@@ -73,7 +73,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val id = "123"
     await(fixture.fooBarClient.retriedFoo(id, retryCount = 3))
     await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitForReply = 10)
+    fixture.restartApp(waitForReply = 3*5+2)
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 

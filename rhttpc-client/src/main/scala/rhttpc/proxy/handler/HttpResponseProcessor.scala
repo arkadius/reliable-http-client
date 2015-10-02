@@ -16,11 +16,13 @@
 package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model.HttpResponse
+import akka.pattern._
 import rhttpc.proxy.HttpProxyContext
 import rhttpc.transport.Publisher
 import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 trait HttpResponseProcessor {
@@ -39,9 +41,10 @@ object AckAction {
   }
 }
 
-object NackAction {
-  def apply(cause: Throwable): Future[Unit] = {
-    Future.failed(cause)
+case class DelayedNackAction(ctx: HttpProxyContext) {
+  def apply(cause: Throwable, delay: FiniteDuration): Future[Unit] = {
+    import ctx.executionContext
+    after(delay, ctx.scheduler)(Future.failed(cause))
   }
 }
 
