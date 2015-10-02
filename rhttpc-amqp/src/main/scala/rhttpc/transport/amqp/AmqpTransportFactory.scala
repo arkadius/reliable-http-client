@@ -24,11 +24,21 @@ import scala.concurrent.ExecutionContext
 trait AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
 
-  protected def declarePublisherQueue(in: AmqpQueueCreateData) = {
+  private final val DELAYED_EXCHANGE_NAME = "delayed"
+
+  protected def declarePublisherQueue(in: AmqpQueueCreateData): Unit = {
     in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
   }
 
-  protected def declareSubscriberQueue(in: AmqpQueueCreateData) = {
+  protected def declareAndBindDelayedExchangeForPublisherQueue(in: AmqpQueueCreateData): String = {
+    import collection.convert.wrapAsJava._
+    val props = Map("x-delayed-type" -> "direct")
+    in.channel.exchangeDeclare(DELAYED_EXCHANGE_NAME, "x-delayed-message", true, false, props)
+    in.channel.queueBind(in.queueName, DELAYED_EXCHANGE_NAME, in.queueName)
+    DELAYED_EXCHANGE_NAME
+  }
+
+  protected def declareSubscriberQueue(in: AmqpQueueCreateData): Unit = {
     in.channel.basicQos(10)
     in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
   }
@@ -37,6 +47,7 @@ trait AmqpTransportFactory extends PubSubTransportFactory {
     new AmqpTransport[PubMsg, SubMsg](
       data = data,
       declarePublisherQueue = declarePublisherQueue,
+      declareAndBindDelayedExchangeForPublisherQueue = declareAndBindDelayedExchangeForPublisherQueue,
       declareSubscriberQueue = declareSubscriberQueue)
   }
 

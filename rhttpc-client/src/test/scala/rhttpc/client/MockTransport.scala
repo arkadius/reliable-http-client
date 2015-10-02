@@ -47,6 +47,9 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       _publicationPromise.future
     }
 
+
+    override def publishDelayed(msg: Correlated[String], delay: FiniteDuration): Future[Unit] = ???
+
     override def close(): Unit = {}
   }
 

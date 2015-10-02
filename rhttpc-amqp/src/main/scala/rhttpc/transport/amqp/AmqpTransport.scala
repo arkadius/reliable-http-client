@@ -16,19 +16,24 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
-import com.rabbitmq.client.AMQP.Queue.DeclareOk
+import com.rabbitmq.client.Channel
 import rhttpc.transport._
 
 import scala.language.postfixOps
 
 // TODO: actor-based, connection recovery
 private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg],
-                                                            declarePublisherQueue: AmqpQueueCreateData => DeclareOk,
-                                                            declareSubscriberQueue: AmqpQueueCreateData => DeclareOk) extends PubSubTransport[PubMsg] {
+                                                            declarePublisherQueue: AmqpQueueCreateData => Unit,
+                                                            declareAndBindDelayedExchangeForPublisherQueue: AmqpQueueCreateData => String,
+                                                            declareSubscriberQueue: AmqpQueueCreateData => Unit)
+  extends PubSubTransport[PubMsg] {
+
   override def publisher(queueName: String): Publisher[PubMsg] = {
     val channel = data.connection.createChannel()
-    declarePublisherQueue(AmqpQueueCreateData(channel, queueName))
-    val publisher = new AmqpPublisher(data, channel, queueName)
+    val createData = AmqpQueueCreateData(channel, queueName)
+    declarePublisherQueue(createData)
+    val delayedExchangeName = declareAndBindDelayedExchangeForPublisherQueue(createData)
+    val publisher = new AmqpPublisher(data, channel, queueName, delayedExchangeName)
     channel.addConfirmListener(publisher)
     channel.confirmSelect()
     publisher

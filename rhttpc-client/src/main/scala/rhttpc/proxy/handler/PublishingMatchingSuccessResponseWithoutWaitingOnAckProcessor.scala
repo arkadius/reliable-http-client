@@ -23,7 +23,7 @@ import rhttpc.transport.protocol.Correlated
 import scala.concurrent.Future
 import scala.util._
 
-trait PublishingMatchingSuccessResponseWithoutWaitingOnAckProcessor extends NackingNonSuccessResponseProcessor { self: SuccessRecognizer =>
+trait PublishingMatchingSuccessResponseWithoutWaitingOnAckProcessor extends RetryingNonSuccessResponseProcessor { self: SuccessRecognizer =>
   override protected def handleSuccess(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case result if isSuccess.isDefinedAt(result) =>
       ctx.log.debug(s"Success message for ${ctx.correlationId}, publishing response")
