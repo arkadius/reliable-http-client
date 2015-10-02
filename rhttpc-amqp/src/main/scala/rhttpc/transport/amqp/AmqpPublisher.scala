@@ -23,14 +23,12 @@ import org.json4s.native._
 import org.slf4j.LoggerFactory
 import rhttpc.transport.Publisher
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
 
 private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
                                                     channel: Channel,
-                                                    queueName: String,
-                                                    delayedExchangeName: String) extends Publisher[PubMsg] with ConfirmListener {
+                                                    queueName: String) extends Publisher[PubMsg] with ConfirmListener {
   private val logger = LoggerFactory.getLogger(getClass)
 
   import data.executionContext
@@ -38,20 +36,6 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
   override def publish(msg: PubMsg): Future[Unit] = {
-    doPublish(msg)(channel.basicPublish("", queueName, null, _))
-  }
-
-  override def publishDelayed(msg: PubMsg, delay: FiniteDuration): Future[Unit] = {
-    doPublish(msg) { body =>
-      import collection.convert.wrapAsJava._
-      val headers = Map[String, AnyRef]("x-delay" -> delay.toMillis.underlying())
-      val props = new AMQP.BasicProperties.Builder().headers(headers).build()
-      channel.basicPublish(delayedExchangeName, queueName, props, body)
-    }
-  }
-
-  private def doPublish(msg: PubMsg)
-                       (publishSerialized: Array[Byte] => Unit): Future[Unit] = {
     val bos = new ByteArrayOutputStream()
     val writer = new OutputStreamWriter(bos, "UTF-8")
     try {
@@ -65,8 +49,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        val bodyArray = bos.toByteArray
-        publishSerialized(bodyArray)
+        channel.basicPublish("", queueName, null, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

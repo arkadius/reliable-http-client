@@ -15,13 +15,12 @@
  */
 package rhttpc.proxy.handler
 
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.model.HttpResponse
 import rhttpc.proxy.HttpProxyContext
 import rhttpc.transport.Publisher
 import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 trait HttpResponseProcessor {
@@ -40,15 +39,9 @@ object AckAction {
   }
 }
 
-case class RetryAction(publisher: Publisher[Correlated[HttpRequest]], ctx: HttpProxyContext) {
-  def apply(request: Correlated[HttpRequest], delay: FiniteDuration): Future[Unit] = {
-    val ackFuture = publisher.publishDelayed(request, delay)
-    import ctx.executionContext
-    ackFuture.onComplete {
-      case Success(_) => ctx.log.debug(s"Publishing of delayed by $delay request for ${ctx.correlationId} successfully acknowledged")
-      case Failure(ex) => ctx.log.error(s"Publishing of delayed by $delay request for ${ctx.correlationId} acknowledgement failed", ex)
-    }
-    ackFuture
+object NackAction {
+  def apply(cause: Throwable): Future[Unit] = {
+    Future.failed(cause)
   }
 }
 

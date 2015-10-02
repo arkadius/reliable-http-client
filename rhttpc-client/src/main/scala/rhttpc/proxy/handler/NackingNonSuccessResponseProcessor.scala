@@ -17,15 +17,11 @@ package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model._
 import rhttpc.proxy.HttpProxyContext
-import rhttpc.transport.Publisher
-import rhttpc.transport.protocol.Correlated
 
-import scala.concurrent._
-import scala.concurrent.duration._
-import scala.language.postfixOps
+import scala.concurrent.Future
 import scala.util._
 
-trait RetryingNonSuccessResponseProcessor extends HttpResponseProcessor {
+trait NackingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   override def processResponse(response: Try[HttpResponse], ctx: HttpProxyContext): Future[Unit] = {
     (handleSuccess(ctx) orElse handleFailure(ctx))(response)
@@ -35,15 +31,10 @@ trait RetryingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   private def handleFailure(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case Failure(ex) =>
-      val delay = 1.seconds
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, retrying after $delay", ex)
-      RetryAction(retriedRequestsPublisher, ctx)(Correlated(ctx.request, ctx.correlationId), delay)
+      ctx.log.error(s"Failure message for ${ctx.correlationId}, sending NACK", ex)
+      NackAction(ex)
     case nonSuccess =>
-      val delay = 1.seconds
-      ctx.log.error(s"Non-success message for ${ctx.correlationId}, retrying after $delay")
-      RetryAction(retriedRequestsPublisher, ctx)(Correlated(ctx.request, ctx.correlationId), delay)
+      ctx.log.error(s"Non-success message for ${ctx.correlationId}, sending NACK")
+      NackAction(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"))
   }
-
-  protected def retriedRequestsPublisher: Publisher[Correlated[HttpRequest]]
-
 }

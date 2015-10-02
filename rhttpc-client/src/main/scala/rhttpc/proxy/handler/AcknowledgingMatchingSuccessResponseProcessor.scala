@@ -22,7 +22,7 @@ import scala.concurrent.Future
 import scala.util._
 
 // It's gives at-least-once-delivery, fire-and-forget. If you want to be close to once, keep proxy in separate process.
-trait AcknowledgingMatchingSuccessResponseProcessor extends RetryingNonSuccessResponseProcessor { self: SuccessRecognizer =>
+trait AcknowledgingMatchingSuccessResponseProcessor extends NackingNonSuccessResponseProcessor { self: SuccessRecognizer =>
   override protected def handleSuccess(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] ={
     case result if isSuccess.isDefinedAt(result) =>
       ctx.log.debug(s"Success message for ${ctx.correlationId}, sending ACK")
@@ -30,7 +30,7 @@ trait AcknowledgingMatchingSuccessResponseProcessor extends RetryingNonSuccessRe
   }
 }
 
-trait AcknowledgingEveryResponseProcessor
+object AcknowledgingEveryResponseProcessor
   extends AcknowledgingMatchingSuccessResponseProcessor
   with AcceptingAllResults
 
@@ -38,10 +38,10 @@ trait AcknowledgingSuccessResponseProcessor
   extends AcknowledgingMatchingSuccessResponseProcessor
   with AcceptingSuccess { self: SuccessResponseRecognizer => }
 
-trait AcknowledgingEverySuccessResponseProcessor
+object AcknowledgingEverySuccessResponseProcessor
   extends AcknowledgingSuccessResponseProcessor
   with AcceptingAllSuccessResults
 
-trait AcknowledgingSuccessStatusInResponseProcessor
+object AcknowledgingSuccessStatusInResponseProcessor
   extends AcknowledgingSuccessResponseProcessor
   with AcceptingSuccessStatus

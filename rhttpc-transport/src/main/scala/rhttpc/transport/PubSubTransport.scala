@@ -18,7 +18,6 @@ package rhttpc.transport
 import akka.actor.ActorRef
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 trait PubSubTransport[PubMsg] {
@@ -37,8 +36,6 @@ trait TransportCreateData[PubMsg, SubMsg]
 
 trait Publisher[Msg] {
   def publish(msg: Msg): Future[Unit]
-
-  def publishDelayed(msg: Msg, delay: FiniteDuration): Future[Unit]
 
   def close(): Unit
 }

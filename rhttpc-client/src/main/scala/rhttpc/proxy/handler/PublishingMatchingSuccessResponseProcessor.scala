@@ -24,7 +24,7 @@ import scala.concurrent.Future
 import scala.util._
 
 // It's gives at-least-once-delivery, with published response. If you want to be close to once, keep proxy in separate process.
-trait PublishingMatchingSuccessResponseProcessor extends RetryingNonSuccessResponseProcessor { self: SuccessRecognizer =>
+trait PublishingMatchingSuccessResponseProcessor extends NackingNonSuccessResponseProcessor { self: SuccessRecognizer =>
   override protected def handleSuccess(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case result if isSuccess.isDefinedAt(result) =>
       ctx.log.debug(s"Success message for ${ctx.correlationId}, publishing response")

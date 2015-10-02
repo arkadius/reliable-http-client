@@ -59,26 +59,26 @@ object ReliableHttp {
     new ReliableClient[HttpRequest](subMgr)
   }
 
-//  def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
-//               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-//    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
-//      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
-//    }
-//    withEmbeddedProxy(connection, new EveryResponseHandler(processor))
-//  }
-//
-//  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-//    val processor = AcknowledgingSuccessStatusInResponseProcessor
-//    withEmbeddedProxy(new EveryResponseHandler(processor))
-//  }
-//
-//  def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
-//               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-//    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
-//      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
-//    }
-//    withEmbeddedProxy(new EveryResponseHandler(processor))
-//  }
+  def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
+               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
+      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+    }
+    withEmbeddedProxy(connection, new EveryResponseHandler(processor))
+  }
+
+  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val processor = AcknowledgingSuccessStatusInResponseProcessor
+    withEmbeddedProxy(new EveryResponseHandler(processor))
+  }
+
+  def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
+               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
+      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+    }
+    withEmbeddedProxy(new EveryResponseHandler(processor))
+  }
 
   def withEmbeddedProxy(connection: Connection, responseHandler: HttpResponseHandler)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
