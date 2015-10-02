@@ -17,6 +17,8 @@ package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model._
 import rhttpc.proxy.HttpProxyContext
+import rhttpc.transport.Publisher
+import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
 import scala.util._
@@ -26,13 +28,15 @@ trait PublishingMatchingSuccessResponseWithoutWaitingOnAckProcessor extends Nack
     case result if isSuccess.isDefinedAt(result) =>
       ctx.log.debug(s"Success message for ${ctx.correlationId}, publishing response")
       import ctx.executionContext
-      PublishAckAction(ctx)(result).onFailure {
+      PublishAckAction(publisher, ctx)(result).onFailure {
         case ex => onPublishAckFailure(FailureWithRequest(ex, ctx.request, ctx.correlationId))
       }
       Future.successful(Unit)
   }
   
   protected def onPublishAckFailure(req: FailureWithRequest): Unit
+
+  protected def publisher: Publisher[Correlated[Try[HttpResponse]]]
 }
 
 case class FailureWithRequest(failure: Throwable, req: HttpRequest, correlationId: String)

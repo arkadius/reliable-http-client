@@ -17,6 +17,7 @@ package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model.HttpResponse
 import rhttpc.proxy.HttpProxyContext
+import rhttpc.transport.Publisher
 import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
@@ -44,9 +45,9 @@ object NackAction {
   }
 }
 
-case class PublishAckAction(ctx: HttpProxyContext) {
+case class PublishAckAction(publisher: Publisher[Correlated[Try[HttpResponse]]], ctx: HttpProxyContext) {
   def apply(response: Try[HttpResponse]): Future[Unit] = {
-    val ackFuture = ctx.publisher.publish(Correlated(response, ctx.correlationId))
+    val ackFuture = publisher.publish(Correlated(response, ctx.correlationId))
     import ctx.executionContext
     ackFuture.onComplete {
       case Success(_) => ctx.log.debug(s"Publishing of message for ${ctx.correlationId} successfully acknowledged")

@@ -17,6 +17,8 @@ package rhttpc.proxy.handler
 
 import akka.http.scaladsl.model._
 import rhttpc.proxy.HttpProxyContext
+import rhttpc.transport.Publisher
+import rhttpc.transport.protocol.Correlated
 
 import scala.concurrent.Future
 import scala.util._
@@ -26,11 +28,13 @@ trait PublishingMatchingSuccessResponseProcessor extends NackingNonSuccessRespon
   override protected def handleSuccess(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case result if isSuccess.isDefinedAt(result) =>
       ctx.log.debug(s"Success message for ${ctx.correlationId}, publishing response")
-      PublishAckAction(ctx)(result)
+      PublishAckAction(publisher, ctx)(result)
   }
+
+  protected def publisher: Publisher[Correlated[Try[HttpResponse]]]
 }
 
-object PublishingEveryResponseProcessor
+trait PublishingEveryResponseProcessor
   extends PublishingMatchingSuccessResponseProcessor
   with AcceptingAllResults
 
@@ -38,10 +42,10 @@ trait PublishingSuccessResponseProcessor
   extends PublishingMatchingSuccessResponseProcessor
   with AcceptingSuccess { self: SuccessResponseRecognizer => }
 
-object PublishingEverySuccessResponseProcessor
+trait PublishingEverySuccessResponseProcessor
   extends PublishingSuccessResponseProcessor
   with AcceptingAllSuccessResults
 
-object PublishingSuccessStatusInResponseProcessor
+trait PublishingSuccessStatusInResponseProcessor
   extends PublishingSuccessResponseProcessor
   with AcceptingSuccessStatus
