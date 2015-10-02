@@ -63,7 +63,10 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
     }
   }))
 
-  private val subscriber = transport.subscriber("rhttpc-request", consumingActor)
+
+  private val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
+
+  private val subscriber = transport.subscriber(requestQueueName, consumingActor)
   
   protected def handleResponse(tryResponse: Try[HttpResponse])
                               (forRequest: HttpRequest, correlationId: String)

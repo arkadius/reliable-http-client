@@ -41,19 +41,21 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-private[client] class SubscriptionManagerImpl (implicit actorFactory: ActorRefFactory, transport: PubSubTransport[_])
+private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: PubSubTransport[_])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val dispatcher = actorFactory.actorOf(Props[MessageDispatcherActor])
+  private val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
 
-  private val transportSub = transport.subscriber("rhttpc-response", dispatcher)
+  private val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+
+  private val transportSub = transport.subscriber(responseQueueName, dispatcher)
 
   override def run(): Unit = {
     transportSub.run()

@@ -118,12 +118,14 @@ object ReliableHttp {
 }
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)
-                             (implicit actorFactory: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
+                             (implicit actorSystem: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
 
-  private val publisher = transport.publisher("rhttpc-request")
+  private val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
+
+  private val publisher = transport.publisher(requestQueueName)
 
   def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString

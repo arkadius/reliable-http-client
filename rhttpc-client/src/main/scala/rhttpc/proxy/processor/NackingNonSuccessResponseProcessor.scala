@@ -29,7 +29,7 @@ trait NackingNonSuccessResponseProcessor extends HttpResponseProcessor {
         NackAction(ex)
       case nonSuccess =>
         ctx.log.error(s"Non-success message for ${ctx.correlationId}, sending NACK")
-        NackAction(new IllegalArgumentException(s"Non-success message: $nonSuccess"))
+        NackAction(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"))
   }
 
   protected def handleSuccess(ctx:  HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]]

@@ -56,7 +56,10 @@ class ReliableHttpProxy(responseProcessor: HttpResponseProcessor, protected val 
                         materialize: Materializer,
                         transport: PubSubTransport[Correlated[Try[HttpResponse]]]) extends ReliableHttpSender {
 
-  private val publisher = transport.publisher("rhttpc-response")
+
+  private val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+
+  private val publisher = transport.publisher(responseQueueName)
 
   override protected def handleResponse(tryResponse: Try[HttpResponse])
                                        (forRequest: HttpRequest, correlationId: String)
