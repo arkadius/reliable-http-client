@@ -51,7 +51,7 @@ private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
         case None =>
           log.warning(s"Confirmed subscription promise: $sub was missing")
       }
-    case c@Correlated(msg: Try[_], correlationId) =>
+    case Correlated(msg: Try[_], correlationId) =>
       val sub = SubscriptionOnResponse(correlationId)
       val underlyingOrFailure = msg match {
         case Success(underlying) => underlying
@@ -62,18 +62,18 @@ private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
           optionalPending.foreach { pending =>
             log.error(s"There were both registered subscription and subscription promise with pending messages: ${pending.size}.")
           }
-          log.debug(s"Consuming message: $c")
+          log.debug(s"Consuming message: $correlationId")
           subscriptions -= sub
           consumer forward MessageFromSubscription(underlyingOrFailure, sub) // consumer should ack
         case (None, Some(None)) =>
-          log.debug(s"Adding pending message: $c")
+          log.debug(s"Adding pending message: $correlationId")
           promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(underlyingOrFailure)))
         case (None, Some(Some(pending))) =>
           log.error(s"There already was pending message: $pending for subscription. Overriding it.")
           pending.ack()
           promisesOnPending = promisesOnPending.updated(sub, Some(PendingMessage(underlyingOrFailure)))
         case (None, None) =>
-          log.error(s"No subscription (promise) registered for $c. Will be skipped.")
+          log.error(s"No subscription (promise) registered for $correlationId. Will be skipped.")
           // TODO: DLQ
           sender() ! Unit //  ack
       }

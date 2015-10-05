@@ -51,7 +51,7 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
     }
     
     override def receive: Receive = {
-      case correlated@Correlated(req: HttpRequest, correlationId) =>
+      case Correlated(req: HttpRequest, correlationId) =>
         log.debug(s"Got $correlationId")
         val originalSender = sender()
         // TODO: backpresure, move to flows
