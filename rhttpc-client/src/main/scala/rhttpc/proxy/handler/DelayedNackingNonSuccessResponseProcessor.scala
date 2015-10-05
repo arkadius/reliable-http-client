@@ -35,10 +35,10 @@ trait DelayedNackingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   private def handleFailure(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case Failure(ex) =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, will send NACK after $specifiedDelay", ex)
+      ctx.log.error(s"Failure message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}", ex)
       DelayedNackAction(ctx)(ex, delay(ctx))
     case nonSuccess =>
-      ctx.log.error(s"Non-success message for ${ctx.correlationId}, will send NACK after $specifiedDelay")
+      ctx.log.error(s"Non-success message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}")
       DelayedNackAction(ctx)(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"), delay(ctx))
   }
 

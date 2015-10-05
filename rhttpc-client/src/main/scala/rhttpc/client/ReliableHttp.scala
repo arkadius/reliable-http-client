@@ -131,12 +131,12 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
     // we need to registerPromise before publish because message can be consumed before subscription on response registration 
     subMgr.registerPromise(subscription)
     val publicationAckFuture = publisher.publish(correlated).map { _ =>
-      log.debug(s"Request: $correlated successfully acknowledged")
+      log.debug(s"Request: $correlationId successfully acknowledged")
       RequestPublished(subscription)
     }
     val abortingIfFailureFuture = publicationAckFuture.recover {
       case ex =>
-        log.error(s"Request: $correlated acknowledgement failure", ex)
+        log.error(s"Request: $correlationId acknowledgement failure", ex)
         subMgr.abort(subscription)
         RequestAborted(subscription, ex)
     }
