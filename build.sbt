@@ -6,13 +6,15 @@ import sbt.Keys._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import FilterKeys._
 
+val scalaV = "2.11.7"
+
 val commonSettings =
   filterSettings ++
   graphSettings ++
   licenseSettings ++
   Seq(
     organization  := "org.rhttpc",
-    scalaVersion  := "2.11.7",
+    scalaVersion  := scalaV,
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
     licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
@@ -54,7 +56,7 @@ val akkaV = "2.4.0-RC3"
 val akkaStreamsV = "1.0"
 val ficusV = "1.1.2"
 val amqpcV = "3.5.4"
-val json4sV = "3.2.11"
+val json4sV = "3.3.0"
 val logbackV = "1.1.3"
 val slf4jV = "1.7.7"
 val dispatchV = "0.11.3"
@@ -83,7 +85,8 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "net.ceedubs"             %% "ficus"                         % ficusV,
         "com.rabbitmq"             % "amqp-client"                   % amqpcV,
         "org.json4s"              %% "json4s-native"                 % json4sV,
-        "org.slf4j"                % "slf4j-api"                     % slf4jV
+        "org.slf4j"                % "slf4j-api"                     % slf4jV,
+        "org.scala-lang"           % "scala-reflect"                 % scalaV
       )
     }
   ).
