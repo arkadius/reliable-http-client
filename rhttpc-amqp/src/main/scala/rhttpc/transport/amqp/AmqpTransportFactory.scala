@@ -15,7 +15,9 @@
  */
 package rhttpc.transport.amqp
 
+import akka.actor.ActorSystem
 import com.rabbitmq.client._
+import com.typesafe.config.Config
 import org.json4s.Formats
 import rhttpc.transport._
 
@@ -28,8 +30,8 @@ trait AmqpTransportFactory extends PubSubTransportFactory {
     in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
   }
 
-  protected def declareSubscriberQueue(in: AmqpQueueCreateData) = {
-    in.channel.basicQos(10)
+  protected def declareSubscriberQueue(config: Config)(in: AmqpQueueCreateData) = {
+    in.channel.basicQos(config.getInt("rhttpc.batchSize"))
     in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
   }
 
@@ -37,7 +39,7 @@ trait AmqpTransportFactory extends PubSubTransportFactory {
     new AmqpTransport[PubMsg, SubMsg](
       data = data,
       declarePublisherQueue = declarePublisherQueue,
-      declareSubscriberQueue = declareSubscriberQueue)
+      declareSubscriberQueue = declareSubscriberQueue(data.actorSystem.settings.config))
   }
 
 }
@@ -45,8 +47,10 @@ trait AmqpTransportFactory extends PubSubTransportFactory {
 object AmqpTransportFactory extends AmqpTransportFactory
 
 case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection)
-                                                  (implicit val executionContext: ExecutionContext,
+                                                  (implicit val actorSystem: ActorSystem,
                                                    val subMsgManifest: Manifest[SubMsg],
-                                                   val formats: Formats) extends TransportCreateData[PubMsg, SubMsg]
+                                                   val formats: Formats) extends TransportCreateData[PubMsg, SubMsg] {
+  implicit def executionContext: ExecutionContext = actorSystem.dispatcher
+}
 
 case class AmqpQueueCreateData(channel: Channel, queueName: String)

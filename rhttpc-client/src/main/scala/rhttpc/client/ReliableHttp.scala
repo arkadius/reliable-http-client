@@ -35,12 +35,11 @@ import rhttpc.transport.protocol.Correlated
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Try}
 
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -53,7 +52,6 @@ object ReliableHttp {
   }
 
   def apply(connection: Connection)(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
-    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr)
@@ -82,9 +80,9 @@ object ReliableHttp {
 
   def withEmbeddedProxy(connection: Connection, responseHandler: HttpResponseHandler)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize = 10)
+    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
     proxy.run()
-    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -100,9 +98,9 @@ object ReliableHttp {
   def withEmbeddedProxy(responseHandler: HttpResponseHandler)
                        (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
     val connection = AmqpConnectionFactory.create(actorSystem)
-    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize = 10)
+    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
     proxy.run()
-    import actorSystem.dispatcher
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
     new ReliableClient[HttpRequest](subMgr) {
@@ -128,7 +126,6 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
 
   def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString
-    implicit val timeout = Timeout(10 seconds)
     val correlated = Correlated(request, correlationId)
     val subscription = SubscriptionOnResponse(correlationId)
     // we need to registerPromise before publish because message can be consumed before subscription on response registration 

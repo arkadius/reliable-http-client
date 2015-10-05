@@ -15,18 +15,18 @@
  */
 package rhttpc.transport.amqp
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
 import rhttpc.transport.PubSubTransport
-import rhttpc.transport.protocol.Correlated
 import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
+import rhttpc.transport.protocol.Correlated
 
-import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 object AmqpHttpTransportFactory {
   def createRequestResponseTransport(connection: Connection)
-                                    (implicit executionContext: ExecutionContext): PubSubTransport[Correlated[HttpRequest]] = {
+                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[HttpRequest]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
       AmqpTransportCreateData(connection)
@@ -34,7 +34,7 @@ object AmqpHttpTransportFactory {
   }
 
   def createResponseRequestTransport(connection: Connection)
-                                    (implicit executionContext: ExecutionContext): PubSubTransport[Correlated[Try[HttpResponse]]] = {
+                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[Try[HttpResponse]]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
       AmqpTransportCreateData(connection)
