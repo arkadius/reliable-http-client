@@ -110,7 +110,7 @@ Slightly difference is that instead of `rhttpc.send(request).toFuture pipeTo sel
 ## Architecture
 
 ### Big picture
-![Bit picture](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-arch.png)
+![Bit picture](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-arch2.png)
 
 Proxy can be also run as separate process.
 
