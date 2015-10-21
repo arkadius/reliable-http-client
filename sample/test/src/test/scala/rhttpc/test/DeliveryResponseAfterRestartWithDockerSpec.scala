@@ -120,10 +120,10 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   }
 
   private def startRabbitMq()(implicit docker: DockerClient): String = {
-    val mgmtPort = 15672
+    val mgmtPort = 15674
     val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4-management") { cmd =>
       val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(mgmtPort), Ports.Binding(mgmtPort)) // management
+      portBindings.bind(ExposedPort.tcp(15672), Ports.Binding(mgmtPort)) // management
       cmd.withPortBindings(portBindings)
     }
     HttpProbe(s"http://localhost:$mgmtPort").await()

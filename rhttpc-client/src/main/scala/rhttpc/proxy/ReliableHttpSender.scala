@@ -52,7 +52,13 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
     
     override def receive: Receive = {
       case Correlated(req: HttpRequest, correlationId) =>
-        log.debug(s"Got $correlationId")
+        import collection.convert.wrapAsScala._
+        log.debug(
+          s"""Sending request for $correlationId to ${req.getUri()}. Headers:
+             |${req.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+             |Body:
+             |${req.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+        )
         val originalSender = sender()
         // TODO: backpresure, move to flows
         Source.single((req, correlationId)).via(httpClient).runForeach {

@@ -37,8 +37,16 @@ trait DelayedNackingNonSuccessResponseProcessor extends HttpResponseProcessor {
     case Failure(ex) =>
       ctx.log.error(s"Failure message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}", ex)
       DelayedNackAction(ctx)(ex, delay(ctx))
-    case nonSuccess =>
-      ctx.log.error(s"Non-success message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}")
+    case Success(nonSuccessResponse) =>
+      import collection.convert.wrapAsScala._
+      ctx.log.error(
+        s"""Non-success message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}.
+           |Status: ${nonSuccessResponse.status.value}
+           |Headers:
+           |${nonSuccessResponse.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+           |Body:
+           |${nonSuccessResponse.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+      )
       DelayedNackAction(ctx)(new IllegalArgumentException(s"Non-success message for ${ctx.correlationId}"), delay(ctx))
   }
 
