@@ -54,7 +54,7 @@ private[rhttpc] trait PersistentActorWithNotifications { this: AbstractSnapshott
     case DeleteSnapshotsSuccess(criteria) =>
       log.debug(s"Snapshots with criteria: $criteria deleted")
     case SaveSnapshotFailure(metadata, cause) =>
-      log.error(s"State save failure for: $metadata.\nError: ${printStackTrace(cause)}")
+      log.error(cause, s"State save failure for: $metadata")
     case DeleteSnapshotsFailure(criteria, cause) =>
       log.warning(s"Delete snapshots with criteria failure: $criteria.\nError: ${printStackTrace(cause)}")
   }

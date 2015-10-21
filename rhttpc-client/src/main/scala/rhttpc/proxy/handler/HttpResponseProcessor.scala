@@ -54,7 +54,7 @@ case class PublishAckAction(publisher: Publisher[Correlated[Try[HttpResponse]]],
     import ctx.executionContext
     ackFuture.onComplete {
       case Success(_) => ctx.log.debug(s"Publishing of message for ${ctx.correlationId} successfully acknowledged")
-      case Failure(ex) => ctx.log.error(s"Publishing of message for ${ctx.correlationId} acknowledgement failed", ex)
+      case Failure(ex) => ctx.log.error(ex, s"Publishing of message for ${ctx.correlationId} acknowledgement failed")
     }
     ackFuture
   }

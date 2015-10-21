@@ -35,7 +35,7 @@ trait DelayedNackingNonSuccessResponseProcessor extends HttpResponseProcessor {
 
   private def handleFailure(ctx: HttpProxyContext): PartialFunction[Try[HttpResponse], Future[Unit]] = {
     case Failure(ex) =>
-      ctx.log.error(s"Failure message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}", ex)
+      ctx.log.error(ex, s"Failure message for ${ctx.correlationId}, will send NACK after ${delay(ctx)}")
       DelayedNackAction(ctx)(ex, delay(ctx))
     case Success(nonSuccessResponse) =>
       import collection.convert.wrapAsScala._
