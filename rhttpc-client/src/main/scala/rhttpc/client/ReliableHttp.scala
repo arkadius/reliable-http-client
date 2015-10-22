@@ -172,8 +172,10 @@ class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Futur
   def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
     import system.dispatcher
     val promise = Promise[Any]()
-    system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
+    val actor = system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
     val f = system.scheduler.scheduleOnce(timeout.duration) {
+      subscriptionManager.abort(subscription)
+      actor ! PoisonPill
       promise tryComplete Failure(new TimeoutException(s"Timed out on waiting on response from subscription"))
     }
     promise.future onComplete { _ => f.cancel() }
