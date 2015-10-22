@@ -52,15 +52,15 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.0-RC3"
+val akkaV = "2.4.0"
 val akkaStreamsV = "1.0"
 val ficusV = "1.1.2"
-val amqpcV = "3.5.4"
+val amqpcV = "3.5.6"
 val json4sV = "3.3.0"
 val logbackV = "1.1.3"
-val slf4jV = "1.7.7"
+val slf4jV = "1.7.12"
 val dispatchV = "0.11.3"
-val scalaTestV = "3.0.0-M7"
+val scalaTestV = "3.0.0-M9"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
@@ -69,7 +69,7 @@ lazy val transport = (project in file("rhttpc-transport")).
     name := "rhttpc-transport",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-actor"                    % akkaV
+        "com.typesafe.akka"        %% "akka-actor"                    % akkaV
       )
     }
   )
@@ -81,12 +81,12 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     name := "rhttpc-amqp",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
-        "net.ceedubs"             %% "ficus"                         % ficusV,
-        "com.rabbitmq"             % "amqp-client"                   % amqpcV,
-        "org.json4s"              %% "json4s-native"                 % json4sV,
-        "org.slf4j"                % "slf4j-api"                     % slf4jV,
-        "org.scala-lang"           % "scala-reflect"                 % scalaV
+        "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
+        "net.ceedubs"              %% "ficus"                         % ficusV,
+        "com.rabbitmq"              % "amqp-client"                   % amqpcV,
+        "org.json4s"               %% "json4s-native"                 % json4sV,
+        "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "org.scala-lang"            % "scala-reflect"                 % scalaV
       )
     }
   ).
@@ -99,12 +99,12 @@ lazy val client = (project in file("rhttpc-client")).
     name := "rhttpc-client",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-persistence"              % akkaV,
-        "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
-        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test",
-        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV         % "test",
-        "ch.qos.logback"           % "logback-classic"               % logbackV      % "test"
+        "com.typesafe.akka"        %% "akka-persistence"              % akkaV,
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
       )
     }
   ).
@@ -118,8 +118,8 @@ lazy val proxyApp = (project in file("rhttpc-proxy")).
     name := "rhttpc-proxy",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"           % "logback-classic"               % logbackV
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
+        "ch.qos.logback"            % "logback-classic"               % logbackV
       )
     },
     publishArtifact := false
@@ -133,11 +133,11 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "com.typesafe.akka"       %% "akka-agent"                    % akkaV,
-        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"           %  "logback-classic"              % logbackV,
-        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
+        "ch.qos.logback"            %  "logback-classic"              % logbackV,
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
     dockerExposedPorts := Seq(8082),
@@ -151,13 +151,13 @@ lazy val sampleApp = (project in file("sample/sample-app")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"       %% "akka-http-experimental"        % akkaStreamsV,
-        "org.iq80.leveldb"          % "leveldb"                      % "0.7",
-        "org.fusesource.leveldbjni" % "leveldbjni-all"               % "1.8",
-        "com.typesafe.akka"       %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"           % "logback-classic"               % logbackV,
-        "com.typesafe.akka"       %% "akka-testkit"                  % akkaV         % "test",
-        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "org.iq80.leveldb"          % "leveldb"                       % "0.7",
+        "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8",
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
+        "ch.qos.logback"            % "logback-classic"               % logbackV,
+        "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
     dockerExposedPorts := Seq(8081),
@@ -170,11 +170,11 @@ lazy val testProj = (project in file("sample/test")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.github.docker-java"   % "docker-java"                   % "1.4.0" exclude("commons-logging", "commons-logging"),
-        "commons-io"               % "commons-io"                    % "2.4",
-        "net.databinder.dispatch" %% "dispatch-core"                 % dispatchV,
-        "ch.qos.logback"           %  "logback-classic"              % logbackV,
-        "org.scalatest"           %% "scalatest"                     % scalaTestV    % "test"
+        "com.github.docker-java"    % "docker-java"                   % "1.4.0" exclude("commons-logging", "commons-logging"),
+        "commons-io"                % "commons-io"                    % "2.4",
+        "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV,
+        "ch.qos.logback"            %  "logback-classic"              % logbackV,
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
     Keys.test in Test <<= (Keys.test in Test).dependsOn(
