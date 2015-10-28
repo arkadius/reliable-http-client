@@ -57,4 +57,6 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
     override def stop(): Unit = {}
   }
+
+  override def close(onShutdownAction: => Unit): Unit = ()
 }

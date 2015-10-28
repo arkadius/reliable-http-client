@@ -15,15 +15,21 @@
  */
 package rhttpc.transport.amqp
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import com.rabbitmq.client.{Connection, ConnectionFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader
 
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
 import scala.util._
 
 object AmqpConnectionFactory {
-  def create(actorSystem: ActorSystem): Connection = {
+  def create(actorSystem: ActorSystem)
+            (implicit executionContext: ExecutionContext, retryCount: Int = 10, delay: Duration = Duration(5, TimeUnit.SECONDS)):
+  Future[Connection] = Future {
     import ArbitraryTypeReader._
     val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
     val factory = new ConnectionFactory()
@@ -31,7 +37,7 @@ object AmqpConnectionFactory {
     config.userName.foreach(factory.setUsername)
     config.password.foreach(factory.setPassword)
     factory.setAutomaticRecoveryEnabled(true)
-    retry(n = 10, delay = 5000) {
+    retry(n = retryCount, delay = delay.toMillis) {
       Try {
         // Could By IOException or TimeoutException
         val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray

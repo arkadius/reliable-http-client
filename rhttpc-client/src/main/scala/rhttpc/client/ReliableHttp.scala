@@ -32,20 +32,22 @@ import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
 object ReliableHttp {
-  def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        recovered(super.close(), "closing ReliableHttp").map { _ =>
-          connection.close()
+  def apply()(implicit actorSystem: ActorSystem): Future[ReliableClient[HttpRequest]] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.create(actorSystem)
+    connectionF.map { case connection =>
+      implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
+      val subMgr = SubscriptionManager()
+      new ReliableClient[HttpRequest](subMgr) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          recovered(super.close(), "closing ReliableHttp").map { _ =>
+            connection.close()
+          }
         }
       }
     }
@@ -65,13 +67,13 @@ object ReliableHttp {
     withEmbeddedProxy(connection, new EveryResponseHandler(processor))
   }
 
-  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
     val processor = AcknowledgingSuccessStatusInResponseProcessor
     withEmbeddedProxy(new EveryResponseHandler(processor))
   }
 
   def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
-               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+               (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
     val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
       override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
     }
@@ -96,19 +98,22 @@ object ReliableHttp {
   }
 
   def withEmbeddedProxy(responseHandler: HttpResponseHandler)
-                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
-    proxy.run()
-    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        for {
-          _ <- recovered(super.close(), "closing ReliableHttp")
-          _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
-        } yield connection.close()
+                       (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.create(actorSystem)
+    connectionF.map { case connection =>
+      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+      val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
+      proxy.run()
+      implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
+      val subMgr = SubscriptionManager()
+      new ReliableClient[HttpRequest](subMgr) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          for {
+            _ <- recovered(super.close(), "closing ReliableHttp")
+            _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
+          } yield connection.close()
+        }
       }
     }
   }

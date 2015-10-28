@@ -17,6 +17,7 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
+import com.rabbitmq.client.{ShutdownSignalException, ShutdownListener}
 import rhttpc.transport._
 
 import scala.language.postfixOps
@@ -38,5 +39,12 @@ private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportC
     val channel = data.connection.createChannel()
     declareSubscriberQueue(AmqpQueueCreateData(channel, queueName))
     new AmqpSubscriber(data, channel, queueName, consumer)
+  }
+
+  override def close(onShutdownAction: => Unit): Unit = {
+    data.connection.addShutdownListener(new ShutdownListener {
+      override def shutdownCompleted(e: ShutdownSignalException): Unit = onShutdownAction
+    })
+    data.connection.close()
   }
 }

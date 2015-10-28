@@ -30,21 +30,24 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object ReliableHttpProxy {
-  def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
-    val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
-    val _publisher = transport.publisher(responseQueueName)
-    // TODO: configured routing/processing strategies
-    val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
-      override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
-    })
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    new ReliableHttpProxy(handler, batchSize) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
-          Try(_publisher.close())
-          connection.close()
+  def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableHttpProxy] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.create(actorSystem)
+    connectionF.map { case connection =>
+      implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
+      val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+      val _publisher = transport.publisher(responseQueueName)
+      // TODO: configured routing/processing strategies
+      val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
+        override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
+      })
+      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+      new ReliableHttpProxy(handler, batchSize) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
+            Try(_publisher.close())
+            connection.close()
+          }
         }
       }
     }
