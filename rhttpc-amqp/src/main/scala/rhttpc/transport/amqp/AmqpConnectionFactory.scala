@@ -21,17 +21,13 @@ import akka.actor.ActorSystem
 import com.rabbitmq.client.{Connection, ConnectionFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader
-
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util._
 
-object AmqpConnectionFactory {
-  def create(actorSystem: ActorSystem)
-            (implicit executionContext: ExecutionContext, retryCount: Int = 10, delay: Duration = Duration(5, TimeUnit.SECONDS)):
-  Future[Connection] = Future {
-    import ArbitraryTypeReader._
-    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
+class AmqpConnectionFactory()(implicit executionContext: ExecutionContext, retryCount: Int, delay: Duration) {
+
+  def connect(config: AmqpConfig): Future[Connection] = Future {
     val factory = new ConnectionFactory()
     config.virtualHost.foreach(factory.setVirtualHost)
     config.userName.foreach(factory.setUsername)
@@ -56,6 +52,23 @@ object AmqpConnectionFactory {
     }
   }
 
+}
+
+object AmqpConnectionFactory {
+  private val DefaultRetryCount = 10
+  private val DefaultDelay = Duration(5, TimeUnit.SECONDS)
+
+  def create(actorSystem: ActorSystem)
+           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
+    import ArbitraryTypeReader._
+    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
+    new AmqpConnectionFactory().connect(config)
+  }
+
+  def createWith(config: AmqpConfig)
+           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
+    new AmqpConnectionFactory().connect(config)
+  }
 }
 
 case class AmqpConfig(hosts: Seq[String], virtualHost: Option[String], userName: Option[String], password: Option[String])

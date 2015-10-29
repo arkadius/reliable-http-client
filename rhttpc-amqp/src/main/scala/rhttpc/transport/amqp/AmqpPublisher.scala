@@ -49,7 +49,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        channel.basicPublish("", queueName, null, bos.toByteArray)
+        channel.basicPublish(data.exchangeName, queueName, null, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

@@ -17,7 +17,6 @@ package rhttpc.transport.amqp
 
 import akka.actor.ActorSystem
 import com.rabbitmq.client._
-import com.typesafe.config.Config
 import org.json4s.Formats
 import rhttpc.transport._
 
@@ -25,32 +24,39 @@ import scala.concurrent.ExecutionContext
 
 trait AmqpTransportFactory extends PubSubTransportFactory {
   override type DataT[P, S] = AmqpTransportCreateData[P, S]
+  override type InboundQueueDataT = AmqpInboundQueueData
+  override type OutboundQueueDataT = AmqpOutboundQueueData
 
-  protected def declarePublisherQueue(in: AmqpQueueCreateData) = {
-    in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
+  protected def declarePublisherQueue(in: AmqpOutboundQueueData, channel: Channel) = {
+    channel.queueDeclare(in.name, in.durability, false, in.autoDelete, null) // using default exchange
   }
 
-  protected def declareSubscriberQueue(config: Config)(in: AmqpQueueCreateData) = {
-    in.channel.basicQos(config.getInt("rhttpc.batchSize"))
-    in.channel.queueDeclare(in.queueName, true, false, false, null) // using default exchange
+  protected def declareSubscriberQueue(in: AmqpInboundQueueData, channel: Channel) = {
+    channel.basicQos(in.qos)
+    channel.queueDeclare(in.name, in.durability, false, in.autoDelete, null) // using default exchange
   }
 
-  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg] = {
-    new AmqpTransport[PubMsg, SubMsg](
+  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): AmqpTransport[PubMsg] = {
+    new AmqpTransportImpl[PubMsg, SubMsg](
       data = data,
       declarePublisherQueue = declarePublisherQueue,
-      declareSubscriberQueue = declareSubscriberQueue(data.actorSystem.settings.config))
+      declareSubscriberQueue = declareSubscriberQueue
+    )
   }
 
 }
 
 object AmqpTransportFactory extends AmqpTransportFactory
 
-case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection)
+case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection,
+                                                   exchangeName: String = "",
+                                                   ackOnMessageFailure: Boolean = false)
                                                   (implicit val actorSystem: ActorSystem,
                                                    val subMsgManifest: Manifest[SubMsg],
                                                    val formats: Formats) extends TransportCreateData[PubMsg, SubMsg] {
   implicit def executionContext: ExecutionContext = actorSystem.dispatcher
 }
 
-case class AmqpQueueCreateData(channel: Channel, queueName: String)
+case class AmqpInboundQueueData(name: String, qos: Int, durability: Boolean = true, autoDelete: Boolean = false) extends QueueData
+
+case class AmqpOutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false) extends QueueData

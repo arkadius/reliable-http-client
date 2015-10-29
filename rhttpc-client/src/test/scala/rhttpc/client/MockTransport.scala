@@ -18,14 +18,15 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.transport.{Subscriber, Publisher, PubSubTransport}
+import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpOutboundQueueData, AmqpTransport}
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{Publisher, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 
-class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends PubSubTransport[Correlated[String]] {
+class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends AmqpTransport[Correlated[String]] {
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
   @volatile var ackOnReplySubscriptionFuture: Future[Any] = _
@@ -36,7 +37,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _publicationPromise
   }
 
-  override def publisher(queueName: String): Publisher[Correlated[String]] = new Publisher[Correlated[String]] {
+  override def publisher(data: AmqpOutboundQueueData): Publisher[Correlated[String]] = new Publisher[Correlated[String]] {
     override def publish(request: Correlated[String]): Future[Unit] = {
       _publicationPromise = Promise[Unit]()
       replySubscriptionPromise = Promise[String]()
@@ -50,7 +51,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     override def close(): Unit = {}
   }
 
-  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new Subscriber {
+  override def subscriber(data: AmqpInboundQueueData, consumer: ActorRef): Subscriber = new Subscriber {
     MockTransport.this.consumer = consumer
 
     override def run(): Unit = {}

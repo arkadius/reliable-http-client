@@ -44,6 +44,7 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
         implicit val timeout = Timeout(5 minute)
         (consumer ? msg).onComplete {
           case Success(_) => channel.basicAck(envelope.getDeliveryTag, false)
+          case Failure(_) if data.ackOnMessageFailure => channel.basicAck(envelope.getDeliveryTag, false)
           case Failure(_) => channel.basicNack(envelope.getDeliveryTag, false, true)
         }
       }

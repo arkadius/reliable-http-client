@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.proxy.handler._
-import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
 
@@ -120,14 +119,14 @@ object ReliableHttp {
 }
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)
-                             (implicit actorSystem: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
+                             (implicit actorSystem: ActorSystem, transport: AmqpTransport[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
 
   private val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
 
-  private val publisher = transport.publisher(requestQueueName)
+  private val publisher = transport.publisher(AmqpOutboundQueueData(requestQueueName))
 
   def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString
