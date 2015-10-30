@@ -33,7 +33,7 @@ import scala.util.{Success, Try}
 
 abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
                                   materialize: Materializer,
-                                  transport: AmqpTransport[Correlated[Try[HttpResponse]]]) {
+                                  transport: AmqpTransport[Correlated[Try[HttpResponse]], _]) {
 
   private val log = LoggerFactory.getLogger(getClass)
 

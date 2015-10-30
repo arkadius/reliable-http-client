@@ -15,13 +15,10 @@
  */
 package rhttpc.transport.amqp
 
-import java.io._
-
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import com.rabbitmq.client._
-import org.json4s.native._
 import rhttpc.transport._
 
 import scala.concurrent.duration._
@@ -29,18 +26,18 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
-                                        channel: Channel,
-                                        queueName: String,
-                                        consumer: ActorRef) extends Subscriber {
+                                                 channel: Channel,
+                                                 queueName: String,
+                                                 consumer: ActorRef)
+                                                (implicit deserializer: Deserializer[Sub])
+  extends Subscriber[Sub] {
+
   import data.executionContext
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
-        import data.subMsgManifest
-        if (false) subMsgManifest // to avoid imports optimization
-        import data.formats
-        val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
+        val msg = deserializer.deserialize(new String(body, "UTF-8"))
         implicit val timeout = Timeout(5 minute)
         (consumer ? msg).onComplete {
           case Success(_) => channel.basicAck(envelope.getDeliveryTag, false)
@@ -55,4 +52,5 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
   override def stop(): Unit = {
     channel.close()
   }
+
 }

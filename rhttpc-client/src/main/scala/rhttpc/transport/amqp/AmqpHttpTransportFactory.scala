@@ -18,6 +18,9 @@ package rhttpc.transport.amqp
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
+import org.json4s.Formats
+import org.json4s.native.Serialization
+import rhttpc.transport.{Deserializer, Serializer}
 import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
 import rhttpc.transport.protocol.Correlated
 
@@ -25,18 +28,35 @@ import scala.util.Try
 
 object AmqpHttpTransportFactory {
   def createRequestResponseTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[HttpRequest]] = {
+                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[HttpRequest], AnyRef] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
-      AmqpTransportCreateData(connection)
+      AmqpTransportCreateData(connection,
+        serializer = new JsonSerializer[Correlated[HttpRequest]](),
+        deserializer = new JsonDeserializer[AnyRef]())
     )
   }
 
   def createResponseRequestTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[Try[HttpResponse]]] = {
+                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[Try[HttpResponse]], AnyRef] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
-      AmqpTransportCreateData(connection)
+      AmqpTransportCreateData(connection,
+        serializer = new JsonSerializer[Correlated[Try[HttpResponse]]](),
+        deserializer = new JsonDeserializer[AnyRef]())
     )
+  }
+}
+
+private class JsonSerializer[PubMsg <: AnyRef](implicit val formats: Formats) extends Serializer[PubMsg] {
+  override def serialize(msg: PubMsg): String = {
+    Serialization.write(msg)(formats)
+  }
+}
+
+private class JsonDeserializer[SubMsg](implicit val subMsgManifest: Manifest[SubMsg],
+                                       val formats: Formats) extends Deserializer[SubMsg] {
+  override def deserialize(value: String): SubMsg = {
+    Serialization.read[SubMsg](value)
   }
 }

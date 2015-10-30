@@ -63,7 +63,7 @@ object ReliableHttpProxy {
 class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batchSize: Int)
                        (implicit actorSystem: ActorSystem,
                         materialize: Materializer,
-                        transport: AmqpTransport[Correlated[Try[HttpResponse]]]) extends ReliableHttpSender {
+                        transport: AmqpTransport[Correlated[Try[HttpResponse]], _]) extends ReliableHttpSender {
 
   override protected def handleResponse(tryResponse: Try[HttpResponse])
                                        (forRequest: HttpRequest, correlationId: String)

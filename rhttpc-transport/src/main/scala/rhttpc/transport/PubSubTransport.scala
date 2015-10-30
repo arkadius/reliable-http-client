@@ -20,10 +20,10 @@ import akka.actor.ActorRef
 import scala.concurrent.Future
 import scala.language.higherKinds
 
-trait PubSubTransport[PubMsg, In <: QueueData, Out <: QueueData] {
+trait PubSubTransport[PubMsg, SubMsg, In <: QueueData, Out <: QueueData] {
   def publisher(queueData: Out): Publisher[PubMsg]
 
-  def subscriber(queueData: In, consumer: ActorRef): Subscriber
+  def subscriber(queueData: In, consumer: ActorRef): Subscriber[SubMsg]
 
   def close(onShutdownAction: => Unit): Unit
 
@@ -35,7 +35,7 @@ trait PubSubTransportFactory {
   type InboundQueueDataT <: QueueData
   type OutboundQueueDataT <: QueueData
 
-  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, InboundQueueDataT, OutboundQueueDataT]
+  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, SubMsg, InboundQueueDataT, OutboundQueueDataT]
 }
 
 trait TransportCreateData[PubMsg, SubMsg]
@@ -43,13 +43,23 @@ trait TransportCreateData[PubMsg, SubMsg]
 trait QueueData
 
 trait Publisher[Msg] {
+
   def publish(msg: Msg): Future[Unit]
 
   def close(): Unit
 }
 
-trait Subscriber {
+trait Serializer[PubMsg] {
+  def serialize(obj: PubMsg): String
+}
+
+trait Subscriber[SubMsg] {
+
   def run(): Unit
 
   def stop(): Unit
+}
+
+trait Deserializer[SubMsg] {
+  def deserialize(value: String): SubMsg
 }

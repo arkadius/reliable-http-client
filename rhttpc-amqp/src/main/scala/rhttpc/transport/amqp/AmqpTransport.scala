@@ -17,31 +17,33 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
-import com.rabbitmq.client.{Channel, ShutdownSignalException, ShutdownListener}
+import com.rabbitmq.client.{Channel, ShutdownListener, ShutdownSignalException}
 import rhttpc.transport._
 
 import scala.language.postfixOps
 
-trait AmqpTransport[PubMsg <: AnyRef] extends PubSubTransport[PubMsg, AmqpInboundQueueData, AmqpOutboundQueueData]
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg <: AnyRef] extends PubSubTransport[PubMsg, SubMsg, AmqpInboundQueueData, AmqpOutboundQueueData]
 
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg],
-                                                            declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk,
-                                                            declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk)
-  extends AmqpTransport[PubMsg] {
+private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, SubMsg],
+                                                                          declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk,
+                                                                          declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk)
+  extends AmqpTransport[PubMsg, SubMsg] {
 
   override def publisher(queueData: AmqpOutboundQueueData): Publisher[PubMsg] = {
     val channel = data.connection.createChannel()
     declarePublisherQueue(queueData, channel)
+    implicit val serializer = data.serializer
     val publisher = new AmqpPublisher(data, channel, queueData.name)
     channel.addConfirmListener(publisher)
     channel.confirmSelect()
     publisher
   }
 
-  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): Subscriber = {
+  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
     val channel = data.connection.createChannel()
     declareSubscriberQueue(queueData, channel)
+    implicit val deserializer = data.deserializer
     new AmqpSubscriber(data, channel, queueData.name, consumer)
   }
 

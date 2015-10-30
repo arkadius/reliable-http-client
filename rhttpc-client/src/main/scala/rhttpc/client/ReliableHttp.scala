@@ -119,7 +119,7 @@ object ReliableHttp {
 }
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)
-                             (implicit actorSystem: ActorSystem, transport: AmqpTransport[Correlated[Request]]) {
+                             (implicit actorSystem: ActorSystem, transport: AmqpTransport[Correlated[Request], _]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr

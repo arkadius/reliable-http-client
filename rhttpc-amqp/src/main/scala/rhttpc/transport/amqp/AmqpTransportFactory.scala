@@ -18,6 +18,7 @@ package rhttpc.transport.amqp
 import akka.actor.ActorSystem
 import com.rabbitmq.client._
 import org.json4s.Formats
+import org.json4s.native.Serialization
 import rhttpc.transport._
 
 import scala.concurrent.ExecutionContext
@@ -36,7 +37,7 @@ trait AmqpTransportFactory extends PubSubTransportFactory {
     channel.queueDeclare(in.name, in.durability, false, in.autoDelete, null) // using default exchange
   }
 
-  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): AmqpTransport[PubMsg] = {
+  override def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): AmqpTransport[PubMsg, SubMsg] = {
     new AmqpTransportImpl[PubMsg, SubMsg](
       data = data,
       declarePublisherQueue = declarePublisherQueue,
@@ -50,10 +51,10 @@ object AmqpTransportFactory extends AmqpTransportFactory
 
 case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection,
                                                    exchangeName: String = "",
-                                                   ackOnMessageFailure: Boolean = false)
-                                                  (implicit val actorSystem: ActorSystem,
-                                                   val subMsgManifest: Manifest[SubMsg],
-                                                   val formats: Formats) extends TransportCreateData[PubMsg, SubMsg] {
+                                                   ackOnMessageFailure: Boolean = false,
+                                                   serializer: Serializer[PubMsg],
+                                                   deserializer: Deserializer[SubMsg])
+                                                  (implicit val actorSystem: ActorSystem) extends TransportCreateData[PubMsg, SubMsg] {
   implicit def executionContext: ExecutionContext = actorSystem.dispatcher
 }
 

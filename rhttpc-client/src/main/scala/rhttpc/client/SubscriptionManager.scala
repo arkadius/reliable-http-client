@@ -41,12 +41,12 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorSystem: ActorSystem, transport: AmqpTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: AmqpTransport[_])
+private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val log = LoggerFactory.getLogger(getClass)
