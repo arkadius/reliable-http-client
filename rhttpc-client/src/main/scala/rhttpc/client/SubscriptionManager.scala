@@ -53,7 +53,6 @@ private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem,
 
   private val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
 
-  // todo: verify if response-queue.name is correct
   private val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
   private val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
 
