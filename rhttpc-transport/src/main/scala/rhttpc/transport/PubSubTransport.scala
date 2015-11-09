@@ -19,6 +19,7 @@ import akka.actor.ActorRef
 
 import scala.concurrent.Future
 import scala.language.higherKinds
+import scala.util.Try
 
 trait PubSubTransport[PubMsg, SubMsg, In <: QueueData, Out <: QueueData] {
   def publisher(queueData: Out): Publisher[PubMsg]
@@ -61,5 +62,5 @@ trait Subscriber[SubMsg] {
 }
 
 trait Deserializer[SubMsg] {
-  def deserialize(value: String): SubMsg
+  def deserialize(value: String): Try[SubMsg]
 }

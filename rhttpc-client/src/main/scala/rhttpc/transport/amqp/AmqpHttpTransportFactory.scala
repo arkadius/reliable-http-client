@@ -56,7 +56,7 @@ private class JsonSerializer[PubMsg <: AnyRef](implicit val formats: Formats) ex
 
 private class JsonDeserializer[SubMsg](implicit val subMsgManifest: Manifest[SubMsg],
                                        val formats: Formats) extends Deserializer[SubMsg] {
-  override def deserialize(value: String): SubMsg = {
-    Serialization.read[SubMsg](value)
+  override def deserialize(value: String): Try[SubMsg] = {
+    Try(Serialization.read[SubMsg](value))
   }
 }

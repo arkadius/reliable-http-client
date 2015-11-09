@@ -25,6 +25,7 @@ import rhttpc.transport.{Deserializer, Serializer, Publisher, Subscriber}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
+import scala.util.{Success, Try}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends AmqpTransport[Correlated[String], AnyRef] {
   @volatile private var _publicationPromise: Promise[Unit] = _
@@ -67,7 +68,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
   }
 
   private trait MockDeserializer extends Deserializer[AnyRef] {
-    override def deserialize(value: String): AnyRef = value
+    override def deserialize(value: String): Try[AnyRef] = Success(value)
   }
 
 }

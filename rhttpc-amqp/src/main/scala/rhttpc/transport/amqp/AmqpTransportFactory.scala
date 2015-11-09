@@ -17,8 +17,6 @@ package rhttpc.transport.amqp
 
 import akka.actor.ActorSystem
 import com.rabbitmq.client._
-import org.json4s.Formats
-import org.json4s.native.Serialization
 import rhttpc.transport._
 
 import scala.concurrent.ExecutionContext
@@ -53,7 +51,8 @@ case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection,
                                                    exchangeName: String = "",
                                                    ackOnMessageFailure: Boolean = false,
                                                    serializer: Serializer[PubMsg],
-                                                   deserializer: Deserializer[SubMsg])
+                                                   deserializer: Deserializer[SubMsg],
+                                                   ignoreInvalidMessages: Boolean = true)
                                                   (implicit val actorSystem: ActorSystem) extends TransportCreateData[PubMsg, SubMsg] {
   implicit def executionContext: ExecutionContext = actorSystem.dispatcher
 }
