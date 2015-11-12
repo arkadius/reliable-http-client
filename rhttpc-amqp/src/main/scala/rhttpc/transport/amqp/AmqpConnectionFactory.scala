@@ -15,23 +15,25 @@
  */
 package rhttpc.transport.amqp
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import com.rabbitmq.client.{Connection, ConnectionFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader
-
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util._
 
-object AmqpConnectionFactory {
-  def create(actorSystem: ActorSystem): Connection = {
-    import ArbitraryTypeReader._
-    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
+class AmqpConnectionFactory()(implicit executionContext: ExecutionContext, retryCount: Int, delay: Duration) {
+
+  def connect(config: AmqpConfig): Future[Connection] = Future {
     val factory = new ConnectionFactory()
     config.virtualHost.foreach(factory.setVirtualHost)
     config.userName.foreach(factory.setUsername)
     config.password.foreach(factory.setPassword)
     factory.setAutomaticRecoveryEnabled(true)
-    retry(n = 10, delay = 5000) {
+    retry(n = retryCount, delay = delay.toMillis) {
       Try {
         // Could By IOException or TimeoutException
         val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
@@ -50,6 +52,23 @@ object AmqpConnectionFactory {
     }
   }
 
+}
+
+object AmqpConnectionFactory {
+  private val DefaultRetryCount = 10
+  private val DefaultDelay = Duration(5, TimeUnit.SECONDS)
+
+  def create(actorSystem: ActorSystem)
+           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
+    import ArbitraryTypeReader._
+    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
+    new AmqpConnectionFactory().connect(config)
+  }
+
+  def createWith(config: AmqpConfig)
+           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
+    new AmqpConnectionFactory().connect(config)
+  }
 }
 
 case class AmqpConfig(hosts: Seq[String], virtualHost: Option[String], userName: Option[String], password: Option[String])

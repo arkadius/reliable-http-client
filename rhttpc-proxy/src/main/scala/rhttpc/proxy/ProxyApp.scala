@@ -27,7 +27,7 @@ object ProxyApp extends App {
   import actorSystem.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val proxy = ReliableHttpProxy()
+  val proxy = Await.result(ReliableHttpProxy(), 20 seconds)
 
   Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {

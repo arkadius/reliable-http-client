@@ -34,7 +34,8 @@ object SampleApp extends App with Directives {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  private val rhttpc = ReliableHttp()
+  private val rhttpc = Await.result(ReliableHttp(), 10 seconds)
+
   val client = new DelayedEchoClient {
     override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
       rhttpc.send(HttpRequest().withUri("http://sampleecho:8082").withMethod(HttpMethods.POST).withEntity(msg))

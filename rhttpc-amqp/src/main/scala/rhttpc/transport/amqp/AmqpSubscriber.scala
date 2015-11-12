@@ -15,37 +15,32 @@
  */
 package rhttpc.transport.amqp
 
-import java.io._
-
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import com.rabbitmq.client._
-import org.json4s.native._
+import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
                                         channel: Channel,
                                         queueName: String,
-                                        consumer: ActorRef) extends Subscriber {
+                                        consumer: ActorRef)
+                                       (implicit deserializer: Deserializer[Sub])
+  extends Subscriber[Sub] {
+
+  private val logger = LoggerFactory.getLogger(getClass)
   import data.executionContext
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
-        import data.subMsgManifest
-        if (false) subMsgManifest // to avoid imports optimization
-        import data.formats
-        val msg = Serialization.read[Sub](new InputStreamReader(new ByteArrayInputStream(body), "UTF-8"))
-        implicit val timeout = Timeout(5 minute)
-        (consumer ? msg).onComplete {
-          case Success(_) => channel.basicAck(envelope.getDeliveryTag, false)
-          case Failure(_) => channel.basicNack(envelope.getDeliveryTag, false, true)
-        }
+        val stringMsg = new String(body, "UTF-8")
+        handleMessage(stringMsg, envelope.getDeliveryTag)
       }
     }
     channel.basicConsume(queueName, false, queueConsumer)
@@ -54,4 +49,30 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
   override def stop(): Unit = {
     channel.close()
   }
+
+  private def handleMessage(stringMsg: String, deliveryTag: Long) = {
+    val msg = deserializer.deserialize(stringMsg)
+    implicit val timeout = Timeout(5 minute)
+    if (shouldHandleMessage(msg)) {
+      msg match {
+        case Success(msgObj) => (consumer ? msgObj).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+        case f@Failure(_) => (consumer ? f).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+      }
+    } else {
+      channel.basicReject(deliveryTag, false)
+      logger.info(s"Message: [$stringMsg] rejected!")
+    }
+  }
+
+  private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
+    case Success(_) =>
+      channel.basicAck(deliveryTag, false)
+    case Failure(_) if data.ackOnMessageFailure =>
+      channel.basicAck(deliveryTag, false)
+    case Failure(_) =>
+      channel.basicNack(deliveryTag, false, true)
+  }
+
+  private def shouldHandleMessage(deserializedMessage: Try[Sub]): Boolean =
+    deserializedMessage.isSuccess || (deserializedMessage.isFailure && !data.ignoreInvalidMessages)
 }

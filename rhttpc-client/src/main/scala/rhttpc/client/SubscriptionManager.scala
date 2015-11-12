@@ -19,7 +19,7 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl._
-import rhttpc.transport.PubSubTransport
+import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpTransport}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,12 +41,12 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
     new SubscriptionManagerImpl()
   }
 }
 
-private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: PubSubTransport[_])
+private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _])
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val log = LoggerFactory.getLogger(getClass)
@@ -54,8 +54,10 @@ private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem,
   private val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
 
   private val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+  private val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
 
-  private val transportSub = transport.subscriber(responseQueueName, dispatcher)
+
+  private val transportSub = transport.subscriber(AmqpInboundQueueData(responseQueueName, batchSize), dispatcher)
 
   override def run(): Unit = {
     transportSub.run()

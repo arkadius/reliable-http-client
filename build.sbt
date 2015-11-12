@@ -4,7 +4,6 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import net.virtualvoid.sbt.graph.Plugin._
 import sbt.Keys._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
-import FilterKeys._
 
 val scalaV = "2.11.7"
 
@@ -52,7 +51,7 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.0-RC3"
+val akkaV = "2.4.0"
 val akkaStreamsV = "1.0"
 val ficusV = "1.1.2"
 val amqpcV = "3.5.4"

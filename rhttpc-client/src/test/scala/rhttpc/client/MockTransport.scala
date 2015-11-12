@@ -18,14 +18,16 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.transport.{Subscriber, Publisher, PubSubTransport}
+import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpOutboundQueueData, AmqpTransport}
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{Deserializer, Serializer, Publisher, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
+import scala.util.{Success, Try}
 
-class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends PubSubTransport[Correlated[String]] {
+class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext) extends AmqpTransport[Correlated[String], AnyRef] {
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
   @volatile var ackOnReplySubscriptionFuture: Future[Any] = _
@@ -36,7 +38,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _publicationPromise
   }
 
-  override def publisher(queueName: String): Publisher[Correlated[String]] = new Publisher[Correlated[String]] {
+  override def publisher(data: AmqpOutboundQueueData): Publisher[Correlated[String]] = new Publisher[Correlated[String]] with MockSerializer {
     override def publish(request: Correlated[String]): Future[Unit] = {
       _publicationPromise = Promise[Unit]()
       replySubscriptionPromise = Promise[String]()
@@ -48,13 +50,25 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     }
 
     override def close(): Unit = {}
+
   }
 
-  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = new Subscriber {
+  override def subscriber(data: AmqpInboundQueueData, consumer: ActorRef): Subscriber[AnyRef] = new Subscriber[AnyRef] with MockDeserializer {
     MockTransport.this.consumer = consumer
 
     override def run(): Unit = {}
 
     override def stop(): Unit = {}
   }
+
+  override def close(onShutdownAction: => Unit): Unit = ()
+
+  private trait MockSerializer extends Serializer[Correlated[String]] {
+    override def serialize(obj: Correlated[String]): String = obj.msg
+  }
+
+  private trait MockDeserializer extends Deserializer[AnyRef] {
+    override def deserialize(value: String): Try[AnyRef] = Success(value)
+  }
+
 }
