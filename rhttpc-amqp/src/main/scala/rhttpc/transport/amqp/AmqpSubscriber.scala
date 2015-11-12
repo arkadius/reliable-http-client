@@ -19,6 +19,7 @@ import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import com.rabbitmq.client._
+import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
 import scala.concurrent.duration._
@@ -32,13 +33,14 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
                                        (implicit deserializer: Deserializer[Sub])
   extends Subscriber[Sub] {
 
+  private val logger = LoggerFactory.getLogger(getClass)
   import data.executionContext
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
-        val msg = deserializer.deserialize(new String(body, "UTF-8"))
-        handleMessage(msg, envelope.getDeliveryTag)
+        val stringMsg = new String(body, "UTF-8")
+        handleMessage(stringMsg, envelope.getDeliveryTag)
       }
     }
     channel.basicConsume(queueName, false, queueConsumer)
@@ -48,22 +50,27 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
     channel.close()
   }
 
-  private def handleMessage(msg: Try[Sub], deliveryTag: Long) = {
+  private def handleMessage(stringMsg: String, deliveryTag: Long) = {
+    val msg = deserializer.deserialize(stringMsg)
     implicit val timeout = Timeout(5 minute)
     if (shouldHandleMessage(msg)) {
       msg match {
-        case Success(msgObj) => (consumer ? msgObj) onComplete handleConsumerResponse(deliveryTag)
-        case f@Failure(_) => (consumer ? f) onComplete handleConsumerResponse(deliveryTag)
+        case Success(msgObj) => (consumer ? msgObj).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+        case f@Failure(_) => (consumer ? f).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
       }
     } else {
-      channel.basicNack(deliveryTag, false, true)
+      channel.basicReject(deliveryTag, false)
+      logger.info(s"Message: [$stringMsg] rejected!")
     }
   }
 
   private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
-    case Success(_) => channel.basicAck(deliveryTag, false)
-    case Failure(_) if data.ackOnMessageFailure => channel.basicAck(deliveryTag, false)
-    case Failure(_) => channel.basicNack(deliveryTag, false, true)
+    case Success(_) =>
+      channel.basicAck(deliveryTag, false)
+    case Failure(_) if data.ackOnMessageFailure =>
+      channel.basicAck(deliveryTag, false)
+    case Failure(_) =>
+      channel.basicNack(deliveryTag, false, true)
   }
 
   private def shouldHandleMessage(deserializedMessage: Try[Sub]): Boolean =
