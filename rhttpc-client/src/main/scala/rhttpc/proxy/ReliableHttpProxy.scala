@@ -22,29 +22,32 @@ import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.client._
 import rhttpc.proxy.handler._
-import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
+import rhttpc.transport.Publisher
+import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory, AmqpOutboundQueueData, AmqpTransport}
 import rhttpc.transport.protocol.Correlated
-import rhttpc.transport.{PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 object ReliableHttpProxy {
-  def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
-    val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
-    val _publisher = transport.publisher(responseQueueName)
-    // TODO: configured routing/processing strategies
-    val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
-      override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
-    })
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    new ReliableHttpProxy(handler, batchSize) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
-          Try(_publisher.close())
-          connection.close()
+  def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableHttpProxy] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.connect(actorSystem)
+    connectionF.map { case connection =>
+      implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
+      val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+      val _publisher = transport.publisher(AmqpOutboundQueueData(responseQueueName))
+      // TODO: configured routing/processing strategies
+      val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
+        override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
+      })
+      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+      new ReliableHttpProxy(handler, batchSize) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
+            Try(_publisher.close())
+            connection.close()
+          }
         }
       }
     }
@@ -60,7 +63,7 @@ object ReliableHttpProxy {
 class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batchSize: Int)
                        (implicit actorSystem: ActorSystem,
                         materialize: Materializer,
-                        transport: PubSubTransport[Correlated[Try[HttpResponse]]]) extends ReliableHttpSender {
+                        transport: AmqpTransport[Correlated[Try[HttpResponse]], _]) extends ReliableHttpSender {
 
   override protected def handleResponse(tryResponse: Try[HttpResponse])
                                        (forRequest: HttpRequest, correlationId: String)

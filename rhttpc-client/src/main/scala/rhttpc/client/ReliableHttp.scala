@@ -28,24 +28,26 @@ import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.proxy.handler._
-import rhttpc.transport.PubSubTransport
+import rhttpc.transport.Publisher
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
 object ReliableHttp {
-  def apply()(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        recovered(super.close(), "closing ReliableHttp").map { _ =>
-          connection.close()
+  def apply()(implicit actorSystem: ActorSystem): Future[ReliableClient[HttpRequest]] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.connect(actorSystem)
+    connectionF.map { connection =>
+      implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
+      val subMgr = SubscriptionManager()
+      new ReliableClient[HttpRequest](subMgr, requestPublisher) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          recovered(super.close(), "closing ReliableHttp").map { _ =>
+            connection.close()
+          }
         }
       }
     }
@@ -54,7 +56,7 @@ object ReliableHttp {
   def apply(connection: Connection)(implicit actorSystem: ActorSystem): ReliableClient[HttpRequest] = {
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr)
+    new ReliableClient[HttpRequest](subMgr, requestPublisher)
   }
 
   def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
@@ -65,13 +67,13 @@ object ReliableHttp {
     withEmbeddedProxy(connection, new EveryResponseHandler(processor))
   }
 
-  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
     val processor = AcknowledgingSuccessStatusInResponseProcessor
     withEmbeddedProxy(new EveryResponseHandler(processor))
   }
 
   def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
-               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+               (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
     val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
       override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
     }
@@ -85,7 +87,7 @@ object ReliableHttp {
     proxy.run()
     implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
     val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr) {
+    new ReliableClient[HttpRequest](subMgr, requestPublisher) {
       override def close()(implicit ec: ExecutionContext): Future[Unit] = {
         for {
           _ <- recovered(super.close(), "closing ReliableHttp")
@@ -96,33 +98,37 @@ object ReliableHttp {
   }
 
   def withEmbeddedProxy(responseHandler: HttpResponseHandler)
-                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val connection = AmqpConnectionFactory.create(actorSystem)
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
-    proxy.run()
-    implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        for {
-          _ <- recovered(super.close(), "closing ReliableHttp")
-          _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
-        } yield connection.close()
+                       (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
+    import actorSystem.dispatcher
+    val connectionF = AmqpConnectionFactory.connect(actorSystem)
+    connectionF.map { case connection =>
+      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+      val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
+      proxy.run()
+      implicit val transport = AmqpHttpTransportFactory.createRequestResponseTransport(connection)
+      val subMgr = SubscriptionManager()
+      new ReliableClient[HttpRequest](subMgr, requestPublisher) {
+        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+          for {
+            _ <- recovered(super.close(), "closing ReliableHttp")
+            _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
+          } yield connection.close()
+        }
       }
     }
   }
+
+  private def requestPublisher(implicit transport: AmqpTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest]] = {
+    val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
+    transport.publisher(AmqpOutboundQueueData(requestQueueName))
+  }
 }
 
-class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement)
-                             (implicit actorSystem: ActorSystem, transport: PubSubTransport[Correlated[Request]]) {
+class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement,
+                              publisher: Publisher[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
-
-  private val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
-
-  private val publisher = transport.publisher(requestQueueName)
 
   def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString
@@ -172,8 +178,10 @@ class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Futur
   def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
     import system.dispatcher
     val promise = Promise[Any]()
-    system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
+    val actor = system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
     val f = system.scheduler.scheduleOnce(timeout.duration) {
+      subscriptionManager.abort(subscription)
+      actor ! PoisonPill
       promise tryComplete Failure(new TimeoutException(s"Timed out on waiting on response from subscription"))
     }
     promise.future onComplete { _ => f.cancel() }

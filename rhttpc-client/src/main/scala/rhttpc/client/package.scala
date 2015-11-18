@@ -15,21 +15,21 @@
  */
 package rhttpc
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpRequest
+import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 package object client {
   type ReliableHttp = ReliableClient[HttpRequest]
 
+  private val logger = LoggerFactory.getLogger(getClass)
 
   def recovered[T](future: Future[T], action: String)
-                  (implicit actorSystem: ActorSystem) = {
-    import actorSystem.dispatcher
+                  (implicit ec: ExecutionContext) = {
     future.recover {
       case ex =>
-        actorSystem.log.error(ex, s"Exception while $action")
+        logger.error(s"Exception while $action", ex)
     }
   }
 }

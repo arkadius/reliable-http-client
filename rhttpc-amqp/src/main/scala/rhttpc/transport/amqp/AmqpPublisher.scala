@@ -19,16 +19,17 @@ import java.io._
 
 import akka.agent.Agent
 import com.rabbitmq.client._
-import org.json4s.native._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.Publisher
+import rhttpc.transport.{Publisher, Serializer}
 
 import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
 
 private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
                                                     channel: Channel,
-                                                    queueName: String) extends Publisher[PubMsg] with ConfirmListener {
+                                                    queueName: String)
+  extends Publisher[PubMsg] with ConfirmListener {
+
   private val logger = LoggerFactory.getLogger(getClass)
 
   import data.executionContext
@@ -39,8 +40,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
     val bos = new ByteArrayOutputStream()
     val writer = new OutputStreamWriter(bos, "UTF-8")
     try {
-      import data.formats
-      Serialization.write(msg, writer)
+      writer.write(data.serializer.serialize(msg))
     } finally {
       writer.close()
     }
@@ -49,7 +49,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        channel.basicPublish("", queueName, null, bos.toByteArray)
+        channel.basicPublish(data.exchangeName, queueName, null, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

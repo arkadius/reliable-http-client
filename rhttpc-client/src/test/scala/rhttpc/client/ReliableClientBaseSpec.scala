@@ -17,6 +17,7 @@ package rhttpc.client
 
 import akka.testkit.TestKit
 import org.scalatest._
+import rhttpc.transport.amqp.AmqpOutboundQueueData
 
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration._
@@ -29,8 +30,8 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     implicit val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
-    val subMgr = SubscriptionManager()
-    val client = new ReliableClient[String](subMgr)
+    val subMgr = SubscriptionManager(transport, MockQueueData)
+    val client = new ReliableClient[String](subMgr, transport.publisher(MockQueueData))
     try {
       test(FixtureParam(client, transport))
     } finally {

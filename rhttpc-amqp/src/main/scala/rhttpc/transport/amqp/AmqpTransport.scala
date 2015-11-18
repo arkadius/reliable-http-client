@@ -17,26 +17,32 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
+import com.rabbitmq.client.Channel
 import rhttpc.transport._
 
 import scala.language.postfixOps
 
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg <: AnyRef] extends PubSubTransport[PubMsg, SubMsg, AmqpInboundQueueData, AmqpOutboundQueueData]
+
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransport[PubMsg <: AnyRef, SubMsg](data: AmqpTransportCreateData[PubMsg, SubMsg],
-                                                            declarePublisherQueue: AmqpQueueCreateData => DeclareOk,
-                                                            declareSubscriberQueue: AmqpQueueCreateData => DeclareOk) extends PubSubTransport[PubMsg] {
-  override def publisher(queueName: String): Publisher[PubMsg] = {
+private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, SubMsg],
+                                                                          declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk,
+                                                                          declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk)
+  extends AmqpTransport[PubMsg, SubMsg] {
+
+  override def publisher(queueData: AmqpOutboundQueueData): Publisher[PubMsg] = {
     val channel = data.connection.createChannel()
-    declarePublisherQueue(AmqpQueueCreateData(channel, queueName))
-    val publisher = new AmqpPublisher(data, channel, queueName)
+    declarePublisherQueue(queueData, channel)
+    val publisher = new AmqpPublisher(data, channel, queueData.name)
     channel.addConfirmListener(publisher)
     channel.confirmSelect()
     publisher
   }
 
-  override def subscriber(queueName: String, consumer: ActorRef): Subscriber = {
+  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
     val channel = data.connection.createChannel()
-    declareSubscriberQueue(AmqpQueueCreateData(channel, queueName))
-    new AmqpSubscriber(data, channel, queueName, consumer)
+    declareSubscriberQueue(queueData, channel)
+    new AmqpSubscriber(data, channel, queueData.name, consumer)
   }
+
 }

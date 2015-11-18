@@ -19,7 +19,8 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl._
-import rhttpc.transport.PubSubTransport
+import rhttpc.transport.{QueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpTransport}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,21 +42,25 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_]): SubscriptionManager with SubscriptionInternalManagement = {
-    new SubscriptionManagerImpl()
+  private[client] def apply()(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
+    val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
+    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+    SubscriptionManager(transport, AmqpInboundQueueData(responseQueueName, batchSize))
   }
+
+  private[client] def apply[QD <: QueueData](transport: PubSubTransport[_, _, QD, _], queueData: QD)
+                                            (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
+    val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
+    val subscriber = transport.subscriber(queueData, dispatcher)
+    new SubscriptionManagerImpl(subscriber, dispatcher)
+  }
+
 }
 
-private[client] class SubscriptionManagerImpl(implicit actorSystem: ActorSystem, transport: PubSubTransport[_])
+private[client] class SubscriptionManagerImpl(transportSub: Subscriber[_], dispatcher: ActorRef)
   extends SubscriptionManager with SubscriptionInternalManagement {
 
   private val log = LoggerFactory.getLogger(getClass)
-
-  private val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
-
-  private val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
-
-  private val transportSub = transport.subscriber(responseQueueName, dispatcher)
 
   override def run(): Unit = {
     transportSub.run()

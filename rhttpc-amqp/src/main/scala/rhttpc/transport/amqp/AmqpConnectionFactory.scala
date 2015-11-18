@@ -15,30 +15,50 @@
  */
 package rhttpc.transport.amqp
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import com.rabbitmq.client.{Connection, ConnectionFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader
 
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util._
 
 object AmqpConnectionFactory {
-  def create(actorSystem: ActorSystem): Connection = {
+  private final val DEFAULT_RETRY_CONFIG = AmqpConnectionRetry(
+    count = 10,
+    delay = Duration(5, TimeUnit.SECONDS)
+  )
+
+  def connect(actorSystem: ActorSystem)
+             (implicit executionContext: ExecutionContext): Future[Connection] = {
     import ArbitraryTypeReader._
     val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
-    val factory = new ConnectionFactory()
-    config.virtualHost.foreach(factory.setVirtualHost)
-    config.userName.foreach(factory.setUsername)
-    config.password.foreach(factory.setPassword)
-    factory.setAutomaticRecoveryEnabled(true)
-    retry(n = 10, delay = 5000) {
-      Try {
-        // Could By IOException or TimeoutException
-        val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
-        factory.newConnection(addresses)
+    connect(config)
+  }
+
+  def connect(config: AmqpConfig)
+             (implicit executionContext: ExecutionContext): Future[Connection] =
+    Future {
+      val factory = new ConnectionFactory()
+      config.virtualHost.foreach(factory.setVirtualHost)
+      config.userName.foreach(factory.setUsername)
+      config.password.foreach(factory.setPassword)
+      factory.setAutomaticRecoveryEnabled(true)
+      val retryConfig = config.retry.getOrElse(DEFAULT_RETRY_CONFIG)
+      retry(
+        n = retryConfig.count,
+        delay = retryConfig.delay.toMillis) {
+
+        Try {
+          // Could By IOException or TimeoutException
+          val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
+          factory.newConnection(addresses)
+        }
       }
     }
-  }
 
   private def retry[T](n: Int, delay: Long)(fn: => Try[T]): T = {
     fn match {
@@ -49,7 +69,13 @@ object AmqpConnectionFactory {
       case Failure(e) => throw e
     }
   }
-
 }
 
-case class AmqpConfig(hosts: Seq[String], virtualHost: Option[String], userName: Option[String], password: Option[String])
+case class AmqpConfig(hosts: Seq[String],
+                      virtualHost: Option[String] = None,
+                      userName: Option[String] = None,
+                      password: Option[String] = None,
+                      retry: Option[AmqpConnectionRetry] = None)
+
+case class AmqpConnectionRetry(count: Int,
+                               delay: FiniteDuration)
