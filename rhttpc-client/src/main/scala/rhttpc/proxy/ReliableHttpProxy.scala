@@ -32,7 +32,7 @@ import scala.util.Try
 object ReliableHttpProxy {
   def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableHttpProxy] = {
     import actorSystem.dispatcher
-    val connectionF = AmqpConnectionFactory.create(actorSystem)
+    val connectionF = AmqpConnectionFactory.connect(actorSystem)
     connectionF.map { case connection =>
       implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
       val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")

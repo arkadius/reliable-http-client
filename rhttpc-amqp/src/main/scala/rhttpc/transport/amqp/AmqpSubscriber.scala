@@ -30,7 +30,6 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
                                         channel: Channel,
                                         queueName: String,
                                         consumer: ActorRef)
-                                       (implicit deserializer: Deserializer[Sub])
   extends Subscriber[Sub] {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -51,28 +50,24 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
   }
 
   private def handleMessage(stringMsg: String, deliveryTag: Long) = {
-    val msg = deserializer.deserialize(stringMsg)
+    val deserializedMessage = data.deserializer.deserialize(stringMsg)
     implicit val timeout = Timeout(5 minute)
-    if (shouldHandleMessage(msg)) {
-      msg match {
-        case Success(msgObj) => (consumer ? msgObj).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
-        case f@Failure(_) => (consumer ? f).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
-      }
-    } else {
-      channel.basicReject(deliveryTag, false)
-      logger.info(s"Message: [$stringMsg] rejected!")
+    deserializedMessage match {
+      case Success(msgObj) =>
+        (consumer ? msgObj).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+      case f@Failure(_) if !data.ignoreInvalidMessages =>
+        (consumer ? f).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+      case Failure(_) =>
+        channel.basicReject(deliveryTag, false)
+        logger.info(s"Message: [$stringMsg] rejected!")
     }
   }
 
   private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
     case Success(_) =>
       channel.basicAck(deliveryTag, false)
-    case Failure(_) if data.ackOnMessageFailure =>
-      channel.basicAck(deliveryTag, false)
     case Failure(_) =>
       channel.basicNack(deliveryTag, false, true)
   }
 
-  private def shouldHandleMessage(deserializedMessage: Try[Sub]): Boolean =
-    deserializedMessage.isSuccess || (deserializedMessage.isFailure && !data.ignoreInvalidMessages)
 }

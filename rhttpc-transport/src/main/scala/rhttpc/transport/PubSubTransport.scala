@@ -25,10 +25,6 @@ trait PubSubTransport[PubMsg, SubMsg, In <: QueueData, Out <: QueueData] {
   def publisher(queueData: Out): Publisher[PubMsg]
 
   def subscriber(queueData: In, consumer: ActorRef): Subscriber[SubMsg]
-
-  def close(onShutdownAction: => Unit): Unit
-
-  def close(): Unit = close(())
 }
 
 trait PubSubTransportFactory {

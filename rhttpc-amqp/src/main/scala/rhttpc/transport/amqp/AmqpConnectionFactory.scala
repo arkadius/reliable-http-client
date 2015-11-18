@@ -21,26 +21,44 @@ import akka.actor.ActorSystem
 import com.rabbitmq.client.{Connection, ConnectionFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader
-import scala.concurrent.duration.Duration
+
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util._
 
-class AmqpConnectionFactory()(implicit executionContext: ExecutionContext, retryCount: Int, delay: Duration) {
+object AmqpConnectionFactory {
+  private final val DEFAULT_RETRY_CONFIG = AmqpConnectionRetry(
+    count = 10,
+    delay = Duration(5, TimeUnit.SECONDS)
+  )
 
-  def connect(config: AmqpConfig): Future[Connection] = Future {
-    val factory = new ConnectionFactory()
-    config.virtualHost.foreach(factory.setVirtualHost)
-    config.userName.foreach(factory.setUsername)
-    config.password.foreach(factory.setPassword)
-    factory.setAutomaticRecoveryEnabled(true)
-    retry(n = retryCount, delay = delay.toMillis) {
-      Try {
-        // Could By IOException or TimeoutException
-        val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
-        factory.newConnection(addresses)
+  def connect(actorSystem: ActorSystem)
+             (implicit executionContext: ExecutionContext): Future[Connection] = {
+    import ArbitraryTypeReader._
+    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
+    connect(config)
+  }
+
+  def connect(config: AmqpConfig)
+             (implicit executionContext: ExecutionContext): Future[Connection] =
+    Future {
+      val factory = new ConnectionFactory()
+      config.virtualHost.foreach(factory.setVirtualHost)
+      config.userName.foreach(factory.setUsername)
+      config.password.foreach(factory.setPassword)
+      factory.setAutomaticRecoveryEnabled(true)
+      val retryConfig = config.retry.getOrElse(DEFAULT_RETRY_CONFIG)
+      retry(
+        n = retryConfig.count,
+        delay = retryConfig.delay.toMillis) {
+
+        Try {
+          // Could By IOException or TimeoutException
+          val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
+          factory.newConnection(addresses)
+        }
       }
     }
-  }
 
   private def retry[T](n: Int, delay: Long)(fn: => Try[T]): T = {
     fn match {
@@ -51,24 +69,13 @@ class AmqpConnectionFactory()(implicit executionContext: ExecutionContext, retry
       case Failure(e) => throw e
     }
   }
-
 }
 
-object AmqpConnectionFactory {
-  private val DefaultRetryCount = 10
-  private val DefaultDelay = Duration(5, TimeUnit.SECONDS)
+case class AmqpConfig(hosts: Seq[String],
+                      virtualHost: Option[String] = None,
+                      userName: Option[String] = None,
+                      password: Option[String] = None,
+                      retry: Option[AmqpConnectionRetry] = None)
 
-  def create(actorSystem: ActorSystem)
-           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
-    import ArbitraryTypeReader._
-    val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
-    new AmqpConnectionFactory().connect(config)
-  }
-
-  def createWith(config: AmqpConfig)
-           (implicit executionContext: ExecutionContext, retryCount: Int = DefaultRetryCount, delay: Duration = DefaultDelay): Future[Connection] = {
-    new AmqpConnectionFactory().connect(config)
-  }
-}
-
-case class AmqpConfig(hosts: Seq[String], virtualHost: Option[String], userName: Option[String], password: Option[String])
+case class AmqpConnectionRetry(count: Int,
+                               delay: FiniteDuration)

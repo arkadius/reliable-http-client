@@ -26,9 +26,8 @@ import scala.concurrent.{Future, Promise}
 import scala.language.postfixOps
 
 private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
-                                                             channel: Channel,
-                                                             queueName: String)
-                                                            (implicit val serializer: Serializer[PubMsg])
+                                                    channel: Channel,
+                                                    queueName: String)
   extends Publisher[PubMsg] with ConfirmListener {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -41,7 +40,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
     val bos = new ByteArrayOutputStream()
     val writer = new OutputStreamWriter(bos, "UTF-8")
     try {
-      writer.write(serializer.serialize(msg))
+      writer.write(data.serializer.serialize(msg))
     } finally {
       writer.close()
     }

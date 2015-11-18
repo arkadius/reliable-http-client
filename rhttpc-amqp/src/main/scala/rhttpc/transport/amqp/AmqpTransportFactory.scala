@@ -49,7 +49,6 @@ object AmqpTransportFactory extends AmqpTransportFactory
 
 case class AmqpTransportCreateData[PubMsg, SubMsg](connection: Connection,
                                                    exchangeName: String = "",
-                                                   ackOnMessageFailure: Boolean = false,
                                                    serializer: Serializer[PubMsg],
                                                    deserializer: Deserializer[SubMsg],
                                                    ignoreInvalidMessages: Boolean = true)

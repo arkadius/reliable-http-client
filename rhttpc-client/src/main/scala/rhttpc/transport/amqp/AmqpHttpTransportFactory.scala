@@ -28,22 +28,22 @@ import scala.util.Try
 
 object AmqpHttpTransportFactory {
   def createRequestResponseTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[HttpRequest], AnyRef] = {
+                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[HttpRequest], Correlated[Try[HttpResponse]]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
       AmqpTransportCreateData(connection,
         serializer = new JsonSerializer[Correlated[HttpRequest]](),
-        deserializer = new JsonDeserializer[AnyRef]())
+        deserializer = new JsonDeserializer[Correlated[Try[HttpResponse]]]())
     )
   }
 
   def createResponseRequestTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[Try[HttpResponse]], AnyRef] = {
+                                    (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[Try[HttpResponse]], Correlated[HttpRequest]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransportFactory.create(
       AmqpTransportCreateData(connection,
         serializer = new JsonSerializer[Correlated[Try[HttpResponse]]](),
-        deserializer = new JsonDeserializer[AnyRef]())
+        deserializer = new JsonDeserializer[Correlated[HttpRequest]]())
     )
   }
 }
