@@ -22,18 +22,20 @@ import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Try, Failure, Success}
 
-private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
-                                        channel: Channel,
+private[amqp] class AmqpSubscriber[Sub](channel: Channel,
                                         queueName: String,
-                                        consumer: ActorRef)
+                                        consumer: ActorRef,
+                                        deserializer: Deserializer[Sub],
+                                        ignoreInvalidMessages: Boolean)
+                                       (implicit ec: ExecutionContext)
   extends Subscriber[Sub] {
 
   private val logger = LoggerFactory.getLogger(getClass)
-  import data.executionContext
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
@@ -50,13 +52,13 @@ private[amqp] class AmqpSubscriber[Sub](data: AmqpTransportCreateData[_, Sub],
   }
 
   private def handleMessage(stringMsg: String, deliveryTag: Long) = {
-    val deserializedMessage = data.deserializer.deserialize(stringMsg)
+    val deserializedMessage = deserializer.deserialize(stringMsg)
     implicit val timeout = Timeout(5 minute)
     deserializedMessage match {
       case Success(msgObj) =>
-        (consumer ? msgObj).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
-      case f@Failure(_) if !data.ignoreInvalidMessages =>
-        (consumer ? f).mapTo[Any] onComplete handleConsumerResponse(deliveryTag)
+        (consumer ? msgObj) onComplete handleConsumerResponse(deliveryTag)
+      case f@Failure(_) if !ignoreInvalidMessages =>
+        (consumer ? f) onComplete handleConsumerResponse(deliveryTag)
       case Failure(_) =>
         channel.basicReject(deliveryTag, false)
         logger.info(s"Message: [$stringMsg] rejected!")

@@ -39,7 +39,7 @@ object ReliableHttpProxy {
       val _publisher = transport.publisher(AmqpOutboundQueueData(responseQueueName))
       // TODO: configured routing/processing strategies
       val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
-        override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
+        override protected def publisher: Publisher[Correlated[Try[HttpResponse]], _] = _publisher
       })
       val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
       new ReliableHttpProxy(handler, batchSize) {

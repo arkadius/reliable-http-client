@@ -17,32 +17,93 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
-import com.rabbitmq.client.Channel
+import com.rabbitmq.client.{Connection, AMQP, Channel}
 import rhttpc.transport._
 
 import scala.language.postfixOps
 
-trait AmqpTransport[PubMsg <: AnyRef, SubMsg <: AnyRef] extends PubSubTransport[PubMsg, SubMsg, AmqpInboundQueueData, AmqpOutboundQueueData]
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg, AmqpInboundQueueData, AmqpOutboundQueueData, AMQP.BasicProperties]
 
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, SubMsg],
-                                                                          declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk,
-                                                                          declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk)
-  extends AmqpTransport[PubMsg, SubMsg] {
+private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,
+                                                                exchangeName: String = "",
+                                                                serializer: Serializer[PubMsg],
+                                                                deserializer: Deserializer[SubMsg],
+                                                                ignoreInvalidMessages: Boolean,
+                                                                declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk,
+                                                                declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk,
+                                                                defaultPublishProperties: AMQP.BasicProperties)
+                                                               (implicit actorSystem: ActorSystem) extends AmqpTransport[PubMsg, SubMsg] {
 
-  override def publisher(queueData: AmqpOutboundQueueData): Publisher[PubMsg] = {
-    val channel = data.connection.createChannel()
+  import actorSystem.dispatcher
+
+  override def publisher(queueData: AmqpOutboundQueueData): AmqpPublisher[PubMsg] = {
+    val channel = connection.createChannel()
     declarePublisherQueue(queueData, channel)
-    val publisher = new AmqpPublisher(data, channel, queueData.name)
+    val publisher = new AmqpPublisher[PubMsg](
+      channel = channel,
+      queueName = queueData.name,
+      exchangeName = exchangeName,
+      serializer = serializer,
+      defaultPublishProperties = defaultPublishProperties
+    )
     channel.addConfirmListener(publisher)
     channel.confirmSelect()
     publisher
   }
 
-  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
-    val channel = data.connection.createChannel()
+  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
+    val channel = connection.createChannel()
     declareSubscriberQueue(queueData, channel)
-    new AmqpSubscriber(data, channel, queueData.name, consumer)
+    new AmqpSubscriber(
+      channel,
+      queueData.name,
+      consumer,
+      deserializer,
+      ignoreInvalidMessages
+    )
   }
 
 }
+
+object AmqpTransport {
+  def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
+                                      exchangeName: String = "",
+                                      serializer: Serializer[PubMsg],
+                                      deserializer: Deserializer[SubMsg],
+                                      ignoreInvalidMessages: Boolean = true,
+                                      declarePublisherQueue: (AmqpOutboundQueueData, Channel) => DeclareOk = defaultDeclarePublisherQueue,
+                                      declareSubscriberQueue: (AmqpInboundQueueData, Channel) => DeclareOk = defaultDeclareSubscriberQueue,
+                                      defaultPublishProperties: AMQP.BasicProperties = DEFAULT_PUBLISH_PROPERTIES)
+                                     (implicit actorSystem: ActorSystem): AmqpTransport[PubMsg, SubMsg] =
+    new AmqpTransportImpl[PubMsg, SubMsg](
+      connection = connection,
+      exchangeName = exchangeName,
+      serializer = serializer,
+      deserializer = deserializer,
+      ignoreInvalidMessages = ignoreInvalidMessages,
+      declarePublisherQueue = declarePublisherQueue,
+      declareSubscriberQueue = declareSubscriberQueue,
+      defaultPublishProperties = defaultPublishProperties
+    )
+
+  private final def DEFAULT_PUBLISH_PROPERTIES: AMQP.BasicProperties =
+    new AMQP.BasicProperties.Builder()
+      .deliveryMode(PERSISTENT_DELIVERY_MODE)
+      .build()
+
+  private final val PERSISTENT_DELIVERY_MODE = 2
+
+  private final def defaultDeclarePublisherQueue(in: AmqpOutboundQueueData, channel: Channel) = {
+    channel.queueDeclare(in.name, in.durability, false, in.autoDelete, null) // using default exchange
+  }
+
+  private final def defaultDeclareSubscriberQueue(in: AmqpInboundQueueData, channel: Channel) = {
+    channel.basicQos(in.qos)
+    channel.queueDeclare(in.name, in.durability, false, in.autoDelete, null) // using default exchange
+  }
+}
+
+case class AmqpInboundQueueData(name: String, qos: Int, durability: Boolean = true, autoDelete: Boolean = false)
+
+case class AmqpOutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false)

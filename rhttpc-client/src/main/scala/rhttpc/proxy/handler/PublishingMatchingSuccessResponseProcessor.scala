@@ -31,7 +31,7 @@ trait PublishingMatchingSuccessResponseProcessor extends DelayedNackingNonSucces
       PublishAckAction(publisher, ctx)(result)
   }
 
-  protected def publisher: Publisher[Correlated[Try[HttpResponse]]]
+  protected def publisher: Publisher[Correlated[Try[HttpResponse]], _]
 }
 
 trait PublishingEveryResponseProcessor

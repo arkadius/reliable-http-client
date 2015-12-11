@@ -30,20 +30,20 @@ object AmqpHttpTransportFactory {
   def createRequestResponseTransport(connection: Connection)
                                     (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[HttpRequest], Correlated[Try[HttpResponse]]] = {
     import Json4sHttpRequestResponseFormats._
-    AmqpTransportFactory.create(
-      AmqpTransportCreateData(connection,
-        serializer = new JsonSerializer[Correlated[HttpRequest]](),
-        deserializer = new JsonDeserializer[Correlated[Try[HttpResponse]]]())
+    AmqpTransport(
+      connection = connection,
+      serializer = new JsonSerializer[Correlated[HttpRequest]](),
+      deserializer = new JsonDeserializer[Correlated[Try[HttpResponse]]]()
     )
   }
 
   def createResponseRequestTransport(connection: Connection)
                                     (implicit actorSystem: ActorSystem): AmqpTransport[Correlated[Try[HttpResponse]], Correlated[HttpRequest]] = {
     import Json4sHttpRequestResponseFormats._
-    AmqpTransportFactory.create(
-      AmqpTransportCreateData(connection,
-        serializer = new JsonSerializer[Correlated[Try[HttpResponse]]](),
-        deserializer = new JsonDeserializer[Correlated[HttpRequest]]())
+    AmqpTransport(
+      connection = connection,
+      serializer = new JsonSerializer[Correlated[Try[HttpResponse]]](),
+      deserializer = new JsonDeserializer[Correlated[HttpRequest]]()
     )
   }
 }

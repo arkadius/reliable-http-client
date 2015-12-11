@@ -22,25 +22,26 @@ import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport.{Publisher, Serializer}
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 
-private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateData[PubMsg, _],
-                                                    channel: Channel,
-                                                    queueName: String)
-  extends Publisher[PubMsg] with ConfirmListener {
+private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
+                                                    queueName: String,
+                                                    exchangeName: String,
+                                                    serializer: Serializer[PubMsg],
+                                                    defaultPublishProperties: AMQP.BasicProperties)
+                                                   (implicit ec: ExecutionContext)
+  extends Publisher[PubMsg, AMQP.BasicProperties] with ConfirmListener {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  import data.executionContext
-
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
-  override def publish(msg: PubMsg): Future[Unit] = {
+  override def publish(msg: PubMsg, properties: Option[AMQP.BasicProperties] = None): Future[Unit] = {
     val bos = new ByteArrayOutputStream()
     val writer = new OutputStreamWriter(bos, "UTF-8")
     try {
-      writer.write(data.serializer.serialize(msg))
+      writer.write(serializer.serialize(msg))
     } finally {
       writer.close()
     }
@@ -49,7 +50,8 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](data: AmqpTransportCreateDat
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        channel.basicPublish(data.exchangeName, queueName, null, bos.toByteArray)
+        val amqpProperties = properties.getOrElse(defaultPublishProperties)
+        channel.basicPublish(exchangeName, queueName, amqpProperties, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

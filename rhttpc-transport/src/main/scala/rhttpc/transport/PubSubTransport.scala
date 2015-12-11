@@ -21,29 +21,18 @@ import scala.concurrent.Future
 import scala.language.higherKinds
 import scala.util.Try
 
-trait PubSubTransport[PubMsg, SubMsg, In <: QueueData, Out <: QueueData] {
-  def publisher(queueData: Out): Publisher[PubMsg]
+trait PubSubTransport[PubMsg, SubMsg, In, Out, Props] {
+  def publisher(queueData: Out): Publisher[PubMsg, Props]
 
   def subscriber(queueData: In, consumer: ActorRef): Subscriber[SubMsg]
 }
 
-trait PubSubTransportFactory {
-  type DataT[P, S] <: TransportCreateData[P, S]
-  type InboundQueueDataT <: QueueData
-  type OutboundQueueDataT <: QueueData
+trait Publisher[Msg, -Props] {
 
-  def create[PubMsg <: AnyRef, SubMsg <: AnyRef](data: DataT[PubMsg, SubMsg]): PubSubTransport[PubMsg, SubMsg, InboundQueueDataT, OutboundQueueDataT]
-}
-
-trait TransportCreateData[PubMsg, SubMsg]
-
-trait QueueData
-
-trait Publisher[Msg] {
-
-  def publish(msg: Msg): Future[Unit]
+  def publish(msg: Msg, properties: Option[Props] = None): Future[Unit]
 
   def close(): Unit
+
 }
 
 trait Serializer[PubMsg] {
