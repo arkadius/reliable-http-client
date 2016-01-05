@@ -18,10 +18,7 @@ package rhttpc.transport.amqp
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
-import org.json4s.Formats
-import org.json4s.native.Serialization
-import rhttpc.transport.{Deserializer, Serializer}
-import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats
+import rhttpc.transport.json4s.{Json4sDeserializer, Json4sHttpRequestResponseFormats, Json4sSerializer}
 import rhttpc.transport.protocol.Correlated
 
 import scala.util.Try
@@ -32,8 +29,8 @@ object AmqpHttpTransportFactory {
     import Json4sHttpRequestResponseFormats._
     AmqpTransport(
       connection = connection,
-      serializer = new JsonSerializer[Correlated[HttpRequest]](),
-      deserializer = new JsonDeserializer[Correlated[Try[HttpResponse]]]()
+      serializer = new Json4sSerializer[Correlated[HttpRequest]](),
+      deserializer = new Json4sDeserializer[Correlated[Try[HttpResponse]]]()
     )
   }
 
@@ -42,21 +39,8 @@ object AmqpHttpTransportFactory {
     import Json4sHttpRequestResponseFormats._
     AmqpTransport(
       connection = connection,
-      serializer = new JsonSerializer[Correlated[Try[HttpResponse]]](),
-      deserializer = new JsonDeserializer[Correlated[HttpRequest]]()
+      serializer = new Json4sSerializer[Correlated[Try[HttpResponse]]](),
+      deserializer = new Json4sDeserializer[Correlated[HttpRequest]]()
     )
-  }
-}
-
-private class JsonSerializer[PubMsg <: AnyRef](implicit val formats: Formats) extends Serializer[PubMsg] {
-  override def serialize(msg: PubMsg): String = {
-    Serialization.write(msg)(formats)
-  }
-}
-
-private class JsonDeserializer[SubMsg](implicit val subMsgManifest: Manifest[SubMsg],
-                                       val formats: Formats) extends Deserializer[SubMsg] {
-  override def deserialize(value: String): Try[SubMsg] = {
-    Try(Serialization.read[SubMsg](value))
   }
 }

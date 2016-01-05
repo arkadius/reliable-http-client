@@ -83,8 +83,21 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "net.ceedubs"              %% "ficus"                         % ficusV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
-        "org.json4s"               %% "json4s-native"                 % json4sV,
         "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "org.scala-lang"            % "scala-reflect"                 % scalaV
+      )
+    }
+  ).
+  dependsOn(transport)
+
+lazy val json4sSerialization = (project in file("rhttpc-json4s")).
+  settings(commonSettings).
+  settings(publishSettings).
+  settings(
+    name := "rhttpc-json4s",
+    libraryDependencies ++= {
+      Seq(
+        "org.json4s"               %% "json4s-native"                 % json4sV,
         "org.scala-lang"            % "scala-reflect"                 % scalaV
       )
     }
@@ -107,7 +120,8 @@ lazy val client = (project in file("rhttpc-client")).
       )
     }
   ).
-  dependsOn(amqpTransport)
+  dependsOn(amqpTransport).
+  dependsOn(json4sSerialization)
 
 lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(commonSettings).
