@@ -133,7 +133,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   private def startServices()(implicit docker: DockerClient): (String, String, String) = {
     val echoContainerId = docker.containerStartFromScratch(echoName, s"$repo/sampleecho", appVersion)(identity)
-    val rhttpcServerContainerId = docker.containerStartFromScratch("test_rhttpcproxy_1", s"$repo/rhttpc-proxy", appVersion) { cmd =>
+    val rhttpcServerContainerId = docker.containerStartFromScratch("test_sampleproxy_1", s"$repo/sample-proxy", appVersion) { cmd =>
       cmd.withLinks(
         new Link(echoName, "sampleecho"),
         new Link(rabbitMqName, "rabbitmq")

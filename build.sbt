@@ -109,22 +109,6 @@ lazy val client = (project in file("rhttpc-client")).
   ).
   dependsOn(amqpTransport)
 
-lazy val proxyApp = (project in file("rhttpc-proxy")).
-  settings(commonSettings).
-  enablePlugins(DockerPlugin).
-  enablePlugins(JavaAppPackaging).
-  settings(
-    name := "rhttpc-proxy",
-    libraryDependencies ++= {
-      Seq(
-        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"            % "logback-classic"               % logbackV
-      )
-    },
-    publishArtifact := false
-  ).
-  dependsOn(client)
-
 lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
@@ -142,6 +126,22 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
     dockerExposedPorts := Seq(8082),
     publishArtifact := false
   )
+
+lazy val sampleProxy = (project in file("sample/sample-proxy")).
+  settings(commonSettings).
+  enablePlugins(DockerPlugin).
+  enablePlugins(JavaAppPackaging).
+  settings(
+    name := "sample-proxy",
+    libraryDependencies ++= {
+      Seq(
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
+        "ch.qos.logback"            % "logback-classic"               % logbackV
+      )
+    },
+    publishArtifact := false
+  ).
+  dependsOn(client)
 
 lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
@@ -177,8 +177,8 @@ lazy val testProj = (project in file("sample/test")).
       )
     },
     Keys.test in Test <<= (Keys.test in Test).dependsOn(
-      publishLocal in Docker in proxyApp,
       publishLocal in Docker in sampleEcho,
+      publishLocal in Docker in sampleProxy,
       publishLocal in Docker in sampleApp
     ),
     publishArtifact := false
