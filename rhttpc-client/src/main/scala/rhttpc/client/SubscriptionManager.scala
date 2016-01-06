@@ -48,7 +48,7 @@ object SubscriptionManager {
     SubscriptionManager(transport, AmqpInboundQueueData(responseQueueName, batchSize))
   }
 
-  private[client] def apply[QD](transport: PubSubTransport[_, _, QD, _, _], queueData: QD)
+  private[client] def apply[QD](transport: PubSubTransport[_, _, QD, _], queueData: QD)
                                (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)

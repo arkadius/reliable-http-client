@@ -48,7 +48,7 @@ case class DelayedNackAction(ctx: HttpProxyContext) {
   }
 }
 
-case class PublishAckAction(publisher: Publisher[Correlated[Try[HttpResponse]], Nothing], ctx: HttpProxyContext) {
+case class PublishAckAction(publisher: Publisher[Correlated[Try[HttpResponse]]], ctx: HttpProxyContext) {
   def apply(response: Try[HttpResponse]): Future[Unit] = {
     val ackFuture = publisher.publish(Correlated(response, ctx.correlationId))
     import ctx.executionContext

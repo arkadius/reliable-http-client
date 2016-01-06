@@ -20,7 +20,7 @@ import java.io._
 import akka.agent.Agent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.{Publisher, Serializer}
+import rhttpc.transport.{Message, Publisher, Serializer}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
@@ -29,29 +29,32 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
                                                     queueName: String,
                                                     exchangeName: String,
                                                     serializer: Serializer[PubMsg],
-                                                    defaultPublishProperties: AMQP.BasicProperties)
+                                                    prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
                                                    (implicit ec: ExecutionContext)
-  extends Publisher[PubMsg, AMQP.BasicProperties] with ConfirmListener {
+  extends Publisher[PubMsg] with ConfirmListener {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
-  override def publish(msg: PubMsg, properties: Option[AMQP.BasicProperties] = None): Future[Unit] = {
+  override def publish(msg: Message[PubMsg]): Future[Unit] = {
     val bos = new ByteArrayOutputStream()
     val writer = new OutputStreamWriter(bos, "UTF-8")
     try {
-      writer.write(serializer.serialize(msg))
+      writer.write(serializer.serialize(msg.content))
     } finally {
       writer.close()
     }
+    val properties = prepareProperties.applyOrElse(
+      msg,
+      (_: Message[Any]) => throw new IllegalArgumentException(s"Not supported message type: $msg")
+    )
     val ackPromise = Promise[Unit]()
     for {
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        val amqpProperties = properties.getOrElse(defaultPublishProperties)
-        channel.basicPublish(exchangeName, queueName, amqpProperties, bos.toByteArray)
+        channel.basicPublish(exchangeName, queueName, properties, bos.toByteArray)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

@@ -118,14 +118,14 @@ object ReliableHttp {
     }
   }
 
-  private def requestPublisher(implicit transport: AmqpTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest], Nothing] = {
+  private def requestPublisher(implicit transport: AmqpTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest]] = {
     val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
     transport.publisher(AmqpOutboundQueueData(requestQueueName))
   }
 }
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement,
-                              publisher: Publisher[Correlated[Request], Nothing]) {
+                              publisher: Publisher[Correlated[Request]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr

@@ -28,7 +28,7 @@ import scala.language.postfixOps
 import scala.util.{Success, Try}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[Correlated[String], AnyRef, MockQueueData.type, MockQueueData.type, Nothing] {
+  extends PubSubTransport[Correlated[String], AnyRef, MockQueueData.type, MockQueueData.type] {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
@@ -40,13 +40,13 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _publicationPromise
   }
 
-  override def publisher(data: MockQueueData.type): Publisher[Correlated[String], Nothing] = new Publisher[Correlated[String], Nothing] with MockSerializer {
-    override def publish(request: Correlated[String], properties: Option[Nothing]): Future[Unit] = {
+  override def publisher(data: MockQueueData.type): Publisher[Correlated[String]] = new Publisher[Correlated[String]] with MockSerializer {
+    override def publish(request: Message[Correlated[String]]): Future[Unit] = {
       _publicationPromise = Promise[Unit]()
       replySubscriptionPromise = Promise[String]()
       implicit val timeout = Timeout(5 seconds)
       replySubscriptionPromise.future.onComplete { result =>
-        ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.correlationId)
+        ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.correlationId)
       }
       _publicationPromise.future
     }

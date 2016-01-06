@@ -18,22 +18,38 @@ package rhttpc.transport
 import akka.actor.ActorRef
 
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import scala.util.Try
 
-trait PubSubTransport[PubMsg, SubMsg, In, Out, Props] {
-  def publisher(queueData: Out): Publisher[PubMsg, Props]
+trait PubSubTransport[PubMsg, SubMsg, In, Out] {
+  def publisher(queueData: Out): Publisher[PubMsg]
 
   def subscriber(queueData: In, consumer: ActorRef): Subscriber[SubMsg]
 }
 
-trait Publisher[Msg, -Props] {
+trait Publisher[Msg] {
 
-  def publish(msg: Msg, properties: Option[Props] = None): Future[Unit]
+  final def publish(msg: Msg): Future[Unit] =
+    publish(InstantMessage(msg))
+
+  def publish(msg: Message[Msg]): Future[Unit]
 
   def close(): Unit
 
 }
+
+trait Message[+T] {
+  def content: T
+}
+
+case class InstantMessage[T](content: T) extends Message[T]
+
+case class InstantMessageWithSpecifiedProperties[T](content: T, properties: Map[String, Any]) extends Message[T]
+
+case class DelayedMessage[T](content: T, delay: FiniteDuration) extends Message[T]
+
+case class DelayedMessageWithSpecifiedProperties[T](content: T, delay: FiniteDuration, properties: Map[String, Any]) extends Message[T]
 
 trait Serializer[PubMsg] {
   def serialize(obj: PubMsg): String

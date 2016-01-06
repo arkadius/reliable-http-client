@@ -36,7 +36,7 @@ trait PublishingMatchingSuccessResponseWithoutWaitingOnAckProcessor extends Dela
   
   protected def onPublishAckFailure(req: FailureWithRequest): Unit
 
-  protected def publisher: Publisher[Correlated[Try[HttpResponse]], _]
+  protected def publisher: Publisher[Correlated[Try[HttpResponse]]]
 }
 
 case class FailureWithRequest(failure: Throwable, req: HttpRequest, correlationId: String)
