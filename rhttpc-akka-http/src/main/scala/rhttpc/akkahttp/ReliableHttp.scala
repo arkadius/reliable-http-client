@@ -19,11 +19,12 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
+import rhttpc.akkahttp.amqp.AmqpJson4sHttpTransportFactory
 import rhttpc.client._
 import rhttpc.akkahttp.proxy.ReliableHttpProxy
 import rhttpc.akkahttp.proxy.handler._
-import rhttpc.akkahttp.amqp.{AmqpConnectionFactory, AmqpJson4sHttpTransportFactory}
-import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.amqp.AmqpConnectionFactory
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}

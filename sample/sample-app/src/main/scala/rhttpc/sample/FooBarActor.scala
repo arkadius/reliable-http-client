@@ -17,7 +17,6 @@ package rhttpc.sample
 
 import akka.actor._
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
-import akka.pattern._
 import rhttpc.actor.ReliableFSM
 import rhttpc.client.SubscriptionManager
 

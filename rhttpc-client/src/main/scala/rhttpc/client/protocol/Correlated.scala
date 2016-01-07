@@ -13,15 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.client.protocol
 
-import org.json4s.{DefaultFormats, Formats, TypeHints}
-import rhttpc.transport.json4s.{AllTypeHints, ObjectSerializer}
-
-object Json4sHttpRequestResponseFormats {
-
-  implicit val formats: Formats = new DefaultFormats {
-    override val typeHints: TypeHints = AllTypeHints
-  } + ObjectSerializer + ContentTypeSerializer + ByteStringSerializer + UriSerializer
-
-}
+case class Correlated[T](msg: T, correlationId: String)

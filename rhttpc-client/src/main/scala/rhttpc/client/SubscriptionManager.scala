@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
-import rhttpc.actor.impl._
+import rhttpc.client.actor._
 import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._

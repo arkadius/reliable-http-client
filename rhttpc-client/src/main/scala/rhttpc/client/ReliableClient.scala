@@ -22,9 +22,9 @@ import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
-import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
+import rhttpc.client.actor.PromiseSubscriptionCommandsListener
 import rhttpc.transport.Publisher
-import rhttpc.transport.protocol.Correlated
+import rhttpc.client.protocol.Correlated
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps

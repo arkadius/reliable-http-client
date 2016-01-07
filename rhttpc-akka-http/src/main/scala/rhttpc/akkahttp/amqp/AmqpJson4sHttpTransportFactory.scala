@@ -18,9 +18,11 @@ package rhttpc.akkahttp.amqp
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
-import rhttpc.akkahttp.json4s._
+import rhttpc.akkahttp.json4s.Json4sHttpRequestResponseFormats
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport.PubSubTransport
-import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.amqp.AmqpTransport
+import rhttpc.transport.json4s._
 
 import scala.util.Try
 

@@ -23,7 +23,7 @@ import akka.pattern._
 import akka.stream.Materializer
 import akka.stream.scaladsl._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.protocol.Correlated
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport.{InboundQueueData, PubSubTransport}
 
 import scala.concurrent.duration._

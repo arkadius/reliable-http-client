@@ -18,7 +18,7 @@ package rhttpc.akkahttp.proxy.handler
 import akka.http.scaladsl.model._
 import rhttpc.akkahttp.proxy.HttpProxyContext
 import rhttpc.transport.Publisher
-import rhttpc.transport.protocol.Correlated
+import rhttpc.client.protocol.Correlated
 
 import scala.concurrent.Future
 import scala.util._

@@ -19,7 +19,7 @@ import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
 import rhttpc.transport._
-import rhttpc.transport.protocol.Correlated
+import rhttpc.client.protocol.Correlated
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}

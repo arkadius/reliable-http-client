@@ -19,7 +19,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.pattern._
 import rhttpc.akkahttp.proxy.HttpProxyContext
 import rhttpc.transport.Publisher
-import rhttpc.transport.protocol.Correlated
+import rhttpc.client.protocol.Correlated
 
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
