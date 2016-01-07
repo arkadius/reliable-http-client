@@ -13,20 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.akkahttp.json4s
 
-import org.slf4j.LoggerFactory
+import org.json4s.{DefaultFormats, Formats, TypeHints}
 
-import scala.concurrent.{ExecutionContext, Future}
+object Json4sHttpRequestResponseFormats {
 
-package object client {
-  private val logger = LoggerFactory.getLogger(getClass)
+  implicit val formats: Formats = new DefaultFormats {
+    override val typeHints: TypeHints = AllTypeHints
+  } + ObjectSerializer + ContentTypeSerializer + ByteStringSerializer + UriSerializer
 
-  def recovered[T](future: Future[T], action: String)
-                  (implicit ec: ExecutionContext) = {
-    future.recover {
-      case ex =>
-        logger.error(s"Exception while $action", ex)
-    }
-  }
 }

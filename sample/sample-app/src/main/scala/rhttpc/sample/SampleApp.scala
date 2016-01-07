@@ -23,6 +23,7 @@ import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import rhttpc.actor.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
+import rhttpc.akkahttp.ReliableHttp
 import rhttpc.client._
 
 import scala.concurrent.duration._

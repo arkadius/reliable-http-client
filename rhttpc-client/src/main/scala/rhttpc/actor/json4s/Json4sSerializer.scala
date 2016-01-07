@@ -21,10 +21,15 @@ import java.nio.charset.Charset
 import akka.actor.ExtendedActorSystem
 import akka.serialization.Serializer
 import org.json4s.native.Serialization._
+import org.json4s.{DefaultFormats, Formats, TypeHints}
+import rhttpc.akkahttp.json4s.{AllTypeHints, ObjectSerializer}
 
 class Json4sSerializer(system: ExtendedActorSystem) extends Serializer {
   import Json4sSerializer._
-  import rhttpc.transport.json4s.Json4sHttpRequestResponseFormats.formats
+
+  implicit val formats: Formats = new DefaultFormats {
+    override val typeHints: TypeHints = AllTypeHints
+  } + ObjectSerializer
 
   override def identifier: Int = ID
 

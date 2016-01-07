@@ -13,20 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.akkahttp.json4s
 
-import org.slf4j.LoggerFactory
+import akka.http.scaladsl.model.Uri
+import org.json4s.CustomSerializer
+import org.json4s.JsonAST.{JObject, JString}
 
-import scala.concurrent.{ExecutionContext, Future}
-
-package object client {
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  def recovered[T](future: Future[T], action: String)
-                  (implicit ec: ExecutionContext) = {
-    future.recover {
-      case ex =>
-        logger.error(s"Exception while $action", ex)
-    }
+object UriSerializer extends CustomSerializer[Uri](implicit formats => (
+  {
+    case JObject(_ :: ("value", JString(value)) :: Nil) =>
+      Uri(value)
+  },
+  {
+    case uri: Uri => JObject(
+      formats.typeHintFieldName -> JString(classOf[Uri].getName),
+      "value" -> JString(uri.toString())
+    )
   }
-}
+))

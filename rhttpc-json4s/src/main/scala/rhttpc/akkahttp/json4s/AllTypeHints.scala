@@ -13,20 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.akkahttp.json4s
 
-import org.slf4j.LoggerFactory
+import org.json4s.TypeHints
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.Exception._
 
-package object client {
-  private val logger = LoggerFactory.getLogger(getClass)
+object AllTypeHints extends TypeHints {
+  override def containsHint(clazz: Class[_]): Boolean = true
 
-  def recovered[T](future: Future[T], action: String)
-                  (implicit ec: ExecutionContext) = {
-    future.recover {
-      case ex =>
-        logger.error(s"Exception while $action", ex)
-    }
-  }
+  override def classFor(hint: String): Option[Class[_]] = catching(classOf[ClassNotFoundException]) opt Class.forName(hint)
+
+  override def hintFor(clazz: Class[_]): String = clazz.getName
+
+  override val hints: List[Class[_]] = Nil
 }

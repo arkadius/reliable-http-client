@@ -112,6 +112,24 @@ lazy val client = (project in file("rhttpc-client")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-persistence"              % akkaV,
+        "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
+      )
+    }
+  ).
+  dependsOn(transport).
+  dependsOn(json4sSerialization)
+
+lazy val akkaHttpClient = (project in file("rhttpc-akka-http")).
+  settings(commonSettings).
+  settings(publishSettings).
+  settings(
+    name := "rhttpc-akka-http",
+    libraryDependencies ++= {
+      Seq(
         "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
@@ -120,6 +138,7 @@ lazy val client = (project in file("rhttpc-client")).
       )
     }
   ).
+  dependsOn(client).
   dependsOn(amqpTransport).
   dependsOn(json4sSerialization)
 
@@ -133,7 +152,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
         "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"            %  "logback-classic"              % logbackV,
+        "ch.qos.logback"            % "logback-classic"              % logbackV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
@@ -155,7 +174,7 @@ lazy val sampleProxy = (project in file("sample/sample-proxy")).
     },
     publishArtifact := false
   ).
-  dependsOn(client)
+  dependsOn(akkaHttpClient)
 
 lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
@@ -176,7 +195,7 @@ lazy val sampleApp = (project in file("sample/sample-app")).
     dockerExposedPorts := Seq(8081),
     publishArtifact := false
   ).
-  dependsOn(client)
+  dependsOn(akkaHttpClient)
 
 lazy val testProj = (project in file("sample/test")).
   settings(commonSettings).

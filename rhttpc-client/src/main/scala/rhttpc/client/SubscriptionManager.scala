@@ -41,13 +41,13 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[rhttpc] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
     val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
     val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
     SubscriptionManager(transport, InboundQueueData(responseQueueName, batchSize))
   }
 
-  private[client] def apply(transport: PubSubTransport[_, _], queueData: InboundQueueData)
+  private[rhttpc] def apply(transport: PubSubTransport[_, _], queueData: InboundQueueData)
                            (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)

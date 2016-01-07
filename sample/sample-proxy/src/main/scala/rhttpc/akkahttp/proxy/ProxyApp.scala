@@ -13,20 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.akkahttp.proxy
 
-import org.slf4j.LoggerFactory
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Await
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
-package object client {
-  private val logger = LoggerFactory.getLogger(getClass)
+object ProxyApp extends App {
+  implicit val actorSystem = ActorSystem("rhttpc-proxy")
+  import actorSystem.dispatcher
+  implicit val materializer = ActorMaterializer()
 
-  def recovered[T](future: Future[T], action: String)
-                  (implicit ec: ExecutionContext) = {
-    future.recover {
-      case ex =>
-        logger.error(s"Exception while $action", ex)
+  val proxy = Await.result(ReliableHttpProxy(), 20 seconds)
+
+  Runtime.getRuntime.addShutdownHook(new Thread {
+    override def run(): Unit = {
+      Await.result(proxy.close(), 5 minutes)
     }
-  }
+  })
+
+  proxy.run()
 }
