@@ -19,8 +19,7 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.actor.impl._
-import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpTransport}
-import rhttpc.transport.{PubSubTransport, Subscriber}
+import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,14 +41,14 @@ private[rhttpc] trait SubscriptionInternalManagement {
 }
 
 object SubscriptionManager {
-  private[client] def apply()(implicit actorSystem: ActorSystem, transport: AmqpTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
     val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
     val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    SubscriptionManager(transport, AmqpInboundQueueData(responseQueueName, batchSize))
+    SubscriptionManager(transport, InboundQueueData(responseQueueName, batchSize))
   }
 
-  private[client] def apply[QD](transport: PubSubTransport[_, _, QD, _], queueData: QD)
-                               (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
+  private[client] def apply(transport: PubSubTransport[_, _], queueData: InboundQueueData)
+                           (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)
     new SubscriptionManagerImpl(subscriber, dispatcher)

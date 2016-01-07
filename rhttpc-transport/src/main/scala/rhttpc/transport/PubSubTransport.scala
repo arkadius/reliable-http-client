@@ -22,11 +22,15 @@ import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import scala.util.Try
 
-trait PubSubTransport[PubMsg, SubMsg, In, Out] {
-  def publisher(queueData: Out): Publisher[PubMsg]
+trait PubSubTransport[PubMsg, SubMsg] {
+  def publisher(queueData: OutboundQueueData): Publisher[PubMsg]
 
-  def subscriber(queueData: In, consumer: ActorRef): Subscriber[SubMsg]
+  def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 }
+
+case class InboundQueueData(name: String, batchSize: Int, durability: Boolean = true, autoDelete: Boolean = false)
+
+case class OutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false)
 
 trait Publisher[Msg] {
 
@@ -45,11 +49,11 @@ trait Message[+T] {
 
 case class InstantMessage[T](content: T) extends Message[T]
 
-case class InstantMessageWithSpecifiedProperties[T](content: T, properties: Map[String, Any]) extends Message[T]
-
 case class DelayedMessage[T](content: T, delay: FiniteDuration) extends Message[T]
 
-case class DelayedMessageWithSpecifiedProperties[T](content: T, delay: FiniteDuration, properties: Map[String, Any]) extends Message[T]
+case class MessageWithSpecifiedProperties[T](message: Message[T], properties: Map[String, Any]) extends Message[T] {
+  override def content: T = message.content
+}
 
 trait Serializer[PubMsg] {
   def serialize(obj: PubMsg): String

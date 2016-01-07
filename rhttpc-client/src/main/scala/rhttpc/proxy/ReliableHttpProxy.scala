@@ -22,9 +22,9 @@ import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.client._
 import rhttpc.proxy.handler._
-import rhttpc.transport.Publisher
-import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory, AmqpOutboundQueueData, AmqpTransport}
+import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpHttpTransportFactory}
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -36,7 +36,7 @@ object ReliableHttpProxy {
     connectionF.map { case connection =>
       implicit val transport = AmqpHttpTransportFactory.createResponseRequestTransport(connection)
       val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
-      val _publisher = transport.publisher(AmqpOutboundQueueData(responseQueueName))
+      val _publisher = transport.publisher(OutboundQueueData(responseQueueName))
       // TODO: configured routing/processing strategies
       val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
         override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
@@ -63,7 +63,7 @@ object ReliableHttpProxy {
 class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batchSize: Int)
                        (implicit actorSystem: ActorSystem,
                         materialize: Materializer,
-                        transport: AmqpTransport[Correlated[Try[HttpResponse]], _]) extends ReliableHttpSender {
+                        transport: PubSubTransport[Correlated[Try[HttpResponse]], _]) extends ReliableHttpSender {
 
   override protected def handleResponse(tryResponse: Try[HttpResponse])
                                        (forRequest: HttpRequest, correlationId: String)

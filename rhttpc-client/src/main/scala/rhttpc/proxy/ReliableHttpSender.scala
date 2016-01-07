@@ -23,8 +23,8 @@ import akka.pattern._
 import akka.stream.Materializer
 import akka.stream.scaladsl._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.amqp.{AmqpInboundQueueData, AmqpTransport}
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{InboundQueueData, PubSubTransport}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +33,7 @@ import scala.util.{Success, Try}
 
 abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
                                   materialize: Materializer,
-                                  transport: AmqpTransport[Correlated[Try[HttpResponse]], _]) {
+                                  transport: PubSubTransport[Correlated[Try[HttpResponse]], _]) {
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -72,7 +72,7 @@ abstract class ReliableHttpSender(implicit actorSystem: ActorSystem,
 
   private val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
 
-  private val subscriber = transport.subscriber(AmqpInboundQueueData(requestQueueName, batchSize), consumingActor)
+  private val subscriber = transport.subscriber(InboundQueueData(requestQueueName, batchSize), consumingActor)
   
   protected def handleResponse(tryResponse: Try[HttpResponse])
                               (forRequest: HttpRequest, correlationId: String)

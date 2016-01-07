@@ -23,7 +23,7 @@ import rhttpc.transport._
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 
-trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg, AmqpInboundQueueData, AmqpOutboundQueueData]
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg]
 
 // TODO: actor-based, connection recovery
 private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,
@@ -38,7 +38,7 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
 
   import actorSystem.dispatcher
 
-  override def publisher(queueData: AmqpOutboundQueueData): AmqpPublisher[PubMsg] = {
+  override def publisher(queueData: OutboundQueueData): AmqpPublisher[PubMsg] = {
     val channel = connection.createChannel()
     declarePublisherQueue(AmqpDeclareOutboundQueueData(queueData, exchangeName, channel))
     val publisher = new AmqpPublisher[PubMsg](
@@ -53,7 +53,7 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
     publisher
   }
 
-  override def subscriber(queueData: AmqpInboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
+  override def subscriber(queueData: InboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
     val channel = connection.createChannel()
     declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
     new AmqpSubscriber(
@@ -90,17 +90,20 @@ object AmqpTransport {
 
   import collection.convert.wrapAsJava._
 
-  final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
+  final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] =
+    handleMessageWithSpecificProperties orElse handleMessage(Map.empty)
+
+  private lazy val handleMessageWithSpecificProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
+    case MessageWithSpecifiedProperties(underlying, props) =>
+      handleMessage(props)(underlying)
+  }
+
+  private def handleMessage(additionalProps: Map[String, Any]): PartialFunction[Message[Any], AMQP.BasicProperties] = {
     case InstantMessage(_) =>
       persistentPropertiesBuilder.build()
-    case InstantMessageWithSpecifiedProperties(_, props) =>
-      persistentPropertiesBuilder.headers(props.asInstanceOf[Map[String, AnyRef]]).build()
     case DelayedMessage(_, delay) =>
-      val headers = delayHeaders(delay)
+      val headers = delayHeaders(delay) ++ additionalProps
       persistentPropertiesBuilder.headers(headers.asInstanceOf[Map[String, AnyRef]]).build()
-    case DelayedMessageWithSpecifiedProperties(_, delay, props) =>
-      val headers = delayHeaders(delay) ++ props
-      persistentPropertiesBuilder.headers(props.asInstanceOf[Map[String, AnyRef]]).build()
   }
 
   private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()
@@ -111,7 +114,7 @@ object AmqpTransport {
   private def delayHeaders(delay: FiniteDuration): Map[String, Any] =
     Map("x-delay" -> delay.toMillis)
 
-  private final def defaultDeclarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
+  private def defaultDeclarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
     if (queueData.delayed) {
       val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
@@ -121,17 +124,13 @@ object AmqpTransport {
     channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, null)
   }
 
-  private final def defaultDeclareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
+  private def defaultDeclareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
     import data._
-    channel.basicQos(queueData.qos)
+    channel.basicQos(queueData.batchSize)
     channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, null)
   }
 }
 
-case class AmqpDeclareInboundQueueData(queueData: AmqpInboundQueueData, channel: Channel)
+case class AmqpDeclareInboundQueueData(queueData: InboundQueueData, channel: Channel)
 
-case class AmqpDeclareOutboundQueueData(queueData: AmqpOutboundQueueData, exchangeName: String, channel: Channel)
-
-case class AmqpInboundQueueData(name: String, qos: Int, durability: Boolean = true, autoDelete: Boolean = false)
-
-case class AmqpOutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false)
+case class AmqpDeclareOutboundQueueData(queueData: OutboundQueueData, exchangeName: String, channel: Channel)

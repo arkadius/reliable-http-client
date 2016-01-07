@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory
 import rhttpc.actor.impl.PromiseSubscriptionCommandsListener
 import rhttpc.proxy.ReliableHttpProxy
 import rhttpc.proxy.handler._
-import rhttpc.transport.Publisher
 import rhttpc.transport.amqp._
 import rhttpc.transport.protocol.Correlated
+import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
@@ -118,9 +118,9 @@ object ReliableHttp {
     }
   }
 
-  private def requestPublisher(implicit transport: AmqpTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest]] = {
+  private def requestPublisher(implicit transport: PubSubTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest]] = {
     val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
-    transport.publisher(AmqpOutboundQueueData(requestQueueName))
+    transport.publisher(OutboundQueueData(requestQueueName))
   }
 }
 
