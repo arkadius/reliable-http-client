@@ -17,7 +17,9 @@ package rhttpc.akkahttp.proxy
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import rhttpc.client.proxy.BackoffRetry
 
+import java.time.{Duration => JDuration}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -27,7 +29,8 @@ object ProxyApp extends App {
   import actorSystem.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val proxy = Await.result(ReliableHttpProxy(), 20 seconds)
+  val retryStrategy = BackoffRetry(JDuration.ofSeconds(5), 1.0, 3)
+  val proxy = Await.result(ReliableHttpProxy(failureHandleStrategyChooser = retryStrategy), 20 seconds)
 
   Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {

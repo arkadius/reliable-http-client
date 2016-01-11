@@ -19,7 +19,7 @@ import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
 import rhttpc.transport._
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -27,7 +27,7 @@ import scala.language.postfixOps
 import scala.util.{Success, Try}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[Correlated[String], AnyRef] {
+  extends PubSubTransport[WithRetryingHistory[Correlated[String]], AnyRef] {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile var replySubscriptionPromise: Promise[String] = _
@@ -39,20 +39,20 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _publicationPromise
   }
 
-  override def publisher(data: OutboundQueueData): Publisher[Correlated[String]] = new Publisher[Correlated[String]] with MockSerializer {
-    override def publish(request: Message[Correlated[String]]): Future[Unit] = {
-      _publicationPromise = Promise[Unit]()
-      replySubscriptionPromise = Promise[String]()
-      implicit val timeout = Timeout(5 seconds)
-      replySubscriptionPromise.future.onComplete { result =>
-        ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.correlationId)
+  override def publisher(data: OutboundQueueData): Publisher[WithRetryingHistory[Correlated[String]]] =
+    new Publisher[WithRetryingHistory[Correlated[String]]] with MockSerializer {
+      override def publish(request: Message[WithRetryingHistory[Correlated[String]]]): Future[Unit] = {
+        _publicationPromise = Promise[Unit]()
+        replySubscriptionPromise = Promise[String]()
+        implicit val timeout = Timeout(5 seconds)
+        replySubscriptionPromise.future.onComplete { result =>
+          ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.msg.correlationId)
+        }
+        _publicationPromise.future
       }
-      _publicationPromise.future
+
+      override def close(): Unit = {}
     }
-
-    override def close(): Unit = {}
-
-  }
 
   override def subscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[AnyRef] = new Subscriber[AnyRef] with MockDeserializer {
     MockTransport.this.consumer = consumer

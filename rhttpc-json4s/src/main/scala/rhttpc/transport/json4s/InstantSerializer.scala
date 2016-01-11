@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.transport.json4s
 
-import akka.http.scaladsl.model.Uri
-import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import java.time.Instant
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
+import org.json4s.JsonAST.JInt
+
+object InstantSerializer extends CustomSerializerWithTypeHints[Instant, JInt](format => (
   {
-    js => Uri(js.values)
+    jl => Instant.ofEpochMilli(jl.values.toLong)
   },
   {
-    uri =>JString(uri.toString())
+    i => JInt(i.toEpochMilli)
   }
 ))

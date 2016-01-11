@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.client.proxy
 
-import akka.http.scaladsl.model.Uri
-import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import rhttpc.client.protocol.Correlated
+import rhttpc.transport.Publisher
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
-  {
-    js => Uri(js.values)
-  },
-  {
-    uri =>JString(uri.toString())
-  }
-))
+import scala.concurrent.Future
+import scala.util.Try
+
+object PublishMsg {
+  def apply[Msg](publisher: Publisher[Correlated[Try[Msg]]]): Correlated[Try[Msg]] => Future[Unit] = publisher.publish
+}

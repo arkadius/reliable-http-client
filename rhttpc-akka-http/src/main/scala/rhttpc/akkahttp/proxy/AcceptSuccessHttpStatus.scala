@@ -13,17 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.akkahttp.proxy
 
-import akka.http.scaladsl.model.Uri
-import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import akka.http.scaladsl.model.HttpResponse
+import rhttpc.client.proxy.SuccessRecognizer
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
-  {
-    js => Uri(js.values)
-  },
-  {
-    uri =>JString(uri.toString())
-  }
-))
+object AcceptSuccessHttpStatus extends SuccessRecognizer[HttpResponse] {
+  override def isSuccess(response: HttpResponse) = response.status.isSuccess()
+}

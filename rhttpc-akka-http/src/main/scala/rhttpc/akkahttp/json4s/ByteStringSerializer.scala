@@ -15,20 +15,15 @@
  */
 package rhttpc.akkahttp.json4s
 
-import akka.http.scaladsl.model.ContentType
 import akka.util.ByteString
-import org.json4s.JsonAST.{JObject, JString}
-import org.json4s._
+import org.json4s.JsonAST.JString
+import rhttpc.transport.json4s.CustomSerializerWithTypeHints
 
-object ByteStringSerializer extends CustomSerializer[ByteString](implicit formats => (
+object ByteStringSerializer extends CustomSerializerWithTypeHints[ByteString, JString](formats => (
   {
-    case JObject(_ :: ("value", JString(value)) :: Nil) =>
-      ByteString(value)
+    js => ByteString(js.values)
   },
   {
-    case bs: ByteString => JObject(
-      formats.typeHintFieldName -> JString(classOf[ContentType].getName),
-      "value" -> JString(bs.utf8String)
-    )
+    bs => JString(bs.utf8String)
   }
 ))

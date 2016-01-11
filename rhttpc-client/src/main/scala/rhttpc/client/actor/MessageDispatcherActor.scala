@@ -33,9 +33,13 @@ private[rhttpc] class MessageDispatcherActor extends Actor with ActorLogging {
       promisesOnPending += sub -> None
     case ConfirmOrRegisterSubscription(sub, consumer) =>
       promisesOnPending.get(sub).foreach { pending =>
-        log.debug(s"Confirming subscription: $sub. Sending outstanding messages: ${pending.size}.")
-        pending.foreach { pending =>
-          consumer.tell(MessageFromSubscription(pending.msg, sub), pending.sender)
+        if (pending.nonEmpty) {
+          log.debug(s"Confirming subscription: $sub. Sending outstanding messages: ${pending.size}.")
+          pending.foreach { pending =>
+            consumer.tell(MessageFromSubscription(pending.msg, sub), pending.sender)
+          }
+        } else {
+          log.debug(s"Confirming subscription: $sub")
         }
         promisesOnPending -= sub
       }

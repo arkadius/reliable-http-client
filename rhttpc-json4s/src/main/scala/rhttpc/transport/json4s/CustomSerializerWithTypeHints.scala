@@ -13,17 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.transport.json4s
 
-import akka.http.scaladsl.model.Uri
-import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import org.json4s.JsonAST.{JObject, JString}
+import org.json4s._
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
-  {
-    js => Uri(js.values)
-  },
-  {
-    uri =>JString(uri.toString())
-  }
-))
+import scala.reflect.ClassTag
+
+class CustomSerializerWithTypeHints[T: Manifest, JV <: JValue: ClassTag](ser: Formats => (JV => T, T => JV))
+  extends CustomSerializer[T](implicit formats => {
+  val (deserialize, serialize) = ser(formats)
+  (
+    {
+      case JObject(_ :: ("value", jValue: JV) :: Nil) =>
+        deserialize(jValue)
+    }, {
+      case obj: T => JObject(
+        formats.typeHintFieldName -> JString(manifest[T].runtimeClass.getName),
+        "value" -> serialize(obj)
+      )
+    }
+  )
+})

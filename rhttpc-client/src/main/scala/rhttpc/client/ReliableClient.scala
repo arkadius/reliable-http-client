@@ -15,6 +15,7 @@
  */
 package rhttpc.client
 
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeoutException
 
@@ -24,14 +25,14 @@ import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.client.actor.PromiseSubscriptionCommandsListener
 import rhttpc.transport.Publisher
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 import scala.util.Failure
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement,
-                              publisher: Publisher[Correlated[Request]]) {
+                              publisher: Publisher[WithRetryingHistory[Correlated[Request]]]) {
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
@@ -39,10 +40,11 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
     val correlationId = UUID.randomUUID().toString
     val correlated = Correlated(request, correlationId)
+    val withHistory = WithRetryingHistory.firstAttempt(correlated, Instant.now())
     val subscription = SubscriptionOnResponse(correlationId)
     // we need to registerPromise before publish because message can be consumed before subscription on response registration 
     subMgr.registerPromise(subscription)
-    val publicationAckFuture = publisher.publish(correlated).map { _ =>
+    val publicationAckFuture = publisher.publish(withHistory).map { _ =>
       log.debug(s"Request: $correlationId successfully acknowledged")
       RequestPublished(subscription)
     }

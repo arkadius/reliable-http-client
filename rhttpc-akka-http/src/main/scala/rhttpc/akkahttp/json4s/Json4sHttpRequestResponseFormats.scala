@@ -16,12 +16,20 @@
 package rhttpc.akkahttp.json4s
 
 import org.json4s.{DefaultFormats, Formats, TypeHints}
-import rhttpc.transport.json4s.{AllTypeHints, ObjectSerializer}
+import rhttpc.transport.json4s._
 
 object Json4sHttpRequestResponseFormats {
 
-  implicit val formats: Formats = new DefaultFormats {
-    override val typeHints: TypeHints = AllTypeHints
-  } + ObjectSerializer + ContentTypeSerializer + ByteStringSerializer + UriSerializer
+  implicit val formats: Formats =
+    new DefaultFormats {
+      override val typeHints: TypeHints = AllTypeHints
+    } +
+    ObjectSerializer +
+    IndexedSeqSerializer +
+    InstantSerializer +
+    DurationSerializer +
+    ContentTypeSerializer +
+    ByteStringSerializer +
+    UriSerializer
 
 }

@@ -40,6 +40,6 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
 
 }
 
-case object FailedAcknowledge extends Exception
+case object FailedAcknowledge extends Exception("failed acknowledge")
 
-case object FailedResponse extends Exception
+case object FailedResponse extends Exception("failed response")

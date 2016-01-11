@@ -20,16 +20,13 @@ import java.text.ParseException
 import akka.http.scaladsl.model.ContentType
 import org.json4s.CustomSerializer
 import org.json4s.JsonAST.{JObject, JString}
+import rhttpc.transport.json4s.CustomSerializerWithTypeHints
 
-object ContentTypeSerializer extends CustomSerializer[ContentType](implicit formats => (
+object ContentTypeSerializer extends CustomSerializerWithTypeHints[ContentType, JString](formats => (
   {
-    case JObject(_ :: ("value", JString(value)) :: Nil) =>
-      ContentType.parse(value).right.getOrElse(throw new ParseException("Illegal content-type: " + value, -1))
+    js => ContentType.parse(js.values).right.getOrElse(throw new ParseException("Illegal content-type: " + js.values, -1))
   },
   {
-    case ct: ContentType => JObject(
-      formats.typeHintFieldName -> JString(classOf[ContentType].getName),
-      "value" -> JString(ct.toString())
-    )
+    ct => JString(ct.toString())
   }
 ))

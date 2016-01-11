@@ -19,7 +19,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.json4s.Json4sHttpRequestResponseFormats
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.transport.PubSubTransport
 import rhttpc.transport.amqp.AmqpTransport
 import rhttpc.transport.json4s._
@@ -28,22 +28,23 @@ import scala.util.Try
 
 object AmqpJson4sHttpTransportFactory {
   def createRequestResponseTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[HttpRequest], Correlated[Try[HttpResponse]]] = {
+                                    (implicit actorSystem: ActorSystem): PubSubTransport[WithRetryingHistory[Correlated[HttpRequest]], Correlated[Try[HttpResponse]]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransport(
       connection = connection,
-      serializer = new Json4sSerializer[Correlated[HttpRequest]](),
+      serializer = new Json4sSerializer[WithRetryingHistory[Correlated[HttpRequest]]](),
       deserializer = new Json4sDeserializer[Correlated[Try[HttpResponse]]]()
     )
   }
 
   def createResponseRequestTransport(connection: Connection)
-                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[Try[HttpResponse]], Correlated[HttpRequest]] = {
+                                    (implicit actorSystem: ActorSystem): PubSubTransport[Correlated[Try[HttpResponse]], WithRetryingHistory[Correlated[HttpRequest]]] = {
     import Json4sHttpRequestResponseFormats._
     AmqpTransport(
       connection = connection,
       serializer = new Json4sSerializer[Correlated[Try[HttpResponse]]](),
-      deserializer = new Json4sDeserializer[Correlated[HttpRequest]]()
+      deserializer = new Json4sDeserializer[WithRetryingHistory[Correlated[HttpRequest]]]()
     )
   }
+
 }

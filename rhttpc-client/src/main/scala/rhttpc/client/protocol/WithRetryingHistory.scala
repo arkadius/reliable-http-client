@@ -13,17 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.json4s
+package rhttpc.client.protocol
 
-import akka.http.scaladsl.model.Uri
-import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import java.time.{Duration, Instant}
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
-  {
-    js => Uri(js.values)
-  },
-  {
-    uri =>JString(uri.toString())
+case class WithRetryingHistory[T](msg: T, history: IndexedSeq[HistoryEntry]) {
+  def withNextAttempt(timestamp: Instant, plannedDelay: Duration) = {
+    copy(history = history :+ HistoryEntry(timestamp, Some(plannedDelay)))
   }
-))
+}
+
+object WithRetryingHistory {
+  def firstAttempt[T](msg: T, timestamp: Instant): WithRetryingHistory[T] = {
+    WithRetryingHistory(msg, IndexedSeq(HistoryEntry(timestamp, None)))
+  }
+}
+
+case class HistoryEntry(timestamp: Instant, plannedDelay: Option[Duration])

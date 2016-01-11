@@ -16,19 +16,15 @@
 package rhttpc.akkahttp
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
-import akka.stream.Materializer
+import akka.http.scaladsl.model.HttpRequest
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.amqp.AmqpJson4sHttpTransportFactory
 import rhttpc.client._
-import rhttpc.akkahttp.proxy.ReliableHttpProxy
-import rhttpc.akkahttp.proxy.handler._
+import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 import rhttpc.transport.amqp.AmqpConnectionFactory
-import rhttpc.client.protocol.Correlated
 import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 object ReliableHttp {
   def apply()(implicit actorSystem: ActorSystem): Future[ReliableClient[HttpRequest]] = {
@@ -53,66 +49,67 @@ object ReliableHttp {
     new ReliableClient[HttpRequest](subMgr, requestPublisher)
   }
 
-  def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
-               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
-      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
-    }
-    withEmbeddedProxy(connection, new EveryResponseHandler(processor))
-  }
+//  def publisher(connection: Connection, _isSuccess: PartialFunction[Try[HttpResponse], Unit])
+//               (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+//    val processor = new AcknowledgingMatchingSuccessResponseProcessor with HttpSuccessRecognizer {
+//      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+//    }
+//    withEmbeddedProxy(connection, new EveryResponseHandler(processor))
+//  }
+//
+//  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
+//    val processor = AcknowledgingSuccessStatusInResponseProcessor
+//    withEmbeddedProxy(new EveryResponseHandler(processor))
+//  }
+//
+//  def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
+//               (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
+//    val processor = new AcknowledgingMatchingSuccessResponseProcessor with HttpSuccessRecognizer {
+//      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
+//    }
+//    withEmbeddedProxy(new EveryResponseHandler(processor))
+//  }
+//
+//  def withEmbeddedProxy(connection: Connection, responseHandler: HttpResponseHandler)
+//                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
+//    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+//    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
+//    proxy.run()
+//    implicit val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
+//    val subMgr = SubscriptionManager()
+//    new ReliableClient[HttpRequest](subMgr, requestPublisher) {
+//      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+//        for {
+//          _ <- recovered(super.close(), "closing ReliableHttp")
+//          proxyCloseResult <- proxy.close()
+//        } yield proxyCloseResult
+//      }
+//    }
+//  }
+//
+//  def withEmbeddedProxy(responseHandler: HttpResponseHandler)
+//                       (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
+//    import actorSystem.dispatcher
+//    val connectionF = AmqpConnectionFactory.connect(actorSystem)
+//    connectionF.map { case connection =>
+//      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+//      val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
+//      proxy.run()
+//      implicit val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
+//      val subMgr = SubscriptionManager()
+//      new ReliableClient[HttpRequest](subMgr, requestPublisher) {
+//        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
+//          for {
+//            _ <- recovered(super.close(), "closing ReliableHttp")
+//            _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
+//          } yield connection.close()
+//        }
+//      }
+//    }
+//  }
 
-  def publisher(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
-    val processor = AcknowledgingSuccessStatusInResponseProcessor
-    withEmbeddedProxy(new EveryResponseHandler(processor))
-  }
-
-  def publisher(_isSuccess: PartialFunction[Try[HttpResponse], Unit])
-               (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
-    val processor = new AcknowledgingMatchingSuccessResponseProcessor with SuccessRecognizer {
-      override protected def isSuccess: PartialFunction[Try[HttpResponse], Unit] = _isSuccess
-    }
-    withEmbeddedProxy(new EveryResponseHandler(processor))
-  }
-
-  def withEmbeddedProxy(connection: Connection, responseHandler: HttpResponseHandler)
-                       (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableClient[HttpRequest] = {
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
-    proxy.run()
-    implicit val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
-    val subMgr = SubscriptionManager()
-    new ReliableClient[HttpRequest](subMgr, requestPublisher) {
-      override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-        for {
-          _ <- recovered(super.close(), "closing ReliableHttp")
-          proxyCloseResult <- proxy.close()
-        } yield proxyCloseResult
-      }
-    }
-  }
-
-  def withEmbeddedProxy(responseHandler: HttpResponseHandler)
-                       (implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableClient[HttpRequest]] = {
-    import actorSystem.dispatcher
-    val connectionF = AmqpConnectionFactory.connect(actorSystem)
-    connectionF.map { case connection =>
-      val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-      val proxy = ReliableHttpProxy(connection, responseHandler, batchSize)
-      proxy.run()
-      implicit val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
-      val subMgr = SubscriptionManager()
-      new ReliableClient[HttpRequest](subMgr, requestPublisher) {
-        override def close()(implicit ec: ExecutionContext): Future[Unit] = {
-          for {
-            _ <- recovered(super.close(), "closing ReliableHttp")
-            _ <- recovered(proxy.close(), "closing ReliableHttpProxy")
-          } yield connection.close()
-        }
-      }
-    }
-  }
-
-  private def requestPublisher(implicit transport: PubSubTransport[Correlated[HttpRequest], _], actorSystem: ActorSystem): Publisher[Correlated[HttpRequest]] = {
+  private def requestPublisher(implicit transport: PubSubTransport[WithRetryingHistory[Correlated[HttpRequest]], _],
+                               actorSystem: ActorSystem): Publisher[WithRetryingHistory[Correlated[HttpRequest]]] = {
     val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
     transport.publisher(OutboundQueueData(requestQueueName))
   }

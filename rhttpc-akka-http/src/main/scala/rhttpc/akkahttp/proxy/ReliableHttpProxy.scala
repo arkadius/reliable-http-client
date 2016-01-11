@@ -16,34 +16,43 @@
 package rhttpc.akkahttp.proxy
 
 import akka.actor._
-import akka.event.LoggingAdapter
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.rabbitmq.client.Connection
+import org.slf4j.LoggerFactory
 import rhttpc.akkahttp.amqp.AmqpJson4sHttpTransportFactory
 import rhttpc.client._
-import rhttpc.akkahttp.proxy.handler._
+import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.proxy._
+import rhttpc.transport._
 import rhttpc.transport.amqp.AmqpConnectionFactory
-import rhttpc.client.protocol.Correlated
-import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 object ReliableHttpProxy {
-  def apply()(implicit actorSystem: ActorSystem, materialize: Materializer): Future[ReliableHttpProxy] = {
+  def apply(successRecognizer: SuccessRecognizer[HttpResponse] = AcceptSuccessHttpStatus,
+            failureHandleStrategyChooser: FailureResponseHandleStrategyChooser = SkipAll)
+           (implicit actorSystem: ActorSystem,
+            materialize: Materializer): Future[ReliableHttpProxy] = {
     import actorSystem.dispatcher
     val connectionF = AmqpConnectionFactory.connect(actorSystem)
     connectionF.map { case connection =>
       implicit val transport = AmqpJson4sHttpTransportFactory.createResponseRequestTransport(connection)
       val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
       val _publisher = transport.publisher(OutboundQueueData(responseQueueName))
-      // TODO: configured routing/processing strategies
-      val handler = new EveryResponseHandler(new PublishingSuccessStatusInResponseProcessor {
-        override protected def publisher: Publisher[Correlated[Try[HttpResponse]]] = _publisher
-      })
       val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-      new ReliableHttpProxy(handler, batchSize) {
+      new ReliableHttpProxy(
+        prepareSubscriber(transport, batchSize),
+        prepareHttpFlow(batchSize),
+        successRecognizer,
+        failureHandleStrategyChooser,
+        PublishMsg(_publisher)) {
+
         override def close()(implicit ec: ExecutionContext): Future[Unit] = {
           recovered(super.close(), "closing ReliableHttpProxy").map { _ =>
             Try(_publisher.close())
@@ -54,32 +63,85 @@ object ReliableHttpProxy {
     }
   }
 
-  def apply(connection: Connection, responseHandler: HttpResponseHandler, batchSize: Int)
-           (implicit actorSystem: ActorSystem, materialize: Materializer): ReliableHttpProxy = {
-    implicit val transport = AmqpJson4sHttpTransportFactory.createResponseRequestTransport(connection)
-    new ReliableHttpProxy(responseHandler, batchSize)
+  def apply(connection: Connection,
+            successRecognizer: SuccessRecognizer[HttpResponse],
+            failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
+            handleSuccessResponse: Correlated[Try[HttpResponse]] => Future[Unit])
+           (implicit actorSystem: ActorSystem,
+            materialize: Materializer): ReliableHttpProxy = {
+    val transport = AmqpJson4sHttpTransportFactory.createResponseRequestTransport(connection)
+    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
+    new ReliableHttpProxy(
+      prepareSubscriber(transport, batchSize),
+      prepareHttpFlow(batchSize),
+      successRecognizer,
+      failureHandleStrategyChooser,
+      handleSuccessResponse
+    )
   }
+
+  private def prepareSubscriber(transport: PubSubTransport[_, WithRetryingHistory[Correlated[HttpRequest]]], batchSize: Int)
+                               (implicit actorSystem: ActorSystem):
+  (ActorRef) => Subscriber[WithRetryingHistory[Correlated[HttpRequest]]] = {
+    val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
+    transport.subscriber(InboundQueueData(requestQueueName, batchSize), _)
+  }
+
+  private def prepareHttpFlow(batchSize: Int)
+                             (implicit actorSystem: ActorSystem,
+                              materialize: Materializer) = {
+    import actorSystem.dispatcher
+    Http().superPool[String]().mapAsync(batchSize) {
+      case (tryResponse, id) =>
+        tryResponse match {
+          case Success(response) =>
+            response.toStrict(1 minute).map(strict => (Success(strict), id))
+          case failure =>
+            Future.successful((failure, id))
+        }
+    }
+  }
+
 }
 
-class ReliableHttpProxy(responseHandler: HttpResponseHandler, protected val batchSize: Int)
+class ReliableHttpProxy(subscriberForConsumer: ActorRef => Subscriber[WithRetryingHistory[Correlated[HttpRequest]]],
+                        httpFlow: Flow[(HttpRequest, String), (Try[HttpResponse], String), Any],
+                        successRecognizer: SuccessRecognizer[HttpResponse],
+                        failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
+                        handleSuccessResponse: Correlated[Try[HttpResponse]] => Future[Unit])
                        (implicit actorSystem: ActorSystem,
-                        materialize: Materializer,
-                        transport: PubSubTransport[Correlated[Try[HttpResponse]], _]) extends ReliableHttpSender {
+                        materialize: Materializer)
+  extends ReliableProxy[HttpRequest, HttpResponse](
+    subscriberForConsumer,
+    successRecognizer,
+    failureHandleStrategyChooser,
+    handleSuccessResponse) {
 
-  override protected def handleResponse(tryResponse: Try[HttpResponse])
-                                       (forRequest: HttpRequest, correlationId: String)
-                                       (implicit ec: ExecutionContext, log: LoggingAdapter): Future[Unit] = {
-    val responseProcessor = responseHandler.handleForRequest.applyOrElse(forRequest, (_: HttpRequest) => AckingProcessor)
-    val context = HttpProxyContext(forRequest, correlationId, log, actorSystem)
-    responseProcessor.processResponse(tryResponse, context)
+  import actorSystem.dispatcher
+
+  protected def send(corr: Correlated[HttpRequest]): Future[Try[HttpResponse]] = {
+    import collection.convert.wrapAsScala._
+    log.debug(
+      s"""Sending request for ${corr.correlationId} to ${corr.msg.getUri()}. Headers:
+         |${corr.msg.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+         |Body:
+         |${corr.msg.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+    )
+    Source.single((corr.msg, corr.correlationId)).via(httpFlow).runWith(Sink.head).map {
+      case (tryResponse, correlationId) =>
+        tryResponse match {
+          case Success(response) =>
+            log.debug(
+              s"""Got response for ${corr.correlationId} to ${corr.msg.getUri()}. Status: ${response.status.value}. Headers:
+                 |${response.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+                 |Body:
+                 |${response.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+            )
+          case Failure(ex) =>
+            log.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
+        }
+        tryResponse
+    }
   }
-}
 
-case class HttpProxyContext(request: HttpRequest,
-                            correlationId: String,
-                            log: LoggingAdapter,
-                            actorSystem: ActorSystem) {
-  implicit def executionContext = actorSystem.dispatcher
-
-  def scheduler = actorSystem.scheduler
 }
