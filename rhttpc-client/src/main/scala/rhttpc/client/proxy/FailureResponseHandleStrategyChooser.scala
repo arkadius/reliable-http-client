@@ -18,7 +18,7 @@ package rhttpc.client.proxy
 import java.time.Duration
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(attempt: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy
+  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
@@ -31,11 +31,12 @@ object SkipAll extends FailureResponseHandleStrategyChooser {
   override def choose(attempt: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy = Skip
 }
 
-case class BackoffRetry(initialDelay: Duration, multiplier: BigDecimal, maxAttempts: Int) extends FailureResponseHandleStrategyChooser {
-  override def choose(attempt: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy = {
-    if (attempt == 2) {
+case class BackoffRetry(initialDelay: Duration, multiplier: BigDecimal, maxRetries: Int) extends FailureResponseHandleStrategyChooser {
+  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy = {
+    def retries = attemptsSoFar - 1 
+    if (attemptsSoFar == 1) {
       Retry(initialDelay)
-    } else if (attempt > maxAttempts) {
+    } else if (retries > maxRetries) {
       SendToDLQ
     } else {
       val nextDelay = lastPlannedDelay match {

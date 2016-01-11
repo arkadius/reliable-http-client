@@ -18,7 +18,9 @@ package rhttpc.client.protocol
 import java.time.{Duration, Instant}
 
 case class WithRetryingHistory[T](msg: T, history: IndexedSeq[HistoryEntry]) {
-  def withNextAttempt(timestamp: Instant, plannedDelay: Duration) = {
+  def attempts = history.size
+
+  def withNextAttempt(timestamp: Instant, plannedDelay: Duration): WithRetryingHistory[T] = {
     copy(history = history :+ HistoryEntry(timestamp, Some(plannedDelay)))
   }
 }

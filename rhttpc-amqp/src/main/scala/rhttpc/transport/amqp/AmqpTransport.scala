@@ -16,6 +16,7 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
+import com.rabbitmq.client.AMQP.Queue
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{Connection, AMQP, Channel}
 import rhttpc.transport._
@@ -118,9 +119,24 @@ object AmqpTransport {
     import data._
     if (queueData.delayed) {
       val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
-      channel.exchangeDeclare(exchangeName, "x-delayed-message", queueData.durability, queueData.autoDelete, args)
-      channel.queueBind(queueData.name, exchangeName, queueData.name)
+      declareQueueAndBindToExchange(data, "x-delayed-message", args)
+    } else if (exchangeName != "") {
+      declareQueueAndBindToExchange(data, "direct", Map.empty)
+    } else {
+      declareOutboundQueue(data)
     }
+  }
+
+  private def declareQueueAndBindToExchange(data: AmqpDeclareOutboundQueueData, exchangeType: String, args: Map[String, AnyRef]) = {
+    import data._
+    channel.exchangeDeclare(exchangeName, exchangeType, queueData.durability, queueData.autoDelete, args)
+    val queueDeclareResult = declareOutboundQueue(data)
+    channel.queueBind(queueData.name, exchangeName, queueData.name)
+    queueDeclareResult
+  }
+
+  private def declareOutboundQueue(data: AmqpDeclareOutboundQueueData) = {
+    import data._
     channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, null)
   }
 

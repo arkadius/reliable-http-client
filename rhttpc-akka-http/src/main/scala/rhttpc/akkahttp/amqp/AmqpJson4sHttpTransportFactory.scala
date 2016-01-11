@@ -32,6 +32,7 @@ object AmqpJson4sHttpTransportFactory {
     import Json4sHttpRequestResponseFormats._
     AmqpTransport(
       connection = connection,
+      exchangeName = "delayed",
       serializer = new Json4sSerializer[WithRetryingHistory[Correlated[HttpRequest]]](),
       deserializer = new Json4sDeserializer[Correlated[Try[HttpResponse]]]()
     )

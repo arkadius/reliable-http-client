@@ -15,27 +15,27 @@
  */
 package rhttpc.client.proxy
 
+import java.time.Instant
+
 import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
-import rhttpc.client.protocol.{HistoryEntry, Correlated, WithRetryingHistory}
-import rhttpc.transport.Subscriber
+import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.transport.{DelayedMessage, Publisher, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.reflect.ClassTag
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 
-abstract class ReliableProxy[Request: ClassTag, Response](subscriberForConsumer: ActorRef => Subscriber[WithRetryingHistory[Correlated[Request]]],
-                                                          successRecognizer: SuccessRecognizer[Response],
-                                                          failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
-                                                          handleResponse: Correlated[Try[Response]] => Future[Unit])
-                                                         (implicit actorSystem: ActorSystem) {
+abstract class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscriber[WithRetryingHistory[Correlated[Request]]],
+                                                requestPublisher: Publisher[WithRetryingHistory[Correlated[Request]]],
+                                                successRecognizer: SuccessRecognizer[Response],
+                                                failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
+                                                handleResponse: Correlated[Try[Response]] => Future[Unit])
+                                               (implicit actorSystem: ActorSystem) {
   
   protected lazy val log = LoggerFactory.getLogger(getClass)
-
-  private val InstanceOfRequest = implicitly[ClassTag[Request]]
 
   protected def send(request: Correlated[Request]): Future[Try[Response]]
 
@@ -43,31 +43,36 @@ abstract class ReliableProxy[Request: ClassTag, Response](subscriberForConsumer:
     import context.dispatcher
 
     override def receive: Receive = {
-      case WithRetryingHistory(corr@Correlated(InstanceOfRequest(request), correlationId), history) =>
+      case withHistory: WithRetryingHistory[_] =>
+        val castedWithHistory = withHistory.asInstanceOf[WithRetryingHistory[Correlated[Request]]]
         (for {
-          tryResponse <- send(corr.asInstanceOf[Correlated[Request]])
+          tryResponse <- send(castedWithHistory.msg)
           result <- tryResponse match {
             case Success(response) if successRecognizer.isSuccess(response) =>
-              handleResponse(Correlated(Success(response), correlationId))
+              log.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
+              handleResponse(Correlated(Success(response), castedWithHistory.msg.correlationId))
             case Success(response) =>
-              log.warn(s"Response recognized as non-success for $correlationId")
-              handleFailure(history, NonSuccessResponse, correlationId)
+              log.warn(s"Response recognized as non-success for ${castedWithHistory.msg.correlationId}")
+              handleFailure(castedWithHistory, NonSuccessResponse)
             case Failure(ex) =>
-              log.error(s"Failure response for $correlationId")
-              handleFailure(history, ex, correlationId)
+              log.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
+              handleFailure(castedWithHistory, ex)
           }
         } yield result) pipeTo sender()
     }
 
-    private def handleFailure(history: Seq[HistoryEntry], failure: Throwable, correlationId: String): Future[Unit] = {
-      val strategy = failureHandleStrategyChooser.choose(history.size, history.lastOption.flatMap(_.plannedDelay))
+    private def handleFailure(withHistory: WithRetryingHistory[Correlated[Request]], failure: Throwable): Future[Unit] = {
+      val strategy = failureHandleStrategyChooser.choose(withHistory.attempts, withHistory.history.lastOption.flatMap(_.plannedDelay))
       strategy match {
         case Retry(delay) =>
-          after(5 seconds, actorSystem.scheduler)(Future.failed(new Exception("FIXME"))) // FIXME
+          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will retry in $delay")
+          requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(Instant.now, delay), delay.toMillis millis))
         case SendToDLQ =>
-          handleResponse(Correlated(Failure(failure), correlationId))
+          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
+          handleResponse(Correlated(Failure(ExhaustedRetry(failure)), withHistory.msg.correlationId))
           after(5 seconds, actorSystem.scheduler)(Future.failed(new Exception("FIXME"))) // FIXME
         case Skip =>
+          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
           Future.successful(Unit)
       }
     }

@@ -111,6 +111,6 @@ object ReliableHttp {
   private def requestPublisher(implicit transport: PubSubTransport[WithRetryingHistory[Correlated[HttpRequest]], _],
                                actorSystem: ActorSystem): Publisher[WithRetryingHistory[Correlated[HttpRequest]]] = {
     val requestQueueName = actorSystem.settings.config.getString("rhttpc.request-queue.name")
-    transport.publisher(OutboundQueueData(requestQueueName))
+    transport.publisher(OutboundQueueData(requestQueueName, delayed = true))
   }
 }

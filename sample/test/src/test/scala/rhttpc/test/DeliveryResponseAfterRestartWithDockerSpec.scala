@@ -35,45 +35,45 @@ import scala.util.control.NonFatal
 class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with Matchers with BeforeAndAfter {
   lazy val logger = LoggerFactory.getLogger(getClass)
 
-  it should "handle response during application unavailable" in { fixture =>
-    val id = "123"
-    await(fixture.fooBarClient.foo(id))
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitForReply = 10)
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
-  }
-
-  it should "handle response during application unavailable for many actors" in { fixture =>
-    val random = new Random()
-    val max = 9
-    val foos = await((0 to max).map { id =>
-      val sendFoo = random.nextBoolean()
-      for {
-      _ <-if (sendFoo)
-          fixture.fooBarClient.foo(id.toString)
-        else
-          fixture.fooBarClient.bar(id.toString)
-      } yield sendFoo
-    })
-    await((0 to max).map { id =>
-      fixture.fooBarClient.currentState(id.toString)
-    }) shouldEqual (0 to max).map(_ => "WaitingForResponseState")
-
-    fixture.restartApp(waitForReply = 10)
-
-    await((0 to max).map { id =>
-      fixture.fooBarClient.currentState(id.toString)
-    }) shouldEqual (0 to max).map { id =>
-      val prefix = if (foos(id)) "Foo" else "Bar"
-      prefix + "State"
-    }
-  }
+//  it should "handle response during application unavailable" in { fixture =>
+//    val id = "123"
+//    await(fixture.fooBarClient.foo(id))
+//    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
+//    fixture.restartApp(waitForReply = 10)
+//    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
+//  }
+//
+//  it should "handle response during application unavailable for many actors" in { fixture =>
+//    val random = new Random()
+//    val max = 9
+//    val foos = await((0 to max).map { id =>
+//      val sendFoo = random.nextBoolean()
+//      for {
+//      _ <-if (sendFoo)
+//          fixture.fooBarClient.foo(id.toString)
+//        else
+//          fixture.fooBarClient.bar(id.toString)
+//      } yield sendFoo
+//    })
+//    await((0 to max).map { id =>
+//      fixture.fooBarClient.currentState(id.toString)
+//    }) shouldEqual (0 to max).map(_ => "WaitingForResponseState")
+//
+//    fixture.restartApp(waitForReply = 10)
+//
+//    await((0 to max).map { id =>
+//      fixture.fooBarClient.currentState(id.toString)
+//    }) shouldEqual (0 to max).map { id =>
+//      val prefix = if (foos(id)) "Foo" else "Bar"
+//      prefix + "State"
+//    }
+//  }
 
   it should "retry message if fail" in { fixture =>
     val id = "123"
-    await(fixture.fooBarClient.retriedFoo(id, retryCount = 3))
+    await(fixture.fooBarClient.retriedFoo(id, failCount = 3))
     await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitForReply = 3*5+2)
+    fixture.restartApp(waitForReply = 3*5 + 2)
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
@@ -121,7 +121,8 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   private def startRabbitMq()(implicit docker: DockerClient): String = {
     val mgmtPort = 15674
-    val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "rabbitmq", "3.5.4-management") { cmd =>
+    // rabbitmq with rabbitmq_delayed_message_exchange
+    val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "glopart/rabbitmq", "latest") { cmd =>
       val portBindings = new Ports()
       portBindings.bind(ExposedPort.tcp(15672), Ports.Binding(mgmtPort)) // management
       cmd.withPortBindings(portBindings)
