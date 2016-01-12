@@ -68,6 +68,8 @@ private[amqp] class AmqpSubscriber[Sub](channel: Channel,
   private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
     case Success(_) =>
       channel.basicAck(deliveryTag, false)
+    case Failure(_ : Exception with RejectingMessage) =>
+      channel.basicReject(deliveryTag, false)
     case Failure(_) =>
       channel.basicNack(deliveryTag, false, true)
   }

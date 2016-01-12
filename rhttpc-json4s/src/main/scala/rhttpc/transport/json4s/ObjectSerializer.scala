@@ -24,7 +24,7 @@ object ObjectSerializer extends Serializer[Any] {
 
   override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), Any] = {
     case (_, JObject(List(JField(ID_FIELD, JString(className))))) =>
-      val typeMirror = runtimeMirror(getClass.getClassLoader)
+      val typeMirror = runtimeMirror(ClassLoader.getSystemClassLoader)
       val sym = typeMirror.moduleSymbol(Class.forName(className))
       typeMirror.reflectModule(sym).instance
   }

@@ -21,7 +21,7 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
-import rhttpc.transport.{DelayedMessage, Publisher, Subscriber}
+import rhttpc.transport.{RejectingMessage, DelayedMessage, Publisher, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -69,8 +69,9 @@ abstract class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef 
           requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(Instant.now, delay), delay.toMillis millis))
         case SendToDLQ =>
           log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
-          handleResponse(Correlated(Failure(ExhaustedRetry(failure)), withHistory.msg.correlationId))
-          after(5 seconds, actorSystem.scheduler)(Future.failed(new Exception("FIXME"))) // FIXME
+          val cause = ExhaustedRetry(failure)
+          handleResponse(Correlated(Failure(cause), withHistory.msg.correlationId))
+          Future.failed(cause)
         case Skip =>
           log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
           Future.successful(Unit)
@@ -98,4 +99,8 @@ abstract class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef 
 
 case object NonSuccessResponse extends Exception("Response was recognized as non-success")
 
-case class ExhaustedRetry(cause: Throwable) extends Exception("Exhausted retry. Message will be moved to DLQ", cause)
+case class ExhaustedRetry(message: String, cause: Throwable) extends Exception(message, cause) with RejectingMessage
+
+object ExhaustedRetry {
+  def apply(cause: Throwable): ExhaustedRetry = ExhaustedRetry(s"Exhausted retry. Message will be moved to DLQ.", cause)
+}

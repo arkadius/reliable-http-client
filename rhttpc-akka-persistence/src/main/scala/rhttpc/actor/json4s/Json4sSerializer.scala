@@ -26,10 +26,7 @@ import rhttpc.transport.json4s.{AllTypeHints, ObjectSerializer}
 
 class Json4sSerializer(system: ExtendedActorSystem) extends Serializer {
   import Json4sSerializer._
-
-  implicit val formats: Formats = new DefaultFormats {
-    override val typeHints: TypeHints = AllTypeHints
-  } + ObjectSerializer
+  import rhttpc.transport.json4s.CommonFormats._
 
   override def identifier: Int = ID
 

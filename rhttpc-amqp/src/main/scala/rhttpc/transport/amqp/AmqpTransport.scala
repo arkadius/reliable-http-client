@@ -117,34 +117,46 @@ object AmqpTransport {
 
   private def defaultDeclarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
+    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(prepareDlqName(queueData.name)), DLQ_EXCHANGE_NAME, channel)
+    declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
     if (queueData.delayed) {
       val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
       declareQueueAndBindToExchange(data, "x-delayed-message", args)
     } else if (exchangeName != "") {
       declareQueueAndBindToExchange(data, "direct", Map.empty)
     } else {
-      declareOutboundQueue(data)
+      declarePublisherQueue(data)
     }
   }
 
   private def declareQueueAndBindToExchange(data: AmqpDeclareOutboundQueueData, exchangeType: String, args: Map[String, AnyRef]) = {
     import data._
     channel.exchangeDeclare(exchangeName, exchangeType, queueData.durability, queueData.autoDelete, args)
-    val queueDeclareResult = declareOutboundQueue(data)
+    val queueDeclareResult = declarePublisherQueue(data)
     channel.queueBind(queueData.name, exchangeName, queueData.name)
     queueDeclareResult
   }
 
-  private def declareOutboundQueue(data: AmqpDeclareOutboundQueueData) = {
+  private def declarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, null)
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
   }
 
   private def defaultDeclareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
     import data._
     channel.basicQos(queueData.batchSize)
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, null)
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
   }
+
+  private def prepareDlqArgs(queueName: String) =
+    Map(
+      "x-dead-letter-exchange" -> DLQ_EXCHANGE_NAME,
+      "x-dead-letter-routing-key" -> prepareDlqName(queueName)
+    )
+
+  private final val DLQ_EXCHANGE_NAME = "dlq"
+
+  private def prepareDlqName(queueName: String) = queueName + ".dlq"
 }
 
 case class AmqpDeclareInboundQueueData(queueData: InboundQueueData, channel: Channel)

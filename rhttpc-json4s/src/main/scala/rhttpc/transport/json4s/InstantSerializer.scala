@@ -15,15 +15,22 @@
  */
 package rhttpc.transport.json4s
 
+import java.text.ParseException
 import java.time.Instant
+import java.util.Date
 
-import org.json4s.JsonAST.JInt
+import org.json4s.JsonAST.{JString, JInt}
 
-object InstantSerializer extends CustomSerializerWithTypeHints[Instant, JInt](format => (
+object InstantSerializer extends CustomSerializerWithTypeHints[Instant, JString](format => (
   {
-    jl => Instant.ofEpochMilli(jl.values.toLong)
+    js =>
+      format.dateFormat.parse(js.values) match {
+        case Some(date) => date.toInstant
+        case None => throw new ParseException(s"Could not parse date: ${js.values}", -1)
+      }
   },
   {
-    i => JInt(i.toEpochMilli)
+    i =>
+      JString(format.dateFormat.format(new Date(i.toEpochMilli)))
   }
 ))

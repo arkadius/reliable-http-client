@@ -55,15 +55,18 @@ case class MessageWithSpecifiedProperties[T](message: Message[T], properties: Ma
   override def content: T = message.content
 }
 
-trait Serializer[PubMsg] {
-  def serialize(obj: PubMsg): String
-}
-
 trait Subscriber[SubMsg] {
 
   def run(): Unit
 
   def stop(): Unit
+}
+
+trait RejectingMessage { self: Exception =>
+}
+
+trait Serializer[PubMsg] {
+  def serialize(obj: PubMsg): String
 }
 
 trait Deserializer[SubMsg] {

@@ -15,26 +15,53 @@
  */
 package rhttpc.akkahttp.json4s
 
+import java.time.{Duration, Instant}
+import java.util.UUID
+
 import akka.http.scaladsl.model._
-import org.json4s.native.Serialization._
+import org.json4s.native.Serialization
 import org.scalatest._
 import org.scalatest.prop.TableDrivenPropertyChecks
+import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.proxy.{ExhaustedRetry, NonSuccessResponse}
+
+import scala.util.{Failure, Success, Try}
 
 class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
   implicit val formats = Json4sHttpRequestResponseFormats.formats
 
-  val data = Table[HttpRequest](
+  val requestsData = Table[WithRetryingHistory[Correlated[HttpRequest]]](
     "request",
-    HttpRequest().withMethod(HttpMethods.POST).withEntity("foo")
+    WithRetryingHistory.firstAttempt(
+      Correlated(HttpRequest().withMethod(HttpMethods.POST).withEntity("foo"), UUID.randomUUID().toString),
+      Instant.now
+    ).withNextAttempt(Instant.now.plusSeconds(5), Duration.ofSeconds(10))
   )
 
-  it should "work round-trip" in {
-    forAll(data) { request =>
-      val serialized = writePretty(request)
-      //      println("Serialized: " + serialized)
+  it should "work round-trip for requests" in {
+    forAll(requestsData) { request =>
+      val serialized = Serialization.writePretty(request)
+//      println("Serialized: " + serialized)
       withClue("Serialized: " + serialized) {
-        val deserialized = read[HttpRequest](serialized)
+        val deserialized = Serialization.read[WithRetryingHistory[Correlated[HttpRequest]]](serialized)
         deserialized shouldEqual request
+      }
+    }
+  }
+
+  val responsesData = Table[Correlated[Try[HttpResponse]]](
+    "responses",
+    Correlated(Success(HttpResponse().withEntity("bar")), UUID.randomUUID().toString),
+    Correlated(Failure(ExhaustedRetry(NonSuccessResponse)), UUID.randomUUID().toString)
+  )
+  
+  it should "work round-trip for responses" in {
+    forAll(responsesData) { response =>
+      val serialized = Serialization.writePretty(response)
+//      println("Serialized: " + serialized)
+      withClue("Serialized: " + serialized) {
+        val deserialized = Serialization.read[Correlated[Try[HttpResponse]]](serialized)
+        deserialized shouldEqual response
       }
     }
   }

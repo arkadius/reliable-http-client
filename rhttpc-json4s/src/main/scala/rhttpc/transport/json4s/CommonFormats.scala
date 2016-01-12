@@ -15,24 +15,19 @@
  */
 package rhttpc.transport.json4s
 
-import org.json4s.JsonAST.{JObject, JString}
-import org.json4s._
+import org.json4s.{DefaultFormats, Formats, TypeHints}
 
-import scala.reflect.ClassTag
+object CommonFormats {
 
-class CustomSerializerWithTypeHints[T: Manifest, JV <: JValue: ClassTag](ser: Formats => (JV => T, T => JV))
-  extends CustomSerializer[T](implicit formats => {
-  val (deserialize, serialize) = ser(formats)
-  (
-    {
-      case JObject(_ :: ("value", jValue: JV) :: Nil) =>
-        deserialize(jValue)
-    },
-    {
-      case obj: T => JObject(
-        formats.typeHintFieldName -> JString(obj.getClass.getName),
-        "value" -> serialize(obj)
-      )
-    }
-  )
-})
+  implicit val formats: Formats =
+    new DefaultFormats {
+      override def dateFormatter = DefaultFormats.losslessDate()
+      override val typeHints: TypeHints = AllTypeHints
+    } +
+    ExceptionSerializer +
+    ObjectSerializer +
+    IndexedSeqSerializer +
+    InstantSerializer +
+    DurationSerializer
+
+}
