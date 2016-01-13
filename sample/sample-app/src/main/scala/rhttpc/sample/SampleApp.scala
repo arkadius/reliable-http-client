@@ -23,7 +23,7 @@ import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import rhttpc.actor.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
-import rhttpc.akkahttp.ReliableHttp
+import rhttpc.akkahttp.ReliableHttpClientFactory
 import rhttpc.client._
 
 import scala.concurrent.duration._
@@ -35,7 +35,7 @@ object SampleApp extends App with Directives {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  private val rhttpc = Await.result(ReliableHttp(), 10 seconds)
+  private val rhttpc = Await.result(ReliableHttpClientFactory().withOwnAmqpConnection(), 10 seconds)
 
   val client = new DelayedEchoClient {
     override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {

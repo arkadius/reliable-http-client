@@ -15,24 +15,29 @@
  */
 package rhttpc.client.proxy
 
-import java.time.Duration
+import scala.concurrent.duration._
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy
+  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
 
-case class Retry(delay: Duration) extends ResponseHandleStrategy
+case class Retry(delay: FiniteDuration) extends ResponseHandleStrategy
 case object SendToDLQ extends ResponseHandleStrategy
+case object Publish extends ResponseHandleStrategy
 case object Skip extends ResponseHandleStrategy
 
-object SkipAll extends FailureResponseHandleStrategyChooser {
-  override def choose(attempt: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy = Skip
+object PublishAll extends FailureResponseHandleStrategyChooser {
+  override def choose(attempt: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = Publish
 }
 
-case class BackoffRetry(initialDelay: Duration, multiplier: BigDecimal, maxRetries: Int) extends FailureResponseHandleStrategyChooser {
-  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[Duration]): ResponseHandleStrategy = {
+object SkipAll extends FailureResponseHandleStrategyChooser {
+  override def choose(attempt: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = Skip
+}
+
+case class BackoffRetry(initialDelay: FiniteDuration, multiplier: BigDecimal, maxRetries: Int) extends FailureResponseHandleStrategyChooser {
+  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = {
     val retriesSoFar = attemptsSoFar - 1
     if (retriesSoFar + 1 > maxRetries) {
       SendToDLQ
@@ -41,9 +46,9 @@ case class BackoffRetry(initialDelay: Duration, multiplier: BigDecimal, maxRetri
     } else {
       val nextDelay = lastPlannedDelay match {
         case Some(lastDelay) =>
-          Duration.ofMillis((lastDelay.toMillis * multiplier).toLong)
+          (lastDelay.toMillis * multiplier).toLong.millis
         case None =>
-          initialDelay
+          initialDelay.toMillis.millis
       }
       Retry(nextDelay)
     }

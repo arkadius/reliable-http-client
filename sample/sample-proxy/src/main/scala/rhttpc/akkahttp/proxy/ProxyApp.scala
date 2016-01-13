@@ -29,8 +29,7 @@ object ProxyApp extends App {
   import actorSystem.dispatcher
   implicit val materializer = ActorMaterializer()
 
-  val retryStrategy = BackoffRetry(JDuration.ofSeconds(5), 1.0, 3)
-  val proxy = Await.result(ReliableHttpProxy(failureHandleStrategyChooser = retryStrategy), 20 seconds)
+  val proxy = Await.result(ReliableHttpProxyFactory().publishingResponsesWithOwnConnection(), 20 seconds)
 
   Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {

@@ -16,17 +16,43 @@
 package rhttpc
 
 import org.slf4j.LoggerFactory
+import rhttpc.transport.OutboundQueueData
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 package object client {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def recovered[T](future: Future[T], action: String)
-                  (implicit ec: ExecutionContext) = {
-    future.recover {
-      case ex =>
+  def recovered(run: => Unit, action: String): Unit = {
+    try {
+      run
+    } catch {
+      case NonFatal(ex) =>
         logger.error(s"Exception while $action", ex)
+
     }
   }
+
+  def recoveredFuture(future: => Future[Unit], action: String)
+                     (implicit ec: ExecutionContext): Future[Unit] = {
+    try {
+      future.recover {
+        case NonFatal(ex) =>
+          logger.error(s"Exception while $action", ex)
+      }
+    } catch {
+      case NonFatal(ex) => // while preparing future
+        logger.error(s"Exception while $action", ex)
+        Future.successful(Unit)
+    }
+  }
+
+  private[rhttpc] def prepareRequestPublisherQueueData(queuesPrefix: String) =
+    OutboundQueueData(prepareRequestQueueName(queuesPrefix), delayed = true)
+
+  private[rhttpc] def prepareRequestQueueName(queuesPrefix: String) = queuesPrefix + ".request"
+
+  private[rhttpc] def prepareResponseQueueName(queuesPrefix: String) = queuesPrefix + ".response"
+
 }

@@ -24,7 +24,8 @@ import akka.pattern._
 import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.client.actor.PromiseSubscriptionCommandsListener
-import rhttpc.transport.Publisher
+import rhttpc.client.config.ConfigParser
+import rhttpc.transport.{PubSubTransport, Publisher}
 import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -32,7 +33,9 @@ import scala.language.postfixOps
 import scala.util.Failure
 
 class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement,
-                              publisher: Publisher[WithRetryingHistory[Correlated[Request]]]) {
+                              publisher: Publisher[WithRetryingHistory[Correlated[Request]]],
+                              additionalCloseAction: => Future[Unit]) {
+
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def subscriptionManager: SubscriptionManager = subMgr
@@ -58,8 +61,9 @@ class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInter
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    recovered(subscriptionManager.stop(), "stopping subscriptionManager").map { _ =>
-      publisher.close()
+    recoveredFuture(subscriptionManager.stop(), "stopping subscriptionManager").flatMap { _ =>
+      recovered(publisher.close(), "closing request publisher")
+      additionalCloseAction
     }
   }
 }
@@ -98,3 +102,16 @@ class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Futur
 }
 
 class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
+
+case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
+
+  def create[Request](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
+                      batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                      queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableClient[Request] = {
+    val subscriptionManager = SubscriptionManagerFactory().create(transport, batchSize, queuesPrefix)
+    val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix)) 
+    new ReliableClient[Request](subscriptionManager, requestPublisher, additionalCloseAction)
+  }
+
+}

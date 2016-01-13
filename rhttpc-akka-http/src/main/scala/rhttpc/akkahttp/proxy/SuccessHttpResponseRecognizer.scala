@@ -13,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client.proxy
+package rhttpc.akkahttp.proxy
 
-trait SuccessRecognizer[Msg] {
-  def isSuccess(msg: Msg): Boolean
+import akka.http.scaladsl.model.HttpResponse
+
+trait SuccessHttpResponseRecognizer {
+  def isSuccess(response: HttpResponse): Boolean
+}
+
+object AcceptSuccessHttpStatus extends SuccessHttpResponseRecognizer {
+  override def isSuccess(response: HttpResponse) = response.status.isSuccess()
 }

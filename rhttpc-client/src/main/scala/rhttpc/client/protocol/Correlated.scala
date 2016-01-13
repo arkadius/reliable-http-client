@@ -15,4 +15,4 @@
  */
 package rhttpc.client.protocol
 
-case class Correlated[T](msg: T, correlationId: String)
+case class Correlated[+T](msg: T, correlationId: String)

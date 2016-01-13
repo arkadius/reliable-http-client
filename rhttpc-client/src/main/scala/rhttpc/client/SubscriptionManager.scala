@@ -19,6 +19,7 @@ import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
 import rhttpc.client.actor._
+import rhttpc.client.config.ConfigParser
 import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
@@ -40,15 +41,14 @@ private[rhttpc] trait SubscriptionInternalManagement {
   def abort(subscription: SubscriptionOnResponse): Unit
 }
 
-object SubscriptionManager {
-  private[rhttpc] def apply()(implicit actorSystem: ActorSystem, transport: PubSubTransport[_, _]): SubscriptionManager with SubscriptionInternalManagement = {
-    val responseQueueName = actorSystem.settings.config.getString("rhttpc.response-queue.name")
-    val batchSize = actorSystem.settings.config.getInt("rhttpc.batchSize")
-    SubscriptionManager(transport, InboundQueueData(responseQueueName, batchSize))
+case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
+  def create(transport: PubSubTransport[_, _],
+             batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+             queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix): SubscriptionManager with SubscriptionInternalManagement = {
+    create(transport, InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
-  private[rhttpc] def apply(transport: PubSubTransport[_, _], queueData: InboundQueueData)
-                           (implicit actorSystem: ActorSystem): SubscriptionManager with SubscriptionInternalManagement = {
+  private[rhttpc] def create(transport: PubSubTransport[_, _], queueData: InboundQueueData): SubscriptionManager with SubscriptionInternalManagement = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)
     new SubscriptionManagerImpl(subscriber, dispatcher)
@@ -78,13 +78,11 @@ private[client] class SubscriptionManagerImpl(transportSub: Subscriber[_], dispa
   }
 
   override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
-    Try(transportSub.stop()).recover {
-      case ex => log.error("Exception while stopping subscriber", ex)
-    }
-    gracefulStop(dispatcher, 30 seconds).map(stopped =>
+    recovered(transportSub.stop(), "stopping subscriber")
+    recoveredFuture(gracefulStop(dispatcher, 30 seconds).map(stopped =>
       if (!stopped)
-        throw new IllegalStateException("Graceful stop failed")
-    )
+        throw new IllegalStateException("Dispatcher actor hasn't been stopped correctly")
+    ), "stopping dispatcher actor")
   }
 }
 

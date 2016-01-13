@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.akkahttp.proxy
+package rhttpc.client.proxy
 
-import akka.http.scaladsl.model.HttpResponse
-import rhttpc.client.proxy.SuccessRecognizer
+import rhttpc.client.protocol.Correlated
 
-object AcceptSuccessHttpStatus extends SuccessRecognizer[HttpResponse] {
-  override def isSuccess(response: HttpResponse) = response.status.isSuccess()
+import scala.concurrent.Future
+import scala.util.Try
+
+object SkipMsg extends (Correlated[Try[Any]] => Future[Unit]) {
+  def apply(msg: Correlated[Try[Any]]): Future[Unit] = Future.successful(Unit)
 }

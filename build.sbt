@@ -14,14 +14,15 @@ val commonSettings =
   Seq(
     organization  := "org.rhttpc",
     scalaVersion  := scalaV,
-    scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
+    scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-target:jvm-1.8"),
     license := apache2("Copyright 2015 the original author or authors."),
     licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
     removeExistingHeaderBlock := true,
     dockerRepository := Some("arkadius"),
     resolvers ++= Seq(
-      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository"
+      "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
+      Resolver.jcenterRepo
     )
   )
 
@@ -53,7 +54,7 @@ val publishSettings = Seq(
 
 val akkaV = "2.4.0"
 val akkaStreamsV = "1.0"
-val ficusV = "1.1.2"
+val ficusV = "1.2.1"
 val amqpcV = "3.5.6"
 val json4sV = "3.3.0"
 val logbackV = "1.1.3"
@@ -81,8 +82,8 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
-        "net.ceedubs"              %% "ficus"                         % ficusV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
+        "com.iheart"               %% "ficus"                         % ficusV,
         "org.slf4j"                 % "slf4j-api"                     % slf4jV,
         "org.scala-lang"            % "scala-reflect"                 % scalaV
       )
@@ -112,6 +113,7 @@ lazy val client = (project in file("rhttpc-client")).
     libraryDependencies ++= {
       Seq(
         "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "com.iheart"               %% "ficus"                         % ficusV,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
