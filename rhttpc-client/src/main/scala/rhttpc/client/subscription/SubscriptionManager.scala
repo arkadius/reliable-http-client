@@ -124,12 +124,12 @@ private[subscription] class ReplyFutureImpl(subscription: SubscriptionOnResponse
 case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
   def create[Response](batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                        queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix)
-                      (implicit transport: PubSubTransport[_, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+                      (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
     create(InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
   private[client] def create[Response](queueData: InboundQueueData)
-                                      (implicit transport: PubSubTransport[_, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+                                      (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)
     new SubscriptionManagerImpl(subscriber, dispatcher)

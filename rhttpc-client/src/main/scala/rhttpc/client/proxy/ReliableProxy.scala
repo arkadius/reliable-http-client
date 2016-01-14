@@ -115,7 +115,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                              additionalCloseAction: => Future[Unit] = Future.successful(Unit))
                                             (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher,
-                                             requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+                                             requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     val responsePublisher = responseRequestTransport.publisher(OutboundQueueData(prepareResponseQueueName(queuesPrefix)))
@@ -138,8 +138,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                            additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                                          (implicit requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
-                                           requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+                                          (implicit requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]],
+                                           requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     create(
@@ -158,8 +158,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                 additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                               (implicit requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
-                                requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+                               (implicit requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]],
+                                requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     new ReliableProxy(
@@ -172,7 +172,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  private def prepareSubscriber[Request](transport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]], batchSize: Int, queuesPrefix: String)
+  private def prepareSubscriber[Request](transport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]], batchSize: Int, queuesPrefix: String)
                                         (implicit actorSystem: ActorSystem):
   (ActorRef) => Subscriber[WithRetryingHistory[Correlated[Request]]] =
     transport.subscriber(InboundQueueData(prepareRequestQueueName(queuesPrefix), batchSize), _)
