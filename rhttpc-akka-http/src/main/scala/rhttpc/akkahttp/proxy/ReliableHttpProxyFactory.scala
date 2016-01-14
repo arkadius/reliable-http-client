@@ -27,7 +27,8 @@ import rhttpc.client.proxy._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 object ReliableHttpProxyFactory {
 
@@ -35,28 +36,30 @@ object ReliableHttpProxyFactory {
 
   def send(successRecognizer: SuccessHttpResponseRecognizer, batchSize: Int)
           (corr: Correlated[HttpRequest])
-          (implicit actorSystem: ActorSystem, materialize: Materializer): Future[Try[HttpResponse]] = {
+          (implicit actorSystem: ActorSystem, materialize: Materializer): Future[HttpResponse] = {
     import actorSystem.dispatcher
     send(prepareHttpFlow(batchSize), successRecognizer)(corr)
   }
 
   private def prepareHttpFlow(batchSize: Int)
-                             (implicit actorSystem: ActorSystem, materialize: Materializer) = {
+                             (implicit actorSystem: ActorSystem, materialize: Materializer):
+    Flow[(HttpRequest, String), HttpResponse, Unit] = {
+
     import actorSystem.dispatcher
     Http().superPool[String]().mapAsync(batchSize) {
       case (tryResponse, id) =>
         tryResponse match {
           case Success(response) =>
-            response.toStrict(1 minute).map(strict => (Success(strict), id))
-          case failure =>
-            Future.successful((failure, id))
+            response.toStrict(1 minute)
+          case Failure(ex) =>
+            Future.failed(ex)
         }
     }
   }
 
-  private def send(httpFlow: Flow[(HttpRequest, String), (Try[HttpResponse], String), Any], successRecognizer: SuccessHttpResponseRecognizer)
+  private def send(httpFlow: Flow[(HttpRequest, String), HttpResponse, Any], successRecognizer: SuccessHttpResponseRecognizer)
                   (corr: Correlated[HttpRequest])
-                  (implicit ec: ExecutionContext, materialize: Materializer): Future[Try[HttpResponse]] = {
+                  (implicit ec: ExecutionContext, materialize: Materializer): Future[HttpResponse] = {
     import collection.convert.wrapAsScala._
     log.debug(
       s"""Sending request for ${corr.correlationId} to ${corr.msg.getUri()}. Headers:
@@ -65,24 +68,27 @@ object ReliableHttpProxyFactory {
           |${corr.msg.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
     )
     val logResp = logResponse(corr) _
-    Source.single((corr.msg, corr.correlationId)).via(httpFlow).runWith(Sink.head).map {
-      case (tryResponse, correlationId) =>
-        tryResponse match {
-          case success@Success(response) if successRecognizer.isSuccess(response) =>
-            logResp(response, "success response")
-            success
-          case Success(response) =>
-            logResp(response, "response recognized as non-success")
-            Failure(NonSuccessResponse)
-          case failure@Failure(ex) =>
-            log.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
-            failure
-        }
+    val responseFuture = Source.single((corr.msg, corr.correlationId)).via(httpFlow).runWith(Sink.head)
+    responseFuture.onFailure {
+      case NonFatal(ex) =>
+        log.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
     }
+    for {
+      response <- responseFuture
+      transformedToFailureIfNeed <- {
+        if (successRecognizer.isSuccess(response)) {
+          logResp(response, "success response")
+          Future.successful(response)
+        } else {
+          logResp(response, "response recognized as non-success")
+          Future.failed(NonSuccessResponse)
+        }
+      }
+    } yield transformedToFailureIfNeed
   }
 
   private def logResponse(corr: Correlated[HttpRequest])
-                         (response: HttpResponse, additionalInfo: String) = {
+                         (response: HttpResponse, additionalInfo: String): Unit = {
     import collection.convert.wrapAsScala._
     log.debug(
       s"""Got $additionalInfo for ${corr.correlationId} to ${corr.msg.getUri()}. Status: ${response.status.value}. Headers:

@@ -52,7 +52,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy): InOnlyReliableHttpClient = {
     implicit val implicitConnection = connection
     ReliableClientFactory().inOnly[HttpRequest](
-      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(tryResponse => tryResponse.map(_ => Unit)),
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(_ => Unit),
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
@@ -91,7 +91,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       val connectionF = AmqpConnectionFactory.connect(actorSystem)
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOnly[HttpRequest](
-          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(tryResponse => tryResponse.map(_ => Unit)),
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(_ => Unit),
           batchSize = batchSize,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,

@@ -28,11 +28,12 @@ import rhttpc.transport._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscriber[WithRetryingHistory[Correlated[Request]]],
                                        requestPublisher: Publisher[WithRetryingHistory[Correlated[Request]]],
-                                       send: Correlated[Request] => Future[Try[Response]],
+                                       send: Correlated[Request] => Future[Response],
                                        failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
                                        handleResponse: Correlated[Try[Response]] => Future[Unit],
                                        additionalCloseAction: => Future[Unit])
@@ -45,18 +46,25 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
 
     override def receive: Receive = {
       case withHistory: WithRetryingHistory[_] =>
-        val castedWithHistory = withHistory.asInstanceOf[WithRetryingHistory[Correlated[Request]]]
-        (for {
-          tryResponse <- send(castedWithHistory.msg)
-          result <- tryResponse match {
-            case Success(response) =>
-              log.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
-              handleResponse(Correlated(Success(response), castedWithHistory.msg.correlationId))
-            case Failure(ex) =>
-              log.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
-              handleFailure(castedWithHistory, ex)
-          }
-        } yield result) pipeTo sender()
+        try {
+          val castedWithHistory = withHistory.asInstanceOf[WithRetryingHistory[Correlated[Request]]]
+          (for {
+            tryResponse <- send(castedWithHistory.msg).map(Success(_)).recover {
+              case NonFatal(ex) => Failure(ex)
+            }
+            result <- tryResponse match {
+              case Success(response) =>
+                log.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
+                handleResponse(Correlated(Success(response), castedWithHistory.msg.correlationId))
+              case Failure(ex) =>
+                log.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
+                handleFailure(castedWithHistory, ex)
+            }
+          } yield result) pipeTo sender()
+        } catch {
+          case NonFatal(ex) =>
+            sender() ! Status.Failure(ex)
+        }
     }
 
     private def handleFailure(withHistory: WithRetryingHistory[Correlated[Request]], failure: Throwable): Future[Unit] = {
@@ -70,9 +78,9 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
           requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(Instant.now, JDuration.ofMillis(delay.toMillis)), delay))
         case SendToDLQ =>
           log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
-          val cause = ExhaustedRetry(failure)
-          handleResponse(Correlated(Failure(cause), withHistory.msg.correlationId))
-          Future.failed(cause)
+          val exhaustedRetryError = ExhaustedRetry(failure)
+          handleResponse(Correlated(Failure(exhaustedRetryError), withHistory.msg.correlationId))
+          Future.failed(exhaustedRetryError)
         case Handle =>
           log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will handle")
           handleResponse(Correlated(Failure(failure), withHistory.msg.correlationId))
@@ -109,7 +117,7 @@ object ExhaustedRetry {
 
 case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
 
-  def publishingResponses[Request, Response](send: Correlated[Request] => Future[Try[Response]],
+  def publishingResponses[Request, Response](send: Correlated[Request] => Future[Response],
                                              batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                              queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
@@ -133,7 +141,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  def skippingResponses[Request, Response](send: Correlated[Request] => Future[Try[Response]],
+  def skippingResponses[Request, Response](send: Correlated[Request] => Future[Response],
                                            batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
@@ -152,7 +160,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  def create[Request, Response](send: Correlated[Request] => Future[Try[Response]],
+  def create[Request, Response](send: Correlated[Request] => Future[Response],
                                 handleResponse: Correlated[Try[Response]] => Future[Unit],
                                 batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,

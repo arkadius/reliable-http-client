@@ -71,7 +71,7 @@ case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
 
-  def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Try[Response]],
+  def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Response],
                                                 batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
@@ -103,7 +103,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     }
   }
 
-  def inOnly[Request](send: Correlated[Request] => Future[Try[Unit]],
+  def inOnly[Request](send: Correlated[Request] => Future[Unit],
                       batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                       queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                       retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
