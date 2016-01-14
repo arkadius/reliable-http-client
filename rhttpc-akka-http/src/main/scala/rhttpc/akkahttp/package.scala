@@ -15,11 +15,12 @@
  */
 package rhttpc
 
-import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
-import rhttpc.client.{InOutReliableClient, ReliableClient}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import rhttpc.client.proxy.ReliableProxy
+import rhttpc.client.{InOnlyReliableClient, InOutReliableClient}
 
 package object akkahttp {
   type InOutReliableHttpClient = InOutReliableClient[HttpRequest]
+  type InOnlyReliableHttpClient = InOnlyReliableClient[HttpRequest]
   type ReliableHttpProxy = ReliableProxy[HttpRequest, HttpResponse]
 }

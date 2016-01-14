@@ -24,7 +24,8 @@ import scala.util.control.NonFatal
 
 package object client {
   type InOutReliableClient[Request] = ReliableClient[Request, ReplyFuture] with WithSubscriptionManager
-  
+  type InOnlyReliableClient[Request] = ReliableClient[Request, Future[Unit]]
+
   private val logger = LoggerFactory.getLogger(getClass)
 
   def recovered(run: => Unit, action: String): Unit = {

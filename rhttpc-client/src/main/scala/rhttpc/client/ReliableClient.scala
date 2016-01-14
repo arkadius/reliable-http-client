@@ -96,7 +96,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       recoveredFuture(proxy.close(), "closing proxy")
         .flatMap(_ => additionalCloseAction)
     }
-    new ReliableClient[Request, ReplyFuture](
+    new ReliableClient(
       publisher = requestPublisher,
       publicationHandler = subMgr,
       additionalRunAction = proxy.run(),
@@ -106,6 +106,33 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     }
   }
 
+  def inOnly[Request](requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
+                      requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
+                      send: Correlated[Request] => Future[Try[Unit]],
+                      batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                      queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                      retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOnlyReliableClient[Request] = {
+    val proxy = ReliableProxyFactory().skippingResponses(
+      requestPublisherTransport = requestPublisherTransport,
+      requestSubscriberTransport = requestSubscriberTransport,
+      send = send,
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
+    def closeProxyThanAdditional = {
+      recoveredFuture(proxy.close(), "closing proxy")
+        .flatMap(_ => additionalCloseAction)
+    }
+    create(
+      transport = requestPublisherTransport,
+      publicationHandler = StraightforwardPublicationHandler,
+      additionalRunAction = proxy.run(),
+      additionalCloseAction = closeProxyThanAdditional
+    )
+  }
+
   def create[Request, SendResult](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
                                   publicationHandler: PublicationHandler[SendResult],
                                   batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
@@ -113,7 +140,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                   additionalRunAction: => Unit = {},
                                   additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableClient[Request, SendResult] = {
     val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
-    new ReliableClient[Request, SendResult](
+    new ReliableClient(
       publisher = requestPublisher,
       publicationHandler = publicationHandler,
       additionalRunAction = additionalRunAction,
