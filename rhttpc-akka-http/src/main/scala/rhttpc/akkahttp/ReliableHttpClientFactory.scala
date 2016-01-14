@@ -16,34 +16,58 @@
 package rhttpc.akkahttp
 
 import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.amqp.AmqpJson4sHttpTransportFactory
+import rhttpc.akkahttp.proxy.{AcceptSuccessHttpStatus, SuccessHttpResponseRecognizer, ReliableHttpProxyFactory}
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
+import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
 import rhttpc.transport.amqp.AmqpConnectionFactory
 
 import scala.concurrent.Future
 
-case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem) {
+case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
 
-  def withOwnAmqpConnection(batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix): Future[ReliableHttpClient] = {
+  def inOutWithSubscriptionsWithOwnAmqpConnection(successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+                                                  batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                                                  queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                                                  retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy): Future[InOutReliableHttpClient] = {
     val connectionF = AmqpConnectionFactory.connect(actorSystem)
     connectionF.map { connection =>
-      val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
-      ReliableClientFactory().create(transport, batchSize, queuesPrefix, {
-        recovered(connection.close(), "closing amqp connection")
-        Future.successful(Unit)
-      })
+      val requestResponseTransport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
+      val responseRequestTransport = AmqpJson4sHttpTransportFactory.createResponseRequestTransport(connection)
+      ReliableClientFactory().inOutWithSubscriptions(
+        requestResponseTransport = requestResponseTransport,
+        responseRequestTransport = responseRequestTransport,
+        send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+        batchSize = batchSize,
+        queuesPrefix = queuesPrefix,
+        retryStrategy = retryStrategy,
+        additionalCloseAction = {
+          recovered(connection.close(), "closing amqp connection")
+          Future.successful(Unit)
+        }
+      )
     }
   }
 
-  def create(connection: Connection,
-             batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-             queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix): ReliableHttpClient = {
-    val transport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
-    ReliableClientFactory().create(transport, batchSize, queuesPrefix)
+  def inOutWithSubscriptions(connection: Connection,
+                             successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+                             batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                             queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                             retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy): InOutReliableHttpClient = {
+    val requestResponseTransport = AmqpJson4sHttpTransportFactory.createRequestResponseTransport(connection)
+    val responseRequestTransport = AmqpJson4sHttpTransportFactory.createResponseRequestTransport(connection)
+    ReliableClientFactory().inOutWithSubscriptions(
+      requestResponseTransport = requestResponseTransport,
+      responseRequestTransport = responseRequestTransport,
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
   }
 
 }

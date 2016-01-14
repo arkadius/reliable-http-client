@@ -1,18 +1,13 @@
 rabbitmq:
-  image: rabbitmq:3.5.4-management
+  image: glopart/rabbitmq:latest
 
-rhttpcproxy:
-  image: arkadius/rhttpc-proxy:0.1.0
+sampleecho:
+  image: arkadius/sampleecho:0.4.0
+
+sampleapp:
+  image: arkadius/sampleapp:0.4.0
   links:
     - rabbitmq
     - sampleecho
-
-sampleecho:
-  image: arkadius/sampleecho:0.1.1-SNAPSHOT
-
-sampleapp:
-  image: arkadius/sampleapp:0.1.1-SNAPSHOT
-  links:
-    - rabbitmq
   ports:
     - "8081:8081"

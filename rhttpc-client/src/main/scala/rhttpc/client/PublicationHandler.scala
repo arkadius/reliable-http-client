@@ -17,7 +17,7 @@ package rhttpc.client
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[client] trait PublicationHandler[Result] {
+trait PublicationHandler[Result] {
 
   private[client] def run(): Unit
 
@@ -28,4 +28,15 @@ private[client] trait PublicationHandler[Result] {
 
   private[client] def stop()(implicit ec: ExecutionContext): Future[Unit]
 
+}
+
+object StraightforwardPublicationHandler extends PublicationHandler[Future[Unit]] {
+  override private[client] def run(): Unit = {}
+
+  override private[client] def beforePublication(correlationId: String): Unit = {}
+
+  override private[client] def processPublicationAck(correlationId: String, ack: Future[Unit])
+                                                    (implicit ec: ExecutionContext): Future[Unit] = ack
+
+  override private[client] def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
 }

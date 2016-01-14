@@ -171,22 +171,6 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
     publishArtifact := false
   )
 
-lazy val sampleProxy = (project in file("sample/sample-proxy")).
-  settings(commonSettings).
-  enablePlugins(DockerPlugin).
-  enablePlugins(JavaAppPackaging).
-  settings(
-    name := "sample-proxy",
-    libraryDependencies ++= {
-      Seq(
-        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
-        "ch.qos.logback"            % "logback-classic"               % logbackV
-      )
-    },
-    publishArtifact := false
-  ).
-  dependsOn(akkaHttpClient)
-
 lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
   enablePlugins(DockerPlugin).
@@ -223,7 +207,6 @@ lazy val testProj = (project in file("sample/test")).
     },
     Keys.test in Test <<= (Keys.test in Test).dependsOn(
       publishLocal in Docker in sampleEcho,
-      publishLocal in Docker in sampleProxy,
       publishLocal in Docker in sampleApp
     ),
     publishArtifact := false

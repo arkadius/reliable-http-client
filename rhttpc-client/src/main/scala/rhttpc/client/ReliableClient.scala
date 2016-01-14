@@ -22,20 +22,24 @@ import akka.actor._
 import org.slf4j.LoggerFactory
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{ReplyFuture, SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
 import rhttpc.transport.{PubSubTransport, Publisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
+import scala.util.Try
 import scala.util.control.NonFatal
 
 class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHistory[Correlated[Request]]],
                                           publicationHandler: PublicationHandler[SendResult],
+                                          additionalRunAction: => Unit,
                                           additionalCloseAction: => Future[Unit]) {
 
   private lazy val log = LoggerFactory.getLogger(getClass)
 
   def run() = {
+    additionalRunAction
     publicationHandler.run()
   }
 
@@ -65,16 +69,56 @@ class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHisto
 case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
 
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
+  import actorSystem.dispatcher
 
-  def create[Request](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                      batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                      queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOutReliableClient[Request] = {
-    val subMgr = SubscriptionManagerFactory().create(transport, batchSize, queuesPrefix)
-    val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix)) 
-    new ReliableClient[Request, ReplyFuture](requestPublisher, subMgr, additionalCloseAction) with WithSubscriptionManager {
+  def inOutWithSubscriptions[Request, Response](requestResponseTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]],
+                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]],
+                                                send: Correlated[Request] => Future[Try[Response]],
+                                                batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                                                queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                                                retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                                                additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOutReliableClient[Request] = {
+    val proxy = ReliableProxyFactory().publishingResponses(
+      responseRequestTransport = responseRequestTransport,
+      requestPublisherTransport = requestResponseTransport,
+      send = send,
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
+    val subMgr = SubscriptionManagerFactory().create(
+      transport = requestResponseTransport,
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix
+    )
+    val requestPublisher = requestResponseTransport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
+    def closeProxyThanAdditional = {
+      recoveredFuture(proxy.close(), "closing proxy")
+        .flatMap(_ => additionalCloseAction)
+    }
+    new ReliableClient[Request, ReplyFuture](
+      publisher = requestPublisher,
+      publicationHandler = subMgr,
+      additionalRunAction = proxy.run(),
+      additionalCloseAction = closeProxyThanAdditional
+    ) with WithSubscriptionManager {
       override def subscriptionManager: SubscriptionManager = subMgr
     }
+  }
+
+  def create[Request, SendResult](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
+                                  publicationHandler: PublicationHandler[SendResult],
+                                  batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                                  queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                                  additionalRunAction: => Unit = {},
+                                  additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableClient[Request, SendResult] = {
+    val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
+    new ReliableClient[Request, SendResult](
+      publisher = requestPublisher,
+      publicationHandler = publicationHandler,
+      additionalRunAction = additionalRunAction,
+      additionalCloseAction = additionalCloseAction
+    )
   }
 
 }

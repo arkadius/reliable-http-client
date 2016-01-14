@@ -19,7 +19,8 @@ import akka.testkit.TestKit
 import org.scalatest._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Future, Await, ExecutionContext}
+import scala.util.Success
 
 trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
 
@@ -28,8 +29,12 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
   case class FixtureParam(client: InOutReliableClient[String], transport: MockTransport)
 
   override protected def withFixture(test: OneArgTest): Outcome = {
-    implicit val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
-    val client = ReliableClientFactory().create(transport)
+    val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
+    val client = ReliableClientFactory().inOutWithSubscriptions[String, String](
+      transport,
+      MockProxyTransport,
+      _ => Future.successful(Success("not used"))
+    )
     try {
       test(FixtureParam(client, transport))
     } finally {

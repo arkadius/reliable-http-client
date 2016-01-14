@@ -20,6 +20,6 @@ import rhttpc.client.{InOutReliableClient, ReliableClient}
 import rhttpc.client.proxy.ReliableProxy
 
 package object akkahttp {
-  type ReliableHttpClient = InOutReliableClient[HttpRequest]
+  type InOutReliableHttpClient = InOutReliableClient[HttpRequest]
   type ReliableHttpProxy = ReliableProxy[HttpRequest, HttpResponse]
 }
