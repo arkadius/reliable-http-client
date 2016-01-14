@@ -16,16 +16,13 @@
 package rhttpc.akkahttp
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpRequest
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.amqp.AmqpJson4sHttpTransportFactory
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 import rhttpc.transport.amqp.AmqpConnectionFactory
-import rhttpc.transport.{OutboundQueueData, PubSubTransport, Publisher}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher

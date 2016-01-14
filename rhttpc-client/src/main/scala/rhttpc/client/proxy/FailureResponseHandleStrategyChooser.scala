@@ -25,11 +25,11 @@ sealed trait ResponseHandleStrategy
 
 case class Retry(delay: FiniteDuration) extends ResponseHandleStrategy
 case object SendToDLQ extends ResponseHandleStrategy
-case object Publish extends ResponseHandleStrategy
+case object Handle extends ResponseHandleStrategy
 case object Skip extends ResponseHandleStrategy
 
-object PublishAll extends FailureResponseHandleStrategyChooser {
-  override def choose(attempt: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = Publish
+object HandleAll extends FailureResponseHandleStrategyChooser {
+  override def choose(attempt: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = Handle
 }
 
 object SkipAll extends FailureResponseHandleStrategyChooser {

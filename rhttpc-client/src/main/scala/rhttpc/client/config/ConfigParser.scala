@@ -20,7 +20,7 @@ import com.typesafe.config.Config
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
-import rhttpc.client.proxy.{BackoffRetry, FailureResponseHandleStrategyChooser, PublishAll, SkipAll}
+import rhttpc.client.proxy.{BackoffRetry, FailureResponseHandleStrategyChooser, HandleAll, SkipAll}
 
 import scala.util.{Success, Try}
 
@@ -37,7 +37,7 @@ object ConfigParser {
     new ValueReader[FailureResponseHandleStrategyChooser] {
       override def read(config: Config, path: String): FailureResponseHandleStrategyChooser = {
         config.as[Try[String]](path) match {
-          case Success("publish-all") => PublishAll
+          case Success("handle-all") => HandleAll
           case Success("skip-all") => SkipAll
           case _ => config.as[BackoffRetry](path)
         }

@@ -73,8 +73,8 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
           val cause = ExhaustedRetry(failure)
           handleResponse(Correlated(Failure(cause), withHistory.msg.correlationId))
           Future.failed(cause)
-        case Publish =>
-          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will publish")
+        case Handle =>
+          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will handle")
           handleResponse(Correlated(Failure(failure), withHistory.msg.correlationId))
         case Skip =>
           log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
