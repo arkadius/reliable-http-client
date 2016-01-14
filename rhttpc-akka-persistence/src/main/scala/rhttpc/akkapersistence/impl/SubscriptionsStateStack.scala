@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
-import rhttpc.client.SubscriptionOnResponse
+import rhttpc.client.subscription.SubscriptionOnResponse
 
 case class SubscriptionsStateStack private (stack: List[SubscriptionsState]) {
   import SubscriptionsStateStack._

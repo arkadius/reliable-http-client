@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import akka.actor.FSM
-import rhttpc.actor.StateSaved
+import rhttpc.akkapersistence.StateSaved
 
-private[actor] trait FSMAfterAllListenerHolder[S, D] { this: FSM[S, D] =>
+private[akkapersistence] trait FSMAfterAllListenerHolder[S, D] { this: FSM[S, D] =>
   private var currentAfterAllListener: Option[RecipientWithMsg] = None
 
   implicit class StateExt(state: this.State) {

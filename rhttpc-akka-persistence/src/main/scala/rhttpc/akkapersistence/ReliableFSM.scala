@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.akkapersistence
 
 import akka.actor.FSM._
 import akka.actor._
 import akka.persistence.{AkkaPersistentSnapshotter, SnapshotOffer}
-import rhttpc.actor.impl._
-import rhttpc.client.SubscriptionOnResponse
+import rhttpc.akkapersistence.impl._
+import rhttpc.client.subscription.SubscriptionOnResponse
 
 trait ReliableFSM[S, D] extends AkkaPersistentSnapshotter with AbstractReliableFSM[S, D]
 

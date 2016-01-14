@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.akkapersistence
 
 import akka.actor._
-import rhttpc.client.{ReliableClient, SubscriptionManager}
+import rhttpc.client.InOutReliableClient
+import rhttpc.client.subscription.SubscriptionManager
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class FooBarActor(protected val id: String, client: ReliableClient[String]) extends MockReliableFSM[FooBarState, FooBarData] {
+class FooBarActor(protected val id: String, client: InOutReliableClient[String]) extends MockReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher
 
   override protected def persistenceCategory: String = FooBarActor.persistenceCategory
@@ -64,7 +65,7 @@ class FooBarActor(protected val id: String, client: ReliableClient[String]) exte
 object FooBarActor {
   val persistenceCategory = "foobar"
   
-  def props(id: String, client: ReliableClient[String]): Props = Props(new FooBarActor(id, client))
+  def props(id: String, client: InOutReliableClient[String]): Props = Props(new FooBarActor(id, client))
 }
 
 sealed trait FooBarState

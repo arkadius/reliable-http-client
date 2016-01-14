@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import org.scalatest._
-import rhttpc.client.SubscriptionOnResponse
+import rhttpc.client.subscription.SubscriptionOnResponse
 
 class SubscriptionsStateStackSpec extends FlatSpec with Matchers {
 

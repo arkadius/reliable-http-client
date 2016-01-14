@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import java.io.{PrintWriter, StringWriter}
 
 import akka.actor.{ActorLogging, ActorRef}
 import akka.persistence._
 
-private[actor] trait PersistentActorWithNotifications { this: AbstractSnapshotter with ActorLogging =>
+private[akkapersistence] trait PersistentActorWithNotifications { this: AbstractSnapshotter with ActorLogging =>
   override def persistenceId: String = SnapshotsRegistry.persistenceId(persistenceCategory, id)
 
   protected def persistenceCategory: String

@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.akkapersistence
 
 import akka.actor.{ActorSystem, FSM, PoisonPill}
 import akka.persistence._
 import akka.testkit._
 import org.scalatest._
-import rhttpc.actor.impl._
+import rhttpc.akkapersistence.impl._
 import rhttpc.client.ReliableClientBaseSpec
 
 import scala.concurrent.Await

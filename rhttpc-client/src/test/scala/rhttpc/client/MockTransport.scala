@@ -71,7 +71,3 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
   }
 
 }
-
-object MockInboundQueueData extends InboundQueueData("fooInbound", batchSize = 11)
-
-object MockOutboundQueueData extends OutboundQueueData("fooOutbound")

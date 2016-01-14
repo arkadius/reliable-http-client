@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import java.io.File
 
 import akka.actor.{Actor, Props}
 
-private[actor] class SnapshotsRegistry(persistenceCategory: String) extends Actor {
+private[akkapersistence] class SnapshotsRegistry(persistenceCategory: String) extends Actor {
   private val FilenamePattern = s"""^snapshot-$persistenceCategory-(.+)-(\\d+)-(\\d+)""".r
 
   private val config = context.system.settings.config.getConfig("akka.persistence.snapshot-store.local")

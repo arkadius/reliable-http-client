@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import akka.actor._
 import akka.persistence.RecoveryCompleted
 
-private[actor] trait NotifierAboutRecoveryCompleted { this: AbstractSnapshotter with ActorLogging  =>
+private[akkapersistence] trait NotifierAboutRecoveryCompleted { this: AbstractSnapshotter with ActorLogging  =>
 
   private var recoveryCompleted: Boolean = false
   private var waitingForRecoveryCompleted: List[ActorRef] = List.empty

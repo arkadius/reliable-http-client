@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
 import akka.actor.FSM
-import rhttpc.client.SubscriptionOnResponse
+import rhttpc.client.subscription.SubscriptionOnResponse
 
-private[actor] trait StateTransitionHandler[S, D] {
+private[akkapersistence] trait StateTransitionHandler[S, D] {
   protected def onSubscriptionsOffered(subscriptions: Set[SubscriptionOnResponse]): Unit
 
   protected def onStateTransition(transitionData: TransitionData[S, D]): Unit

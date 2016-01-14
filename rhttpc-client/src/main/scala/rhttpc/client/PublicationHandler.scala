@@ -13,12 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.sample
+package rhttpc.client
 
-import rhttpc.client.subscription.ReplyFuture
+import scala.concurrent.{ExecutionContext, Future}
 
-import scala.concurrent.ExecutionContext
+private[client] trait PublicationHandler[Result] {
 
-trait DelayedEchoClient {
-  def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture
+  private[client] def run(): Unit
+
+  private[client] def beforePublication(correlationId: String): Unit
+
+  private[client] def processPublicationAck(correlationId: String, ack: Future[Unit])
+                                           (implicit ec: ExecutionContext): Result
+
+  private[client] def stop()(implicit ec: ExecutionContext): Future[Unit]
+
 }

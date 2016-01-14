@@ -17,8 +17,8 @@ package rhttpc.sample
 
 import akka.actor._
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
-import rhttpc.actor.ReliableFSM
-import rhttpc.client.SubscriptionManager
+import rhttpc.akkapersistence.ReliableFSM
+import rhttpc.client.subscription.SubscriptionManager
 
 import scala.concurrent.duration._
 import scala.language.postfixOps

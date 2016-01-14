@@ -16,12 +16,15 @@
 package rhttpc
 
 import org.slf4j.LoggerFactory
+import rhttpc.client.subscription.{WithSubscriptionManager, ReplyFuture}
 import rhttpc.transport.OutboundQueueData
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 package object client {
+  type InOutReliableClient[Request] = ReliableClient[Request, ReplyFuture] with WithSubscriptionManager
+  
   private val logger = LoggerFactory.getLogger(getClass)
 
   def recovered(run: => Unit, action: String): Unit = {

@@ -13,11 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor.impl
+package rhttpc.akkapersistence.impl
 
-import rhttpc.client._
+import rhttpc.client.subscription._
+import rhttpc.client.subscription.{PublicationListener, SubscriptionOnResponse, SubscriptionManager}
 
-private[actor] trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] {
+private[akkapersistence] trait SubscriptionsHolder[S, D] extends PublicationListener with StateTransitionHandler[S, D] {
   
   protected def subscriptionManager: SubscriptionManager
 
@@ -30,7 +31,7 @@ private[actor] trait SubscriptionsHolder[S, D] extends PublicationListener with 
     subscriptionStates = subscriptionsOffered.foldLeft(withRegistered.withNextState(_ => Unit))(_.withPublishedRequestFor(_))
   }
 
-  override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
+  override def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
     subscriptionStates = subscriptionStates.withRegisteredPromise(sub)
   }
 

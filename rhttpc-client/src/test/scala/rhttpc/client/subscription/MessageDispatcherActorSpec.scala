@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client.actor
+package rhttpc.client.subscription
 
 import java.util.UUID
 
@@ -21,7 +21,6 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
 import rhttpc.client.protocol.Correlated
-import rhttpc.client.{MessageFromSubscription, SubscriptionOnResponse}
 
 import scala.util.Success
 

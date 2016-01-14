@@ -19,18 +19,17 @@ import akka.testkit.TestKit
 import org.scalatest._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Future, Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext}
 
 trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
 
   protected implicit def ec: ExecutionContext = system.dispatcher
 
-  case class FixtureParam(client: ReliableClient[String], transport: MockTransport)
+  case class FixtureParam(client: InOutReliableClient[String], transport: MockTransport)
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     implicit val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
-    val subMgr = SubscriptionManagerFactory().create(transport, MockInboundQueueData)
-    val client = new ReliableClient[String](subMgr, transport.publisher(MockOutboundQueueData), Future.successful(Unit))
+    val client = ReliableClientFactory().create(transport)
     try {
       test(FixtureParam(client, transport))
     } finally {

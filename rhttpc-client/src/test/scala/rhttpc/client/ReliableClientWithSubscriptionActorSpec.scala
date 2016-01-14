@@ -18,6 +18,7 @@ package rhttpc.client
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit._
 import org.scalatest.Matchers
+import rhttpc.client.subscription._
 
 import scala.concurrent.ExecutionContext
 
@@ -48,19 +49,20 @@ class ReliableClientWithSubscriptionActorSpec
 
 }
 
-private class MockSubscriptionActor(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext) extends PublicationListener {
+private class MockSubscriptionActor(client: InOutReliableClient[String], replyMock: ActorRef)
+                                   (implicit ec: ExecutionContext) extends PublicationListener {
   override def receive: Receive = {
     case SendRequest =>
       client.send("foo") pipeTo this
   }
 
-  override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
+  override def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {
     context.become(waitingOnSubscriptionCommand(sender()))
   }
 
   private def waitingOnSubscriptionCommand(originalSender: ActorRef): Receive = {
     case RequestPublished(sub) =>
-      client.subscriptionManager.confirmOrRegister(sub, self)
+      client.subscriptionManager.confirmOrRegister(sub, self) // FIXME
       originalSender ! Unit
       context.become(waitingOnReply)
     case a: RequestAborted =>
@@ -76,7 +78,7 @@ private class MockSubscriptionActor(client: ReliableClient[String], replyMock: A
 }
 
 object MockSubscriptionActor {
-  def props(client: ReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext): Props = Props(new MockSubscriptionActor(client, replyMock))
+  def props(client: InOutReliableClient[String], replyMock: ActorRef)(implicit ec: ExecutionContext): Props = Props(new MockSubscriptionActor(client, replyMock))
 }
 
 case object SendRequest

@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.client.subscription
 
 import akka.actor.Actor
 
 trait PublicationListener extends Actor {
-  private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit
+  def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit
 }
 
 sealed trait PublicationResult

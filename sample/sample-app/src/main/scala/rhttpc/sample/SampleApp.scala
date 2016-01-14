@@ -22,9 +22,9 @@ import akka.http.scaladsl.server._
 import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import rhttpc.actor.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
 import rhttpc.akkahttp.ReliableHttpClientFactory
-import rhttpc.client._
+import rhttpc.akkapersistence.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
+import rhttpc.client.subscription.ReplyFuture
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -43,16 +43,14 @@ object SampleApp extends App with Directives {
     }
   }
 
-  val subscriptionManager = rhttpc.subscriptionManager
-
   val manager = system.actorOf(RecoverableActorsManager.props(
     FooBarActor.persistenceCategory,
-    id => FooBarActor.props(id, subscriptionManager, client)
+    id => FooBarActor.props(id, rhttpc.subscriptionManager, client)
   ), "foobar")
 
   Await.result((manager ? RecoverAllActors)(Timeout(20 seconds)), 15 seconds)
 
-  subscriptionManager.run()
+  rhttpc.run()
 
   val route =
     path("healthcheck") {

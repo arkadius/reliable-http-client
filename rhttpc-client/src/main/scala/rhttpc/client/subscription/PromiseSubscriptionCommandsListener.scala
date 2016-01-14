@@ -13,25 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client.actor
+package rhttpc.client.subscription
 
 import akka.actor.{Actor, Props, Status}
-import rhttpc.client._
 
 import scala.concurrent.Promise
 
 private class PromiseSubscriptionCommandsListener(pubPromise: ReplyFuture, replyPromise: Promise[Any])
-                                                 (request: Any, subscriptionManager: SubscriptionManager) extends PublicationListener {
+                                                 (subscriptionManager: SubscriptionManager) extends PublicationListener {
   import context.dispatcher
 
-  override private[rhttpc] def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
+  override def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {}
 
   override def receive: Actor.Receive = {
     case RequestPublished(sub) =>
       subscriptionManager.confirmOrRegister(sub, self)
       context.become(waitForMessage)
     case RequestAborted(sub, cause) =>
-      replyPromise.failure(new NoAckException(request, cause))
+      replyPromise.failure(cause)
       context.stop(self)
   }
 
@@ -47,8 +46,8 @@ private class PromiseSubscriptionCommandsListener(pubPromise: ReplyFuture, reply
   pubPromise.pipeTo(this)
 }
 
-private[rhttpc] object PromiseSubscriptionCommandsListener {
+private[subscription] object PromiseSubscriptionCommandsListener {
   def props(pubPromise: ReplyFuture, replyPromise: Promise[Any])
-           (request: Any, subscriptionManager: SubscriptionManager): Props =
-    Props(new PromiseSubscriptionCommandsListener(pubPromise, replyPromise)(request, subscriptionManager))
+           (subscriptionManager: SubscriptionManager): Props =
+    Props(new PromiseSubscriptionCommandsListener(pubPromise, replyPromise)(subscriptionManager))
 }

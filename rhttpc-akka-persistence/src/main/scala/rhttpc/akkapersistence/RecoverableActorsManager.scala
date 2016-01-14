@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.actor
+package rhttpc.akkapersistence
 
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.actor.impl._
+import rhttpc.akkapersistence.impl._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._

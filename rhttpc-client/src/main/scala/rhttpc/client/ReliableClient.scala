@@ -17,101 +17,64 @@ package rhttpc.client
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.TimeoutException
 
 import akka.actor._
-import akka.pattern._
-import akka.util.Timeout
 import org.slf4j.LoggerFactory
-import rhttpc.client.actor.PromiseSubscriptionCommandsListener
 import rhttpc.client.config.ConfigParser
+import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.subscription.{ReplyFuture, SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
 import rhttpc.transport.{PubSubTransport, Publisher}
-import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.Failure
+import scala.util.control.NonFatal
 
-class ReliableClient[Request](subMgr: SubscriptionManager with SubscriptionInternalManagement,
-                              publisher: Publisher[WithRetryingHistory[Correlated[Request]]],
-                              additionalCloseAction: => Future[Unit]) {
+class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHistory[Correlated[Request]]],
+                                          publicationHandler: PublicationHandler[SendResult],
+                                          additionalCloseAction: => Future[Unit]) {
 
   private lazy val log = LoggerFactory.getLogger(getClass)
 
-  def subscriptionManager: SubscriptionManager = subMgr
+  def run() = {
+    publicationHandler.run()
+  }
 
-  def send(request: Request)(implicit ec: ExecutionContext): ReplyFuture = {
+  def send(request: Request)(implicit ec: ExecutionContext): SendResult = {
     val correlationId = UUID.randomUUID().toString
     val correlated = Correlated(request, correlationId)
     val withHistory = WithRetryingHistory.firstAttempt(correlated, Instant.now())
-    val subscription = SubscriptionOnResponse(correlationId)
-    // we need to registerPromise before publish because message can be consumed before subscription on response registration 
-    subMgr.registerPromise(subscription)
+    publicationHandler.beforePublication(correlationId)
     val publicationAckFuture = publisher.publish(withHistory).map { _ =>
       log.debug(s"Request: $correlationId successfully acknowledged")
-      RequestPublished(subscription)
-    }
-    val abortingIfFailureFuture = publicationAckFuture.recover {
-      case ex =>
+    }.recoverWith {
+      case NonFatal(ex) =>
         log.error(s"Request: $correlationId acknowledgement failure", ex)
-        subMgr.abort(subscription)
-        RequestAborted(subscription, ex)
+        Future.failed(NoAckException(request, ex))
     }
-    new ReplyFuture(subscription, abortingIfFailureFuture)(request, subMgr)
+    publicationHandler.processPublicationAck(correlationId, publicationAckFuture)
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    recoveredFuture(subscriptionManager.stop(), "stopping subscriptionManager").flatMap { _ =>
+    recoveredFuture(publicationHandler.stop(), "stopping publication handler").flatMap { _ =>
       recovered(publisher.close(), "closing request publisher")
       additionalCloseAction
     }
   }
 }
 
-class ReplyFuture(subscription: SubscriptionOnResponse, publicationFuture: Future[PublicationResult])
-                 (request: Any, subscriptionManager: SubscriptionManager with SubscriptionInternalManagement) {
-  def pipeTo(listener: PublicationListener)(implicit ec: ExecutionContext): Unit = {
-    // we can notice about promise registered in this place - message won't be consumed before RegisterSubscriptionPromise
-    // in dispatcher actor because of mailbox processing in order
-    listener.subscriptionPromiseRegistered(subscription)
-    publicationFuture pipeTo listener.self
-  }
-
-  def toPublicationFuture(implicit ec: ExecutionContext): Future[Unit.type] = {
-    publicationFuture.map {
-      case RequestPublished(_) =>
-        subscriptionManager.abort(subscription) // we are not interested about response so we need to clean up after registration promise
-        Unit
-      case RequestAborted(_, ex) =>
-        throw new NoAckException(request, ex)
-    }
-  }
-
-  def toFuture(implicit system: ActorSystem, timeout: Timeout): Future[Any] = {
-    import system.dispatcher
-    val promise = Promise[Any]()
-    val actor = system.actorOf(PromiseSubscriptionCommandsListener.props(this, promise)(request, subscriptionManager))
-    val f = system.scheduler.scheduleOnce(timeout.duration) {
-      subscriptionManager.abort(subscription)
-      actor ! PoisonPill
-      promise tryComplete Failure(new TimeoutException(s"Timed out on waiting on response from subscription"))
-    }
-    promise.future onComplete { _ => f.cancel() }
-    promise.future
-  }
-}
-
-class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
+case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
 
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
 
   def create[Request](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
                       batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                       queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableClient[Request] = {
-    val subscriptionManager = SubscriptionManagerFactory().create(transport, batchSize, queuesPrefix)
+                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOutReliableClient[Request] = {
+    val subMgr = SubscriptionManagerFactory().create(transport, batchSize, queuesPrefix)
     val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix)) 
-    new ReliableClient[Request](subscriptionManager, requestPublisher, additionalCloseAction)
+    new ReliableClient[Request, ReplyFuture](requestPublisher, subMgr, additionalCloseAction) with WithSubscriptionManager {
+      override def subscriptionManager: SubscriptionManager = subMgr
+    }
   }
 
 }

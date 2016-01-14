@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor._
 import akka.testkit._
 import org.scalatest._
-import rhttpc.actor._
+import rhttpc.akkapersistence._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps

@@ -16,7 +16,7 @@
 package akka.persistence
 
 import akka.persistence.SnapshotProtocol.SaveSnapshot
-import rhttpc.actor.impl.AbstractSnapshotter
+import rhttpc.akkapersistence.impl.AbstractSnapshotter
 
 // this trait must be in akka.persistence package because of snapshotStore package protected access
 trait AkkaPersistentSnapshotter extends AbstractSnapshotter with PersistentActor {
