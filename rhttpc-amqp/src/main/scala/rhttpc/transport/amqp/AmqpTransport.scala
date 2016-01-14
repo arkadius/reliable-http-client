@@ -24,7 +24,7 @@ import rhttpc.transport._
 import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 
-trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg]
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher
 
 // TODO: actor-based, connection recovery
 private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,

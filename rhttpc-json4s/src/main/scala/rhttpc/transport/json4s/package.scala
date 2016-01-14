@@ -13,24 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.transport
 
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import org.json4s.Formats
-import rhttpc.akkahttp.json4s._
-import rhttpc.client.proxy.ReliableProxy
-import rhttpc.client.{InOnlyReliableClient, InOutReliableClient}
-import rhttpc.transport.json4s.CommonFormats
 
-package object akkahttp {
-  type InOutReliableHttpClient = InOutReliableClient[HttpRequest]
-  type InOnlyReliableHttpClient = InOnlyReliableClient[HttpRequest]
-  type ReliableHttpProxy = ReliableProxy[HttpRequest, HttpResponse]
+package object json4s {
 
-  implicit val formats: Formats =
-    CommonFormats.formats +
-      ContentTypeSerializer +
-      ByteStringSerializer +
-      UriSerializer
+  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer[Msg] = new Json4sSerializer[Msg]()
+
+  implicit def deserializer[Msg](implicit msgManifest: Manifest[Msg],
+                                 formats: Formats): Deserializer[Msg] = new Json4sDeserializer[Msg]()
 
 }

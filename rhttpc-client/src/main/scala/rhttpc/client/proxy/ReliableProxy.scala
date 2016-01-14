@@ -109,21 +109,21 @@ object ExhaustedRetry {
 
 case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
 
-  def publishingResponses[Request, Response](responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]],
-                                             requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                                             send: Correlated[Request] => Future[Try[Response]],
+  def publishingResponses[Request, Response](send: Correlated[Request] => Future[Try[Response]],
                                              batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                              queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
-                                             additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableProxy[Request, Response] = {
+                                             additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                            (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher,
+                                             requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+  ReliableProxy[Request, Response] = {
+
     val responsePublisher = responseRequestTransport.publisher(OutboundQueueData(prepareResponseQueueName(queuesPrefix)))
     def publisherCloseAction = {
       recovered(responsePublisher.close(), "stopping response publisher")
       additionalCloseAction
     }
     create(
-      requestSubscriberTransport = responseRequestTransport,
-      requestPublisherTransport = requestPublisherTransport,
       send = send,
       handleResponse = PublishMsg(responsePublisher),
       batchSize = batchSize,
@@ -133,17 +133,16 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  def skippingResponses[Request, Response](requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
-                                           requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                                           send: Correlated[Request] => Future[Try[Response]],
+  def skippingResponses[Request, Response](send: Correlated[Request] => Future[Try[Response]],
                                            batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                            additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                                          (implicit actorSystem: ActorSystem): ReliableProxy[Request, Response] = {
+                                          (implicit requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
+                                           requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+  ReliableProxy[Request, Response] = {
+
     create(
-      requestSubscriberTransport = requestSubscriberTransport,
-      requestPublisherTransport = requestPublisherTransport,
       send = send,
       handleResponse = SkipMsg,
       batchSize = batchSize,
@@ -153,14 +152,16 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  def create[Request, Response](requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
-                                requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                                send: Correlated[Request] => Future[Try[Response]],
+  def create[Request, Response](send: Correlated[Request] => Future[Try[Response]],
                                 handleResponse: Correlated[Try[Response]] => Future[Unit],
                                 batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
-                                additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableProxy[Request, Response] = {
+                                additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                               (implicit requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
+                                requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher):
+  ReliableProxy[Request, Response] = {
+
     new ReliableProxy(
       subscriberForConsumer = prepareSubscriber(requestSubscriberTransport, batchSize, queuesPrefix),
       requestPublisher = requestPublisherTransport.publisher(prepareRequestPublisherQueueData(queuesPrefix)),

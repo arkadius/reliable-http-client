@@ -31,10 +31,8 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
   override protected def withFixture(test: OneArgTest): Outcome = {
     val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
     val client = ReliableClientFactory().inOutWithSubscriptions[String, String](
-      transport,
-      MockProxyTransport,
       _ => Future.successful(Success("not used"))
-    )
+    )(transport, MockProxyTransport)
     try {
       test(FixtureParam(client, transport))
     } finally {

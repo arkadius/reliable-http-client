@@ -23,12 +23,13 @@ import akka.util.Timeout
 import org.slf4j.LoggerFactory
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.client.protocol.Correlated
+import rhttpc.transport.{WithInstantPublisher, InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.Failure
+import scala.util.{Try, Failure}
 import scala.util.control.NonFatal
 
 trait SubscriptionManager {
@@ -121,13 +122,14 @@ private[subscription] class ReplyFutureImpl(subscription: SubscriptionOnResponse
 }
 
 case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
-  def create(transport: PubSubTransport[_, _],
-             batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-             queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix): SubscriptionManager with PublicationHandler[ReplyFuture] = {
-    create(transport, InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize))
+  def create[Response](batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                       queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix)
+                      (implicit transport: PubSubTransport[_, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+    create(InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
-  private[client] def create(transport: PubSubTransport[_, _], queueData: InboundQueueData): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+  private[client] def create[Response](queueData: InboundQueueData)
+                                      (implicit transport: PubSubTransport[_, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
     val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcher)
     new SubscriptionManagerImpl(subscriber, dispatcher)

@@ -23,8 +23,8 @@ import org.slf4j.LoggerFactory
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
-import rhttpc.client.subscription.{ReplyFuture, SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
-import rhttpc.transport.{PubSubTransport, Publisher}
+import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
+import rhttpc.transport.{WithInstantPublisher, PubSubTransport, Publisher, WithDelayedPublisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
@@ -71,23 +71,20 @@ case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
 
-  def inOutWithSubscriptions[Request, Response](requestResponseTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]],
-                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]],
-                                                send: Correlated[Request] => Future[Try[Response]],
+  def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Try[Response]],
                                                 batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
-                                                additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOutReliableClient[Request] = {
+                                                additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                               (implicit requestResponseTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]] with WithDelayedPublisher,
+                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOutReliableClient[Request] = {
     val proxy = ReliableProxyFactory().publishingResponses(
-      responseRequestTransport = responseRequestTransport,
-      requestPublisherTransport = requestResponseTransport,
       send = send,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
-    val subMgr = SubscriptionManagerFactory().create(
-      transport = requestResponseTransport,
+    val subMgr = SubscriptionManagerFactory().create[Response](
       batchSize = batchSize,
       queuesPrefix = queuesPrefix
     )
@@ -106,16 +103,14 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     }
   }
 
-  def inOnly[Request](requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                      requestSubscriberTransport: PubSubTransport[_, WithRetryingHistory[Correlated[Request]]],
-                      send: Correlated[Request] => Future[Try[Unit]],
+  def inOnly[Request](send: Correlated[Request] => Future[Try[Unit]],
                       batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                       queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                       retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
-                      additionalCloseAction: => Future[Unit] = Future.successful(Unit)): InOnlyReliableClient[Request] = {
+                      additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                     (implicit requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher,
+                      requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
     val proxy = ReliableProxyFactory().skippingResponses(
-      requestPublisherTransport = requestPublisherTransport,
-      requestSubscriberTransport = requestSubscriberTransport,
       send = send,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
@@ -126,19 +121,18 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
         .flatMap(_ => additionalCloseAction)
     }
     create(
-      transport = requestPublisherTransport,
       publicationHandler = StraightforwardPublicationHandler,
       additionalRunAction = proxy.run(),
       additionalCloseAction = closeProxyThanAdditional
     )
   }
 
-  def create[Request, SendResult](transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _],
-                                  publicationHandler: PublicationHandler[SendResult],
+  def create[Request, SendResult](publicationHandler: PublicationHandler[SendResult],
                                   batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                   queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                   additionalRunAction: => Unit = {},
-                                  additionalCloseAction: => Future[Unit] = Future.successful(Unit)): ReliableClient[Request, SendResult] = {
+                                  additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                 (implicit transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher): ReliableClient[Request, SendResult] = {
     val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
     new ReliableClient(
       publisher = requestPublisher,

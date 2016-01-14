@@ -27,11 +27,11 @@ import scala.language.postfixOps
 import scala.util.Try
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[WithRetryingHistory[Correlated[String]], Correlated[Try[String]]] {
+  extends PubSubTransport[WithRetryingHistory[Correlated[String]], Correlated[Try[String]]] with WithDelayedPublisher {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
-  @volatile var replySubscriptionPromise: Promise[String] = _
-  @volatile var ackOnReplySubscriptionFuture: Future[Any] = _
+  @volatile private var _replySubscriptionPromise: Promise[String] = _
+  @volatile private var _ackOnReplySubscriptionFuture: Future[Any] = _
   @volatile private var consumer: ActorRef = _
 
   def publicationPromise: Promise[Unit] = {
@@ -39,14 +39,24 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _publicationPromise
   }
 
+  def replySubscriptionPromise: Promise[String] = {
+    awaitCond(() => _replySubscriptionPromise != null)
+    _replySubscriptionPromise
+  }
+
+  def ackOnReplySubscriptionFuture: Future[Any] = {
+    awaitCond(() => _ackOnReplySubscriptionFuture != null)
+    _ackOnReplySubscriptionFuture
+  }
+
   override def publisher(data: OutboundQueueData): Publisher[WithRetryingHistory[Correlated[String]]] =
     new Publisher[WithRetryingHistory[Correlated[String]]] {
       override def publish(request: Message[WithRetryingHistory[Correlated[String]]]): Future[Unit] = {
         _publicationPromise = Promise[Unit]()
-        replySubscriptionPromise = Promise[String]()
+        _replySubscriptionPromise = Promise[String]()
         implicit val timeout = Timeout(5 seconds)
-        replySubscriptionPromise.future.onComplete { result =>
-          ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.msg.correlationId)
+        _replySubscriptionPromise.future.onComplete { result =>
+          _ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.msg.correlationId)
         }
         _publicationPromise.future
       }
@@ -65,7 +75,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
 }
 
-object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithRetryingHistory[Correlated[String]]] {
+object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithRetryingHistory[Correlated[String]]] with WithInstantPublisher {
   override def publisher(queueData: OutboundQueueData): Publisher[Correlated[Try[String]]] =
     new Publisher[Correlated[Try[String]]] {
       override def publish(msg: Message[Correlated[Try[String]]]): Future[Unit] = Future.successful(Unit)
