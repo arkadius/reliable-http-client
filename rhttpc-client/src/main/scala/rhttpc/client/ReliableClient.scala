@@ -137,6 +137,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     }
     create(
       publicationHandler = StraightforwardPublicationHandler,
+      queuesPrefix = queuesPrefix,
       additionalStartAction = startAdditional(),
       additionalStopAction = stopAdditional
     )
@@ -155,19 +156,22 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
+    def startAdditional() = {
+      proxy.start()
+    }
     def stopAdditional = {
       recoveredFuture(proxy.stop(), "stopping proxy")
         .flatMap(_ => additionalStopAction)
     }
     create(
       publicationHandler = StraightforwardPublicationHandler,
-      additionalStartAction = proxy.start(),
+      queuesPrefix = queuesPrefix,
+      additionalStartAction = startAdditional(),
       additionalStopAction = stopAdditional
     )
   }
 
   def create[Request, SendResult](publicationHandler: PublicationHandler[SendResult],
-                                  batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                                   queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                   additionalStartAction: => Unit = {},
                                   additionalStopAction: => Future[Unit] = Future.successful(Unit))
