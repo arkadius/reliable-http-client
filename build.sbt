@@ -52,15 +52,15 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.0"
-val akkaStreamsV = "1.0"
+val akkaV = "2.4.1"
+val akkaStreamsV = "2.0.1"
 val ficusV = "1.2.1"
-val amqpcV = "3.5.6"
+val amqpcV = "3.6.0"
 val json4sV = "3.3.0"
 val logbackV = "1.1.3"
-val slf4jV = "1.7.12"
+val slf4jV = "1.7.13"
 val dispatchV = "0.11.3"
-val scalaTestV = "3.0.0-M9"
+val scalaTestV = "3.0.0-M15"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
