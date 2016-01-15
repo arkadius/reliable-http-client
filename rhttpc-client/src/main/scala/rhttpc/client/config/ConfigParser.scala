@@ -33,16 +33,17 @@ object ConfigParser {
     config.as[RhttpcConfig](path)
   }
 
-  private implicit def failureResponseHandleStrategyChooserReader: ValueReader[FailureResponseHandleStrategyChooser] =
-    new ValueReader[FailureResponseHandleStrategyChooser] {
-      override def read(config: Config, path: String): FailureResponseHandleStrategyChooser = {
-        config.as[Try[String]](path) match {
-          case Success("handle-all") => HandleAll
-          case Success("skip-all") => SkipAll
-          case _ => config.as[BackoffRetry](path)
-        }
-      }
+  private implicit def failureResponseHandleStrategyChooserReader: ValueReader[FailureResponseHandleStrategyChooser] = RetryStrategyValueReader
+}
+
+object RetryStrategyValueReader extends ValueReader[FailureResponseHandleStrategyChooser] {
+  override def read(config: Config, path: String): FailureResponseHandleStrategyChooser = {
+    config.as[Try[String]](path) match {
+      case Success("handle-all") => HandleAll
+      case Success("skip-all") => SkipAll
+      case _ => config.as[BackoffRetry](path)
     }
+  }
 }
 
 case class RhttpcConfig(queuesPrefix: String, batchSize: Int, retryStrategy: FailureResponseHandleStrategyChooser)
