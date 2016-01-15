@@ -191,9 +191,12 @@ Proxy can be also run as separate process.
 
 # 3rd part libraries
 
-*rhttpc* uses [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication through *AMQP*. It also uses [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states.
-
+*rhttpc* uses
+- [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication through *AMQP*
+- [json4s](https://github.com/json4s/json4s) for serialization
+- [akka-http](https://github.com/akka/akka) for HTTP communication
+- [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states
 
 # License
 
-The reliable-http-client is released under version 2.0 of the [Apache License](http://www.apache.org/licenses/LICENSE-2.0).
+The *reliable-http-client* is released under version 2.0 of the [Apache License](http://www.apache.org/licenses/LICENSE-2.0).
