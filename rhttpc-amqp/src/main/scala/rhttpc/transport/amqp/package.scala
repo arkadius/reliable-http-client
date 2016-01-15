@@ -24,11 +24,7 @@ package object amqp {
                                                                        connection: Connection,
                                                                        serializer: Serializer[PubMsg],
                                                                        deserializer: Deserializer[SubMsg]): PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher =
-    AmqpTransport(
-      connection = connection,
-      serializer = serializer,
-      deserializer = deserializer
-    )
+    AmqpTransport(connection)
 
   implicit def transportWithDelayedPublisher[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
                                                                        connection: Connection,
@@ -36,9 +32,7 @@ package object amqp {
                                                                        deserializer: Deserializer[SubMsg]): PubSubTransport[PubMsg, SubMsg] with WithDelayedPublisher =
     AmqpTransport(
       connection = connection,
-      exchangeName = "delayed",
-      serializer = serializer,
-      deserializer = deserializer
+      exchangeName = "delayed"
     )
 
 }

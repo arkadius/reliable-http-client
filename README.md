@@ -4,23 +4,97 @@
 [![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-*Reliable Http Client* is a HTTP client tunneling *Akka* HttpRequest/HttpResponse over [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol). It also provides persistent Akka FSM Actors (using *akka-persistence*) for recovery of subscriptions for responses.
+*Reliable Http Client* is a set of tools making HTTP communication more reliable. It supports: *at least one delivery guaranty* and *retry strategies* including *durable exponential backoff* and *dead letter queue*.
 
-## How to use
+It abstracting from publisher/subscriber transport. Currently there are implemented [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol) transport and [Json4s](https://github.com/json4s/json4s) serialization modules.
 
-Firstly you need to add client lib to your project dependencies
+It can be used with any HTTP client. It includes wrapper for *Akka HTTP* in separate module, but You can use it with your own. In fact, it can be used with any request/response client, not necessarily HTTP.
+    
+There are 3 basic usage scenarios:
+- in-only: when You are not interested in response, You only want to make sure that request was delivered  
+- in-out: when You are interested in response but your response consumer is stateless
+- in-out with subscriptions for response: when You are interested in response and your response consumer is stateful
+
+For the third scenario there is also provided module with *persistent Akka FSM Actors* (using *akka-persistence*) for easy recovery of subscriptions for responses.
+
+## AMQP transport
+
+If You only want to use *Akka* wrapper for *amqp-client* with *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.2.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.4.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.4.0"
 ```
 
-If you only want to use *AMQP* transport wrapper for *Akka* you just need:
-```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.2.2"
+Than:
+```scala
+import akka.actor._
+import rhttpc.transport.amqp._
+import rhttpc.transport.json4s._
+import rhttpc.transport.json4s.CommonFormats._
+
+implicit val actorSystem = ActorSystem()
+import actorSystem.dispatcher
+
+AmqpConnectionFactory.connect(actorSystem).map { connection =>
+  val transport = AmqpTransport[String, Int](connection)
+  
+  val publisher = transport.publisher("foo-queue")
+  publisher.publish("foo-message")
+  
+  val subscriber = transport.subscriber("bar-queue", actorSystem.actorOf(Props(new Actor {
+    def receive: Receive = {
+      case i: Int => println(s"got: $i")
+    }
+  })))
+  subscriber.run()
+}
 ```
 
-Then you need to integrate your application with rhttpc. You can check out [sample](https://github.com/arkadius/reliable-http-client/tree/master/sample) to see how to do it.
+## Client
 
-## Idea
+For using of client with *AMQP* transport and *Json4s* serialization
+```sbt
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.4.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.4.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.4.0"
+```
+
+### In-only scenario
+
+```scala
+import akka.actor._
+import rhttpc.transport.amqp._
+import rhttpc.transport.json4s._
+import rhttpc.transport.json4s.CommonFormats._
+import rhttpc.client._
+
+implicit val actorSystem = ActorSystem()
+import actorSystem.dispatcher
+AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
+  ReliableClientFactory().inOnly[String](ownClient.send)
+}
+```
+
+### In-out with stateless consumer
+
+```scala
+import akka.actor._
+import rhttpc.transport.amqp._
+import rhttpc.transport.json4s._
+import rhttpc.transport.json4s.CommonFormats._
+import rhttpc.client._
+
+implicit val actorSystem = ActorSystem()
+import actorSystem.dispatcher
+AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
+  ReliableClientFactory().inOut[String, String](
+    send = ownClient.send,
+    handleResponse = consumer.consume
+  )
+}
+```
+
+### In-out with stateful consumer
 
 Consinder situation:
 
@@ -37,12 +111,10 @@ system.actorOf(Props(new Actor {
 
 When given actor will be shutdowned e.g. because of a system failure, the response message will never been delivered.
 
-Thanks to *reliable-http-client* the same execution cause that actor after restart will got the response message.
-
-## Examples
+Thanks to *rhttpc* the same execution cause that actor after restart will got the response message.
 
 ```scala
-val rhttpc = ReliableHttp()
+val rhttpc = ReliableHttpClientFactory().inOutWithSubscriptions(amqpConnection)
 
 system.actorOf(Props(new Actor {
   def receive = {
@@ -60,12 +132,11 @@ But after restart our application won't know what to do with response - in which
 It can be achived by *ReliableFSM* delivered by this project.
 
 ```scala
-implicit val system = ActorSystem()
-val rhttpc = ReliableHttp()
+val rhttpc = ReliableHttpClientFactory().inOutWithSubscriptions(amqpConnection)
 
 system.actorOf(Props(new FooBarActor(rhttpc)), "app-foobar")
 
-class FooBarActor(rhttpc: ReliableHttp) extends ReliableFSM[FooBarState, FooBarData] {
+class FooBarActor(rhttpc: InOutReliableHttpClient) extends ReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher
   
   override protected val id = "foobar"

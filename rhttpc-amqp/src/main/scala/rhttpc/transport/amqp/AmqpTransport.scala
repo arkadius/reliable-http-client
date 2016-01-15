@@ -71,13 +71,13 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
 object AmqpTransport {
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       exchangeName: String = "",
-                                      serializer: Serializer[PubMsg],
-                                      deserializer: Deserializer[SubMsg],
                                       ignoreInvalidMessages: Boolean = true,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = defaultDeclarePublisherQueue,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = defaultDeclareSubscriberQueue,
                                       prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = defaultPreparePublishProperties)
-                                     (implicit actorSystem: ActorSystem): AmqpTransport[PubMsg, SubMsg] =
+                                     (implicit actorSystem: ActorSystem,
+                                      serializer: Serializer[PubMsg],
+                                      deserializer: Deserializer[SubMsg]): AmqpTransport[PubMsg, SubMsg] =
     new AmqpTransportImpl[PubMsg, SubMsg](
       connection = connection,
       exchangeName = exchangeName,

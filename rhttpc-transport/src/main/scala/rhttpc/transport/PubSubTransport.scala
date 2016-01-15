@@ -23,6 +23,12 @@ import scala.language.higherKinds
 import scala.util.Try
 
 trait PubSubTransport[-PubMsg, +SubMsg] {
+  def publisher(queueName: String): Publisher[PubMsg] =
+    publisher(OutboundQueueData(queueName))
+
+  def subscriber(queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
+    subscriber(InboundQueueData(queueName, batchSize = 10), consumer)
+
   def publisher(queueData: OutboundQueueData): Publisher[PubMsg]
 
   def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
