@@ -16,15 +16,17 @@
 package rhttpc.akkahttp
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.{HttpResponse, HttpRequest}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.proxy.{AcceptSuccessHttpStatus, ReliableHttpProxyFactory, SuccessHttpResponseRecognizer}
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
+import rhttpc.client.protocol.Correlated
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
 
 import scala.concurrent.Future
+import scala.util.Try
 
 case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
@@ -39,6 +41,22 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
     implicit val implicitConnection = connection
     ReliableClientFactory().inOutWithSubscriptions(
       send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
+  }
+
+  def inOut(connection: Connection,
+            handleResponse: Correlated[Try[HttpResponse]] => Future[Unit],
+            successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+            batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+            retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy): InOnlyReliableHttpClient = {
+    implicit val implicitConnection = connection
+    ReliableClientFactory().inOut(
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+      handleResponse = handleResponse,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
@@ -73,6 +91,27 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOutWithSubscriptions(
           send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+          batchSize = batchSize,
+          queuesPrefix = queuesPrefix,
+          retryStrategy = retryStrategy,
+          additionalCloseAction = {
+            recovered(connection.close(), "closing amqp connection")
+            Future.successful(Unit)
+          }
+        )
+      }
+    }
+
+    def inOut(handleResponse: Correlated[Try[HttpResponse]] => Future[Unit],
+              successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+              batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+              queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy): Future[InOnlyReliableHttpClient] = {
+      val connectionF = AmqpConnectionFactory.connect(actorSystem)
+      connectionF.map { implicit connection =>
+        ReliableClientFactory().inOut(
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+          handleResponse = handleResponse,
           batchSize = batchSize,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,

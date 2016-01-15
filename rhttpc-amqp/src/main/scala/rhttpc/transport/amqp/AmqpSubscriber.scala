@@ -35,7 +35,7 @@ private[amqp] class AmqpSubscriber[Sub](channel: Channel,
                                        (implicit ec: ExecutionContext)
   extends Subscriber[Sub] {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
   override def run(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {

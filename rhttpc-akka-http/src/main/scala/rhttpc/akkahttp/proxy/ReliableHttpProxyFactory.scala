@@ -32,7 +32,7 @@ import scala.util.{Failure, Success}
 
 object ReliableHttpProxyFactory {
 
-  private lazy val log = LoggerFactory.getLogger(getClass)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
   def send(successRecognizer: SuccessHttpResponseRecognizer, batchSize: Int)
           (corr: Correlated[HttpRequest])
@@ -61,17 +61,17 @@ object ReliableHttpProxyFactory {
                   (corr: Correlated[HttpRequest])
                   (implicit ec: ExecutionContext, materialize: Materializer): Future[HttpResponse] = {
     import collection.convert.wrapAsScala._
-    log.debug(
+    logger.debug(
       s"""Sending request for ${corr.correlationId} to ${corr.msg.getUri()}. Headers:
-          |${corr.msg.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
-          |Body:
-          |${corr.msg.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+         |${corr.msg.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+         |Body:
+         |${corr.msg.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
     )
     val logResp = logResponse(corr) _
     val responseFuture = Source.single((corr.msg, corr.correlationId)).via(httpFlow).runWith(Sink.head)
     responseFuture.onFailure {
       case NonFatal(ex) =>
-        log.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
+        logger.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
     }
     for {
       response <- responseFuture
@@ -90,11 +90,11 @@ object ReliableHttpProxyFactory {
   private def logResponse(corr: Correlated[HttpRequest])
                          (response: HttpResponse, additionalInfo: String): Unit = {
     import collection.convert.wrapAsScala._
-    log.debug(
+    logger.debug(
       s"""Got $additionalInfo for ${corr.correlationId} to ${corr.msg.getUri()}. Status: ${response.status.value}. Headers:
-          |${response.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
-          |Body:
-          |${response.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
+         |${response.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+         |Body:
+         |${response.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
     )
   }
 

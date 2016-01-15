@@ -33,7 +33,7 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
                                                    (implicit ec: ExecutionContext)
   extends Publisher[PubMsg] with ConfirmListener {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 

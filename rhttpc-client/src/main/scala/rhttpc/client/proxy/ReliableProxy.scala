@@ -39,7 +39,7 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
                                        additionalCloseAction: => Future[Unit])
                                       (implicit actorSystem: ActorSystem) {
   
-  private lazy val log = LoggerFactory.getLogger(getClass)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
   private val consumingActor = actorSystem.actorOf(Props(new Actor {
     import context.dispatcher
@@ -54,10 +54,10 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
             }
             result <- tryResponse match {
               case Success(response) =>
-                log.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
+                logger.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
                 handleResponse(Correlated(Success(response), castedWithHistory.msg.correlationId))
               case Failure(ex) =>
-                log.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
+                logger.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
                 handleFailure(castedWithHistory, ex)
             }
           } yield result) pipeTo sender()
@@ -74,18 +74,18 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
       )
       strategy match {
         case Retry(delay) =>
-          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will retry in $delay")
+          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will retry in $delay")
           requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(Instant.now, JDuration.ofMillis(delay.toMillis)), delay))
         case SendToDLQ =>
-          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
+          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)
           handleResponse(Correlated(Failure(exhaustedRetryError), withHistory.msg.correlationId))
           Future.failed(exhaustedRetryError)
         case Handle =>
-          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will handle")
+          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will handle")
           handleResponse(Correlated(Failure(failure), withHistory.msg.correlationId))
         case Skip =>
-          log.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
+          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
           Future.successful(Unit)
       }
     }
@@ -97,7 +97,7 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
     subscriber.run()
   }
   
-  def close()(implicit ec: ExecutionContext): Future[Unit] = {
+  def stop()(implicit ec: ExecutionContext): Future[Unit] = {
     recovered(subscriber.stop(), "stopping request subscriber")
     recoveredFuture(gracefulStop(consumingActor, 30 seconds).map(stopped =>
       if (!stopped)

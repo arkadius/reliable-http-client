@@ -33,7 +33,11 @@ import scala.util.{Try, Failure}
 import scala.util.control.NonFatal
 
 trait SubscriptionManager {
+  def run(): Unit
+
   def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
+
+  def stop()(implicit ec: ExecutionContext): Future[Unit]
 }
 
 trait WithSubscriptionManager {
@@ -46,8 +50,6 @@ private[client] trait SubscriptionInternalManagement { self: SubscriptionManager
 
 private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_], dispatcher: ActorRef)
   extends SubscriptionManager with PublicationHandler[ReplyFuture] with SubscriptionInternalManagement {
-
-  private val log = LoggerFactory.getLogger(getClass)
 
   override def run(): Unit = {
     transportSub.run()
@@ -78,13 +80,14 @@ private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_],
     dispatcher ! AbortSubscription(subscription)
   }
 
-  override private[client] def stop()(implicit ec: ExecutionContext): Future[Unit] = {
+  override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
     recovered(transportSub.stop(), "stopping subscriber")
     recoveredFuture(gracefulStop(dispatcher, 30 seconds).map(stopped =>
       if (!stopped)
         throw new IllegalStateException("Dispatcher actor hasn't been stopped correctly")
     ), "stopping dispatcher actor")
   }
+
 }
 
 case class SubscriptionOnResponse(correlationId: String)

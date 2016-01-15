@@ -21,6 +21,7 @@ import java.util.UUID
 import akka.actor._
 import org.slf4j.LoggerFactory
 import rhttpc.client.config.ConfigParser
+import rhttpc.client.consume.MessageConsumerFactory
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
@@ -36,11 +37,10 @@ class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHisto
                                           additionalRunAction: => Unit,
                                           additionalCloseAction: => Future[Unit]) {
 
-  private lazy val log = LoggerFactory.getLogger(getClass)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
   def run() = {
     additionalRunAction
-    publicationHandler.run()
   }
 
   def send(request: Request)(implicit ec: ExecutionContext): SendResult = {
@@ -49,20 +49,18 @@ class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHisto
     val withHistory = WithRetryingHistory.firstAttempt(correlated, Instant.now())
     publicationHandler.beforePublication(correlationId)
     val publicationAckFuture = publisher.publish(withHistory).map { _ =>
-      log.debug(s"Request: $correlationId successfully acknowledged")
+      logger.debug(s"Request: $correlationId successfully acknowledged")
     }.recoverWith {
       case NonFatal(ex) =>
-        log.error(s"Request: $correlationId acknowledgement failure", ex)
+        logger.error(s"Request: $correlationId acknowledgement failure", ex)
         Future.failed(NoAckException(request, ex))
     }
     publicationHandler.processPublicationAck(correlationId, publicationAckFuture)
   }
 
   def close()(implicit ec: ExecutionContext): Future[Unit] = {
-    recoveredFuture(publicationHandler.stop(), "stopping publication handler").flatMap { _ =>
-      recovered(publisher.close(), "closing request publisher")
-      additionalCloseAction
-    }
+    recovered(publisher.close(), "closing request publisher")
+    additionalCloseAction
   }
 }
 
@@ -89,18 +87,58 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       queuesPrefix = queuesPrefix
     )
     val requestPublisher = requestResponseTransport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
-    def closeProxyThanAdditional = {
-      recoveredFuture(proxy.close(), "closing proxy")
+    def runAdditional() = {
+      subMgr.run()
+      proxy.run()
+    }
+    def closeAdditional = {
+      recoveredFuture(proxy.stop(), "stopping proxy")
+        .flatMap(_ => recoveredFuture(subMgr.stop(), "stopping subscription manager"))
         .flatMap(_ => additionalCloseAction)
     }
     new ReliableClient(
       publisher = requestPublisher,
       publicationHandler = subMgr,
-      additionalRunAction = proxy.run(),
-      additionalCloseAction = closeProxyThanAdditional
+      additionalRunAction = runAdditional(),
+      additionalCloseAction = closeAdditional
     ) with WithSubscriptionManager {
       override def subscriptionManager: SubscriptionManager = subMgr
     }
+  }
+
+  def inOut[Request, Response](send: Correlated[Request] => Future[Response],
+                               handleResponse: Correlated[Try[Response]] => Future[Unit],
+                               batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
+                               queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                               retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                               additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                              (implicit requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]] with WithDelayedPublisher,
+                               requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
+    val proxy = ReliableProxyFactory().publishingResponses(
+      send = send,
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
+    val responseConsumer = MessageConsumerFactory().create[Response](
+      handleMessage = handleResponse,
+      batchSize = batchSize,
+      queuesPrefix = queuesPrefix
+    )
+    def runAdditional() = {
+      responseConsumer.run()
+      proxy.run()
+    }
+    def closeAdditional = {
+      recoveredFuture(proxy.stop(), "stopping proxy")
+        .flatMap(_ => recoveredFuture(responseConsumer.stop(), "stopping response consumer"))
+        .flatMap(_ => additionalCloseAction)
+    }
+    create(
+      publicationHandler = StraightforwardPublicationHandler,
+      additionalRunAction = runAdditional(),
+      additionalCloseAction = closeAdditional
+    )
   }
 
   def inOnly[Request](send: Correlated[Request] => Future[Unit],
@@ -116,14 +154,14 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
-    def closeProxyThanAdditional = {
-      recoveredFuture(proxy.close(), "closing proxy")
+    def closeAdditional = {
+      recoveredFuture(proxy.stop(), "stopping proxy")
         .flatMap(_ => additionalCloseAction)
     }
     create(
       publicationHandler = StraightforwardPublicationHandler,
       additionalRunAction = proxy.run(),
-      additionalCloseAction = closeProxyThanAdditional
+      additionalCloseAction = closeAdditional
     )
   }
 
