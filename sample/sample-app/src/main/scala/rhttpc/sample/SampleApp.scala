@@ -38,7 +38,7 @@ object SampleApp extends App with Directives {
   val rhttpc = Await.result(ReliableHttpClientFactory().withOwnAmqpConnection.inOutWithSubscriptions(), 10 seconds)
 
   val client = new DelayedEchoClient {
-    override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
+    override def requestResponse(msg: String): ReplyFuture = {
       rhttpc.send(HttpRequest().withUri("http://sampleecho:8082").withMethod(HttpMethods.POST).withEntity(msg))
     }
   }
@@ -50,7 +50,7 @@ object SampleApp extends App with Directives {
 
   Await.result((manager ? RecoverAllActors)(Timeout(20 seconds)), 15 seconds)
 
-  rhttpc.run()
+  rhttpc.start()
 
   val route =
     path("healthcheck") {
@@ -76,7 +76,7 @@ object SampleApp extends App with Directives {
   Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081).map { binding =>
     Runtime.getRuntime.addShutdownHook(new Thread {
       override def run(): Unit = {
-        Await.result(rhttpc.close(), 10 seconds)
+        Await.result(rhttpc.stop(), 10 seconds)
       }
     })
   }

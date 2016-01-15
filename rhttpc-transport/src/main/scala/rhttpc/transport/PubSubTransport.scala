@@ -69,7 +69,7 @@ case class MessageWithSpecifiedProperties[T](message: Message[T], properties: Ma
 
 trait Subscriber[+SubMsg] {
 
-  def run(): Unit
+  def start(): Unit
 
   def stop(): Unit
 }

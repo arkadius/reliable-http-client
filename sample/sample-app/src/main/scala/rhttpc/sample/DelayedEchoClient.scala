@@ -20,5 +20,5 @@ import rhttpc.client.subscription.ReplyFuture
 import scala.concurrent.ExecutionContext
 
 trait DelayedEchoClient {
-  def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture
+  def requestResponse(msg: String): ReplyFuture
 }

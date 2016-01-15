@@ -74,7 +74,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
-      additionalCloseAction = {
+      additionalStopAction = {
         recovered(connection.close(), "closing amqp connection")
         Future.successful(Unit)
       }
@@ -94,7 +94,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           batchSize = batchSize,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
-          additionalCloseAction = {
+          additionalStopAction = {
             recovered(connection.close(), "closing amqp connection")
             Future.successful(Unit)
           }
@@ -115,7 +115,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           batchSize = batchSize,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
-          additionalCloseAction = {
+          additionalStopAction = {
             recovered(connection.close(), "closing amqp connection")
             Future.successful(Unit)
           }
@@ -134,7 +134,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           batchSize = batchSize,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
-          additionalCloseAction = {
+          additionalStopAction = {
             recovered(connection.close(), "closing amqp connection")
             Future.successful(Unit)
           }

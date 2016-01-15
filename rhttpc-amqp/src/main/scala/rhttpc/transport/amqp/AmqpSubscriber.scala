@@ -37,7 +37,7 @@ private[amqp] class AmqpSubscriber[Sub](channel: Channel,
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  override def run(): Unit = {
+  override def start(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         val stringMsg = new String(body, "UTF-8")

@@ -32,9 +32,9 @@ object AmqpConnectionFactory {
     delay = Duration(5, TimeUnit.SECONDS)
   )
 
-  def connect(actorSystem: ActorSystem)
-             (implicit executionContext: ExecutionContext): Future[Connection] = {
+  def connect(actorSystem: ActorSystem): Future[Connection] = {
     import ArbitraryTypeReader._
+    import actorSystem.dispatcher
     val config = actorSystem.settings.config.as[AmqpConfig]("amqp")
     connect(config)
   }

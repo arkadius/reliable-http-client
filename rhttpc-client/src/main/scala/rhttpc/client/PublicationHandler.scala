@@ -21,8 +21,7 @@ trait PublicationHandler[Result] {
 
   private[client] def beforePublication(correlationId: String): Unit
 
-  private[client] def processPublicationAck(correlationId: String, ack: Future[Unit])
-                                           (implicit ec: ExecutionContext): Result
+  private[client] def processPublicationAck(correlationId: String, ack: Future[Unit]): Result
 
 }
 
@@ -30,7 +29,6 @@ object StraightforwardPublicationHandler extends PublicationHandler[Future[Unit]
 
   override private[client] def beforePublication(correlationId: String): Unit = {}
 
-  override private[client] def processPublicationAck(correlationId: String, ack: Future[Unit])
-                                                    (implicit ec: ExecutionContext): Future[Unit] = ack
+  override private[client] def processPublicationAck(correlationId: String, ack: Future[Unit]): Future[Unit] = ack
 
 }

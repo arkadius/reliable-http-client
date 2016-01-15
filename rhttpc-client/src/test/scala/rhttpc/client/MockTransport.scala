@@ -68,7 +68,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     new Subscriber[Correlated[Try[String]]] {
       MockTransport.this.consumer = consumer
 
-      override def run(): Unit = {}
+      override def start(): Unit = {}
 
       override def stop(): Unit = {}
     }
@@ -87,6 +87,6 @@ object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithR
     new Subscriber[WithRetryingHistory[Correlated[String]]] {
       override def stop(): Unit = {}
 
-      override def run(): Unit = {}
+      override def start(): Unit = {}
     }
 }

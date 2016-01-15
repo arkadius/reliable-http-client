@@ -93,11 +93,12 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
 
   private val subscriber = subscriberForConsumer(consumingActor)
 
-  def run() {
-    subscriber.run()
+  def start() {
+    subscriber.start()
   }
   
-  def stop()(implicit ec: ExecutionContext): Future[Unit] = {
+  def stop(): Future[Unit] = {
+    import actorSystem.dispatcher
     recovered(subscriber.stop(), "stopping request subscriber")
     recoveredFuture(gracefulStop(consumingActor, 30 seconds).map(stopped =>
       if (!stopped)

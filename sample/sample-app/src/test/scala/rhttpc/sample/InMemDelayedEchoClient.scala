@@ -40,12 +40,12 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
         }
       }
 
-      override def run(): Unit = {}
+      override def start(): Unit = {}
 
-      override def stop()(implicit ec: ExecutionContext): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
-  override def requestResponse(msg: String)(implicit ec: ExecutionContext): ReplyFuture = {
+  override def requestResponse(msg: String): ReplyFuture = {
     val uniqueSubOnResponse = SubscriptionOnResponse(UUID.randomUUID().toString)
     subOnMsg.put(uniqueSubOnResponse, msg)
     new ReplyFuture {

@@ -33,11 +33,11 @@ import scala.util.{Try, Failure}
 import scala.util.control.NonFatal
 
 trait SubscriptionManager {
-  def run(): Unit
+  def start(): Unit
 
   def confirmOrRegister(subscription: SubscriptionOnResponse, consumer: ActorRef): Unit
 
-  def stop()(implicit ec: ExecutionContext): Future[Unit]
+  def stop(): Future[Unit]
 }
 
 trait WithSubscriptionManager {
@@ -49,18 +49,18 @@ private[client] trait SubscriptionInternalManagement { self: SubscriptionManager
 }
 
 private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_], dispatcher: ActorRef)
+                                                   (implicit ec: ExecutionContext)
   extends SubscriptionManager with PublicationHandler[ReplyFuture] with SubscriptionInternalManagement {
 
-  override def run(): Unit = {
-    transportSub.run()
+  override def start(): Unit = {
+    transportSub.start()
   }
 
   override def beforePublication(correlationId: String): Unit = {
     dispatcher ! RegisterSubscriptionPromise(SubscriptionOnResponse(correlationId))
   }
 
-  override def processPublicationAck(correlationId: String, ack: Future[Unit])
-                                    (implicit ec: ExecutionContext): ReplyFuture = {
+  override def processPublicationAck(correlationId: String, ack: Future[Unit]): ReplyFuture = {
     val subscription = SubscriptionOnResponse(correlationId)
     val ackResultFuture = ack.map { _ =>
       RequestPublished(subscription)
@@ -80,7 +80,7 @@ private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_],
     dispatcher ! AbortSubscription(subscription)
   }
 
-  override def stop()(implicit ec: ExecutionContext): Future[Unit] = {
+  override def stop(): Future[Unit] = {
     recovered(transportSub.stop(), "stopping subscriber")
     recoveredFuture(gracefulStop(dispatcher, 30 seconds).map(stopped =>
       if (!stopped)
@@ -125,6 +125,8 @@ private[subscription] class ReplyFutureImpl(subscription: SubscriptionOnResponse
 }
 
 case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
+  import actorSystem.dispatcher
+
   def create[Response](batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                        queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix)
                       (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
@@ -133,8 +135,8 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
 
   private[client] def create[Response](queueData: InboundQueueData)
                                       (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
-    val dispatcher = actorSystem.actorOf(Props[MessageDispatcherActor])
-    val subscriber = transport.subscriber(queueData, dispatcher)
-    new SubscriptionManagerImpl(subscriber, dispatcher)
+    val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor])
+    val subscriber = transport.subscriber(queueData, dispatcherActor)
+    new SubscriptionManagerImpl(subscriber, dispatcherActor)
   }
 }
