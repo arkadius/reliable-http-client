@@ -20,17 +20,17 @@ import java.util.concurrent.TimeoutException
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
-import org.slf4j.LoggerFactory
+import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.Correlated
-import rhttpc.transport.{WithInstantPublisher, InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.{Try, Failure}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 trait SubscriptionManager {
   def start(): Unit
@@ -130,7 +130,7 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
   def create[Response](batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
                        queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix)
                       (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
-    create(InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize))
+    create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
   private[client] def create[Response](queueData: InboundQueueData)

@@ -16,17 +16,17 @@
 package rhttpc.client.consume
 
 import akka.actor._
+import akka.pattern._
+import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.{WithRetryingHistory, Correlated}
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.Try
-import akka.pattern._
-
 import scala.util.control.NonFatal
 
 class MessageConsumer[Message](subscriberForConsumer: ActorRef => Subscriber[Correlated[Try[Message]]],
@@ -78,6 +78,6 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
   private def prepareSubscriber[Message](transport: PubSubTransport[Nothing, Correlated[Try[Message]]], batchSize: Int, queuesPrefix: String)
                                         (implicit actorSystem: ActorSystem):
   (ActorRef) => Subscriber[Correlated[Try[Message]]] =
-    transport.subscriber(InboundQueueData(prepareResponseQueueName(queuesPrefix), batchSize), _)
+    transport.subscriber(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize), _)
 
 }

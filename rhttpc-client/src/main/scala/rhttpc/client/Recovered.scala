@@ -13,21 +13,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc
+package rhttpc.client
 
 import org.slf4j.LoggerFactory
-import rhttpc.client.subscription.{WithSubscriptionManager, ReplyFuture}
-import rhttpc.transport.OutboundQueueData
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-package object client {
-  type InOutReliableClient[Request] = ReliableClient[Request, ReplyFuture] with WithSubscriptionManager
-  type InOnlyReliableClient[Request] = ReliableClient[Request, Future[Unit]]
+object Recovered {
 
-  private[rhttpc] def prepareRequestPublisherQueueData(queuesPrefix: String) =
-    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), delayed = true)
+  private lazy val logger = LoggerFactory.getLogger(getClass)
 
+  def recovered(run: => Unit, action: String): Unit = {
+    try {
+      run
+    } catch {
+      case NonFatal(ex) =>
+        logger.error(s"Exception while $action", ex)
+
+    }
+  }
+
+  def recoveredFuture(future: => Future[Unit], action: String)
+                     (implicit ec: ExecutionContext): Future[Unit] = {
+    try {
+      future.recover {
+        case NonFatal(ex) =>
+          logger.error(s"Exception while $action", ex)
+      }
+    } catch {
+      case NonFatal(ex) => // while preparing future
+        logger.error(s"Exception while $action", ex)
+        Future.successful(Unit)
+    }
+  }
 
 }

@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport._
 
 import scala.concurrent.duration._
@@ -27,7 +27,7 @@ import scala.language.postfixOps
 import scala.util.Try
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[WithRetryingHistory[Correlated[String]], Correlated[Try[String]]] with WithDelayedPublisher {
+  extends PubSubTransport[Correlated[String], Correlated[Try[String]]] with WithDelayedPublisher {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile private var _replySubscriptionPromise: Promise[String] = _
@@ -49,14 +49,14 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _ackOnReplySubscriptionFuture
   }
 
-  override def publisher(data: OutboundQueueData): Publisher[WithRetryingHistory[Correlated[String]]] =
-    new Publisher[WithRetryingHistory[Correlated[String]]] {
-      override def publish(request: Message[WithRetryingHistory[Correlated[String]]]): Future[Unit] = {
+  override def publisher(data: OutboundQueueData): Publisher[Correlated[String]] =
+    new Publisher[Correlated[String]] {
+      override def publish(request: Message[Correlated[String]]): Future[Unit] = {
         _publicationPromise = Promise[Unit]()
         _replySubscriptionPromise = Promise[String]()
         implicit val timeout = Timeout(5 seconds)
         _replySubscriptionPromise.future.onComplete { result =>
-          _ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.msg.correlationId)
+          _ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.correlationId)
         }
         _publicationPromise.future
       }
@@ -78,7 +78,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
 }
 
-object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithRetryingHistory[Correlated[String]]] with WithInstantPublisher {
+object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], Correlated[String]] with WithInstantPublisher {
   override def publisher(queueData: OutboundQueueData): Publisher[Correlated[Try[String]]] =
     new Publisher[Correlated[Try[String]]] {
       override def publish(msg: Message[Correlated[Try[String]]]): Future[Unit] = Future.successful(Unit)
@@ -86,11 +86,11 @@ object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithR
       override def close(): Unit = {}
     }
 
-  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[WithRetryingHistory[Correlated[String]]] =
+  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
     subscriber(data, consumer)
 
-  override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[WithRetryingHistory[Correlated[String]]] =
-    new Subscriber[WithRetryingHistory[Correlated[String]]] {
+  override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
+    new Subscriber[Correlated[String]] {
       override def stop(): Unit = {}
 
       override def start(): Unit = {}

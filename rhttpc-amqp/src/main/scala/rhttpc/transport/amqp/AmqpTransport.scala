@@ -16,12 +16,10 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
-import com.rabbitmq.client.AMQP.Queue
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
-import com.rabbitmq.client.{Connection, AMQP, Channel}
+import com.rabbitmq.client.{AMQP, Channel, Connection}
 import rhttpc.transport._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.postfixOps
 
 trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher
@@ -99,11 +97,8 @@ object AmqpTransport {
   import collection.convert.wrapAsJava._
 
   final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
-    case InstantMessage(_, additionalProps) =>
+    case Message(_, additionalProps) =>
       persistentPropertiesBuilder.headers(additionalProps.asInstanceOf[Map[String, AnyRef]]).build()
-    case DelayedMessage(_, delay, additionalProps) =>
-      val headers = delayHeaders(delay) ++ additionalProps
-      persistentPropertiesBuilder.headers(headers.asInstanceOf[Map[String, AnyRef]]).build()
   }
 
   private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()
@@ -111,12 +106,9 @@ object AmqpTransport {
 
   private final val PERSISTENT_DELIVERY_MODE = 2
 
-  private def delayHeaders(delay: FiniteDuration): Map[String, Any] =
-    Map("x-delay" -> delay.toMillis)
-
   private def defaultDeclarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
-    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(prepareDlqName(queueData.name)), DLQ_EXCHANGE_NAME, channel)
+    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(AmqpQueuesNaming.prepareDlqName(queueData.name)), DLQ_EXCHANGE_NAME, channel)
     declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
     if (queueData.delayed) {
       val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
@@ -150,12 +142,11 @@ object AmqpTransport {
   private def prepareDlqArgs(queueName: String) =
     Map(
       "x-dead-letter-exchange" -> DLQ_EXCHANGE_NAME,
-      "x-dead-letter-routing-key" -> prepareDlqName(queueName)
+      "x-dead-letter-routing-key" -> AmqpQueuesNaming.prepareDlqName(queueName)
     )
 
   private final val DLQ_EXCHANGE_NAME = "dlq"
 
-  private def prepareDlqName(queueName: String) = queueName + ".dlq"
 }
 
 case class AmqpDeclareInboundQueueData(queueData: InboundQueueData, channel: Channel)

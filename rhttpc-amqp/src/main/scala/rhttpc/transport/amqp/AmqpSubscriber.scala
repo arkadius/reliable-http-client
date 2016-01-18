@@ -89,7 +89,7 @@ trait SendingFullMessage[Sub] { self: AmqpSubscriber[Sub] =>
 
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
     import collection.convert.wrapAsScala._
-    InstantMessage(deserializedMessage, properties.getHeaders.asInstanceOf[java.util.Map[String, Any]].toMap)
+    Message(deserializedMessage, properties.getHeaders.asInstanceOf[java.util.Map[String, Any]].toMap)
   }
 
 }

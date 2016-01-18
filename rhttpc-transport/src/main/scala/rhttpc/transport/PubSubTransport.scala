@@ -18,8 +18,8 @@ package rhttpc.transport
 import akka.actor.ActorRef
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
-import scala.language.higherKinds
+import scala.concurrent.duration._
+import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
 trait PubSubTransport[-PubMsg, +SubMsg] {
@@ -50,7 +50,7 @@ case class OutboundQueueData(name: String, durability: Boolean = true, autoDelet
 trait Publisher[-Msg] {
 
   final def publish(msg: Msg): Future[Unit] =
-    publish(InstantMessage(msg))
+    publish(Message(msg))
 
   def publish(msg: Message[Msg]): Future[Unit]
 
@@ -58,14 +58,27 @@ trait Publisher[-Msg] {
 
 }
 
-trait Message[+T] {
-  def content: T
-  def properties: Map[String, Any]
+case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
+
+object DelayedMessage {
+  def apply[T](content: T, delay: FiniteDuration, attempt: Int): Message[T] = {
+    val props = Map(
+      MessagePropertiesNaming.delayProperty -> delay.toMillis,
+      MessagePropertiesNaming.attemptProperty -> attempt
+    )
+    Message(content, properties = props)
+  }
+
+
+  def unapply[T](message: Message[T]): Option[(T, FiniteDuration, Int)] = {
+    Option(message).collect {
+      case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
+        val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Long] millis
+        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Int]).getOrElse(1)
+        (content, delay, attempt)
+    }
+  }
 }
-
-case class InstantMessage[T](content: T, properties: Map[String, Any] = Map.empty) extends Message[T]
-
-case class DelayedMessage[T](content: T, delay: FiniteDuration, properties: Map[String, Any] = Map.empty) extends Message[T]
 
 trait Subscriber[+SubMsg] {
 

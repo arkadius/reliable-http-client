@@ -15,27 +15,23 @@
  */
 package rhttpc.akkahttp.json4s
 
-import java.util.{Date, UUID}
+import java.util.UUID
 
 import akka.http.scaladsl.model._
 import org.json4s.native.Serialization
 import org.scalatest._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.protocol.Correlated
 import rhttpc.client.proxy.{ExhaustedRetry, NonSuccessResponse}
 
-import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
   implicit val formats = Json4sHttpRequestResponseFormats.formats
 
-  val requestsData = Table[WithRetryingHistory[Correlated[HttpRequest]]](
+  val requestsData = Table[Correlated[HttpRequest]](
     "request",
-    WithRetryingHistory.firstAttempt(
-      Correlated(HttpRequest().withMethod(HttpMethods.POST).withEntity("foo"), UUID.randomUUID().toString),
-      new Date
-    ).withNextAttempt(new Date(System.currentTimeMillis() + 5 * 3600), 10 seconds)
+    Correlated(HttpRequest().withMethod(HttpMethods.POST).withEntity("foo"), UUID.randomUUID().toString)
   )
 
   // FIXME: unignore tests when json4s problem with classloaders will be fixed (test fail only from cmd, from IDE work)
@@ -44,7 +40,7 @@ class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenProp
       val serialized = Serialization.writePretty(request)
       println("Serialized: " + serialized)
       withClue("Serialized: " + serialized) {
-        val deserialized = Serialization.read[WithRetryingHistory[Correlated[HttpRequest]]](serialized)
+        val deserialized = Serialization.read[Correlated[HttpRequest]](serialized)
         println("Deserialized: " + deserialized)
         deserialized shouldEqual request
       }

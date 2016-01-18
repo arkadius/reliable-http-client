@@ -24,6 +24,7 @@ import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.Correlated
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
+import Recovered._
 
 import scala.concurrent.Future
 import scala.util.Try

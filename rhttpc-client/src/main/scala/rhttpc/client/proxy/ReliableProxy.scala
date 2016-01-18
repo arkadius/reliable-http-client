@@ -15,14 +15,13 @@
  */
 package rhttpc.client.proxy
 
-import java.util.Date
-
 import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
+import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.protocol.Correlated
 import rhttpc.transport._
 
 import scala.concurrent.Future
@@ -31,8 +30,8 @@ import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscriber[WithRetryingHistory[Correlated[Request]]],
-                                       requestPublisher: Publisher[WithRetryingHistory[Correlated[Request]]],
+class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscriber[Correlated[Request]],
+                                       requestPublisher: Publisher[Correlated[Request]],
                                        send: Correlated[Request] => Future[Response],
                                        failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
                                        handleResponse: Correlated[Try[Response]] => Future[Unit],
@@ -45,47 +44,51 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
     import context.dispatcher
 
     override def receive: Receive = {
-      case withHistory: WithRetryingHistory[_] =>
-        try {
-          val castedWithHistory = withHistory.asInstanceOf[WithRetryingHistory[Correlated[Request]]]
-          (for {
-            tryResponse <- send(castedWithHistory.msg).map(Success(_)).recover {
-              case NonFatal(ex) => Failure(ex)
-            }
-            result <- tryResponse match {
-              case Success(response) =>
-                logger.debug(s"Success response for ${castedWithHistory.msg.correlationId}")
-                handleResponse(Correlated(Success(response), castedWithHistory.msg.correlationId))
-              case Failure(ex) =>
-                logger.error(s"Failure response for ${castedWithHistory.msg.correlationId}")
-                handleFailure(castedWithHistory, ex)
-            }
-          } yield result) pipeTo sender()
-        } catch {
-          case NonFatal(ex) =>
-            sender() ! Status.Failure(ex)
-        }
+      case DelayedMessage(content, delay, attempt) =>
+        handleRequest(content.asInstanceOf[Correlated[Request]], attempt, Some(delay))
+      case message: Message[_] =>
+        handleRequest(message.content.asInstanceOf[Correlated[Request]], 1, None)
+
     }
 
-    private def handleFailure(withHistory: WithRetryingHistory[Correlated[Request]], failure: Throwable): Future[Unit] = {
-      val strategy = failureHandleStrategyChooser.choose(
-        withHistory.attempts,
-        withHistory.history.lastOption.flatMap(_.plannedDelay)
-      )
+    private def handleRequest(correlated: Correlated[Request], attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]) = {
+      try {
+        val casted = correlated.asInstanceOf[Correlated[Request]]
+        (for {
+          tryResponse <- send(casted).map(Success(_)).recover {
+            case NonFatal(ex) => Failure(ex)
+          }
+          result <- tryResponse match {
+            case Success(response) =>
+              logger.debug(s"Success response for ${casted.correlationId}")
+              handleResponse(Correlated(Success(response), casted.correlationId))
+            case Failure(ex) =>
+              logger.error(s"Failure response for ${casted.correlationId}")
+              handleFailure(casted, attemptsSoFar, lastPlannedDelay, ex)
+          }
+        } yield result) pipeTo sender()
+      } catch {
+        case NonFatal(ex) =>
+          sender() ! Status.Failure(ex)
+      }
+    }
+
+    private def handleFailure(correlated: Correlated[Request], attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], failure: Throwable): Future[Unit] = {
+      val strategy = failureHandleStrategyChooser.choose(attemptsSoFar, lastPlannedDelay)
       strategy match {
         case Retry(delay) =>
-          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will retry in $delay")
-          requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(new Date, delay), delay))
+          logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will retry in $delay")
+          requestPublisher.publish(DelayedMessage(correlated, delay, attempt = attemptsSoFar + 1))
         case SendToDLQ =>
-          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
+          logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)
-          handleResponse(Correlated(Failure(exhaustedRetryError), withHistory.msg.correlationId))
+          handleResponse(Correlated(Failure(exhaustedRetryError), correlated.correlationId))
           Future.failed(exhaustedRetryError)
         case Handle =>
-          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will handle")
-          handleResponse(Correlated(Failure(failure), withHistory.msg.correlationId))
+          logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will handle")
+          handleResponse(Correlated(Failure(failure), correlated.correlationId))
         case Skip =>
-          logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will skip")
+          logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will skip")
           Future.successful(Unit)
       }
     }
@@ -123,11 +126,11 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                              queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                              retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                              additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                                            (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher,
-                                             requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
+                                            (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher,
+                                             requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
-    val responsePublisher = responseRequestTransport.publisher(OutboundQueueData(prepareResponseQueueName(queuesPrefix)))
+    val responsePublisher = responseRequestTransport.publisher(OutboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix)))
     def publisherCloseAction = {
       recovered(responsePublisher.close(), "stopping response publisher")
       additionalCloseAction
@@ -147,8 +150,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                            queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                            additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                                          (implicit requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]],
-                                           requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
+                                          (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
+                                           requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     create(
@@ -167,8 +170,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                 additionalCloseAction: => Future[Unit] = Future.successful(Unit))
-                               (implicit requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]],
-                                requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher):
+                               (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
+                                requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     new ReliableProxy(
@@ -181,10 +184,10 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  private def prepareSubscriber[Request](transport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]], batchSize: Int, queuesPrefix: String)
+  private def prepareSubscriber[Request](transport: PubSubTransport[Nothing, Correlated[Request]], batchSize: Int, queuesPrefix: String)
                                         (implicit actorSystem: ActorSystem):
-  (ActorRef) => Subscriber[WithRetryingHistory[Correlated[Request]]] =
-    transport.subscriber(InboundQueueData(prepareRequestQueueName(queuesPrefix), batchSize), _)
+  (ActorRef) => Subscriber[Correlated[Request]] =
+    transport.fullMessageSubscriber(InboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), batchSize), _)
 
 
 }

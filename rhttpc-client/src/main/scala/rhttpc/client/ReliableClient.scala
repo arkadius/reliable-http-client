@@ -19,9 +19,10 @@ import java.util.{Date, UUID}
 
 import akka.actor._
 import org.slf4j.LoggerFactory
+import rhttpc.client.Recovered._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.consume.MessageConsumerFactory
-import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
+import rhttpc.client.protocol.Correlated
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
 import rhttpc.transport.{PubSubTransport, Publisher, WithDelayedPublisher, WithInstantPublisher}
@@ -31,7 +32,7 @@ import scala.language.postfixOps
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHistory[Correlated[Request]]],
+class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Request]],
                                           publicationHandler: PublicationHandler[SendResult],
                                           additionalStartAction: => Unit,
                                           additionalStopAction: => Future[Unit])
@@ -46,9 +47,7 @@ class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHisto
   def send(request: Request): SendResult = {
     val correlationId = UUID.randomUUID().toString
     val correlated = Correlated(request, correlationId)
-    val withHistory = WithRetryingHistory.firstAttempt(correlated, new Date)
-    publicationHandler.beforePublication(correlationId)
-    val publicationAckFuture = publisher.publish(withHistory).map { _ =>
+    val publicationAckFuture = publisher.publish(correlated).map { _ =>
       logger.debug(s"Request: $correlationId successfully acknowledged")
     }.recoverWith {
       case NonFatal(ex) =>
@@ -74,8 +73,8 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                                 queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                                 retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                                 additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                                               (implicit requestResponseTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]] with WithDelayedPublisher,
-                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOutReliableClient[Request] = {
+                                               (implicit requestResponseTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
+                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOutReliableClient[Request] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
@@ -112,8 +111,8 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                              (implicit requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Correlated[Try[Response]]] with WithDelayedPublisher,
-                               requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
+                              (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
+                               requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
@@ -147,8 +146,8 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                       queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                       retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
                       additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                     (implicit requestPublisherTransport: PubSubTransport[WithRetryingHistory[Correlated[Request]], Any] with WithDelayedPublisher,
-                      requestSubscriberTransport: PubSubTransport[Nothing, WithRetryingHistory[Correlated[Request]]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
+                     (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher,
+                      requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
     val proxy = ReliableProxyFactory().skippingResponses(
       send = send,
       batchSize = batchSize,
@@ -174,7 +173,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                   queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
                                   additionalStartAction: => Unit = {},
                                   additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                                 (implicit transport: PubSubTransport[WithRetryingHistory[Correlated[Request]], _] with WithDelayedPublisher): ReliableClient[Request, SendResult] = {
+                                 (implicit transport: PubSubTransport[Correlated[Request], _] with WithDelayedPublisher): ReliableClient[Request, SendResult] = {
     val requestPublisher = transport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
     new ReliableClient(
       publisher = requestPublisher,
