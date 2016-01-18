@@ -30,8 +30,7 @@ import scala.util.{Try, Failure, Success}
 private[amqp] class AmqpSubscriber[Sub](channel: Channel,
                                         queueName: String,
                                         consumer: ActorRef,
-                                        deserializer: Deserializer[Sub],
-                                        ignoreInvalidMessages: Boolean)
+                                        deserializer: Deserializer[Sub])
                                        (implicit ec: ExecutionContext)
   extends Subscriber[Sub] {
 
@@ -57,8 +56,6 @@ private[amqp] class AmqpSubscriber[Sub](channel: Channel,
     deserializedMessage match {
       case Success(msgObj) =>
         (consumer ? msgObj) onComplete handleConsumerResponse(deliveryTag)
-      case f@Failure(_)  if !ignoreInvalidMessages =>
-        (consumer ? f) onComplete handleConsumerResponse(deliveryTag)
       case Failure(ex) =>
         channel.basicReject(deliveryTag, false)
         logger.error(s"Message: [$stringMsg] rejected because of parse failure", ex)

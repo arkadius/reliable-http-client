@@ -31,7 +31,6 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
                                                                 exchangeName: String,
                                                                 serializer: Serializer[PubMsg],
                                                                 deserializer: Deserializer[SubMsg],
-                                                                ignoreInvalidMessages: Boolean,
                                                                 declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
                                                                 declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk,
                                                                 prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
@@ -61,8 +60,7 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
       channel,
       queueData.name,
       consumer,
-      deserializer,
-      ignoreInvalidMessages
+      deserializer
     )
   }
 
@@ -83,7 +81,6 @@ object AmqpTransport {
       exchangeName = exchangeName,
       serializer = serializer,
       deserializer = deserializer,
-      ignoreInvalidMessages = ignoreInvalidMessages,
       declarePublisherQueue = declarePublisherQueue,
       declareSubscriberQueue = declareSubscriberQueue,
       prepareProperties = defaultPreparePublishProperties
