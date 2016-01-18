@@ -121,10 +121,12 @@ object ExhaustedRetry {
 
 case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
 
+  private lazy val config = ConfigParser.parse(actorSystem)
+  
   def publishingResponses[Request, Response](send: Correlated[Request] => Future[Response],
-                                             batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                                             queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                                             retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                                             batchSize: Int = config.batchSize,
+                                             queuesPrefix: String = config.queuesPrefix,
+                                             retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                              additionalCloseAction: => Future[Unit] = Future.successful(Unit))
                                             (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher,
                                              requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
@@ -146,9 +148,9 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
   }
 
   def skippingResponses[Request, Response](send: Correlated[Request] => Future[Response],
-                                           batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                                           queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                                           retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                                           batchSize: Int = config.batchSize,
+                                           queuesPrefix: String = config.queuesPrefix,
+                                           retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                            additionalCloseAction: => Future[Unit] = Future.successful(Unit))
                                           (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
                                            requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
@@ -166,9 +168,9 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
 
   def create[Request, Response](send: Correlated[Request] => Future[Response],
                                 handleResponse: Correlated[Try[Response]] => Future[Unit],
-                                batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                                queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                                retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                                batchSize: Int = config.batchSize,
+                                queuesPrefix: String = config.queuesPrefix,
+                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                 additionalCloseAction: => Future[Unit] = Future.successful(Unit))
                                (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
                                 requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):

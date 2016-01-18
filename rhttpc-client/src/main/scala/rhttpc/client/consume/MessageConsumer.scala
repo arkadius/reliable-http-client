@@ -67,10 +67,12 @@ class MessageConsumer[Message](subscriberForConsumer: ActorRef => Subscriber[Cor
 }
 
 case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
-
+  
+  private lazy val config = ConfigParser.parse(actorSystem)
+  
   def create[Message](handleMessage: Correlated[Try[Message]] => Future[Unit],
-                      batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                      queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix)
+                      batchSize: Int = config.batchSize,
+                      queuesPrefix: String = config.queuesPrefix)
                      (implicit messageSubscriberTransport: PubSubTransport[Nothing, Correlated[Try[Message]]]): MessageConsumer[Message] = {
     new MessageConsumer(prepareSubscriber(messageSubscriberTransport, batchSize, queuesPrefix), handleMessage)
   }

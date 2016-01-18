@@ -67,11 +67,13 @@ case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No
 
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
-
+  
+  private lazy val config = ConfigParser.parse(actorSystem)
+  
   def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Response],
-                                                batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                                                queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                                                retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                                                batchSize: Int = config.batchSize,
+                                                queuesPrefix: String = config.queuesPrefix,
+                                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                                 additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                                (implicit requestResponseTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
                                                 responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOutReliableClient[Request] = {
@@ -107,9 +109,9 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
 
   def inOut[Request, Response](send: Correlated[Request] => Future[Response],
                                handleResponse: Correlated[Try[Response]] => Future[Unit],
-                               batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                               queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                               retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                               batchSize: Int = config.batchSize,
+                               queuesPrefix: String = config.queuesPrefix,
+                               retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
                               (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
                                requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
@@ -142,9 +144,9 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   }
 
   def inOnly[Request](send: Correlated[Request] => Future[Unit],
-                      batchSize: Int = ConfigParser.parse(actorSystem).batchSize,
-                      queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
-                      retryStrategy: FailureResponseHandleStrategyChooser = ConfigParser.parse(actorSystem).retryStrategy,
+                      batchSize: Int = config.batchSize,
+                      queuesPrefix: String = config.queuesPrefix,
+                      retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                       additionalStopAction: => Future[Unit] = Future.successful(Unit))
                      (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher,
                       requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
@@ -170,7 +172,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   }
 
   def create[Request, SendResult](publicationHandler: PublicationHandler[SendResult],
-                                  queuesPrefix: String = ConfigParser.parse(actorSystem).queuesPrefix,
+                                  queuesPrefix: String = config.queuesPrefix,
                                   additionalStartAction: => Unit = {},
                                   additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                  (implicit transport: PubSubTransport[Correlated[Request], _] with WithDelayedPublisher): ReliableClient[Request, SendResult] = {

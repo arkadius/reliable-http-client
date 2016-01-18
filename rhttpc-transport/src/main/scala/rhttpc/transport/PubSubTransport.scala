@@ -18,7 +18,6 @@ package rhttpc.transport
 import akka.actor.ActorRef
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
@@ -56,28 +55,6 @@ trait Publisher[-Msg] {
 
   def close(): Unit
 
-}
-
-case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
-
-object DelayedMessage {
-  def apply[T](content: T, delay: FiniteDuration, attempt: Int): Message[T] = {
-    val props = Map(
-      MessagePropertiesNaming.delayProperty -> delay.toMillis,
-      MessagePropertiesNaming.attemptProperty -> attempt
-    )
-    Message(content, properties = props)
-  }
-
-
-  def unapply[T](message: Message[T]): Option[(T, FiniteDuration, Int)] = {
-    Option(message).collect {
-      case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
-        val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Long] millis
-        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Int]).getOrElse(1)
-        (content, delay, attempt)
-    }
-  }
 }
 
 trait Subscriber[+SubMsg] {
