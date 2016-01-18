@@ -15,8 +15,7 @@
  */
 package rhttpc.client
 
-import java.time.Instant
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import akka.actor._
 import org.slf4j.LoggerFactory
@@ -25,7 +24,7 @@ import rhttpc.client.consume.MessageConsumerFactory
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
-import rhttpc.transport.{WithInstantPublisher, PubSubTransport, Publisher, WithDelayedPublisher}
+import rhttpc.transport.{PubSubTransport, Publisher, WithDelayedPublisher, WithInstantPublisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
@@ -47,7 +46,7 @@ class ReliableClient[Request, SendResult](publisher: Publisher[WithRetryingHisto
   def send(request: Request): SendResult = {
     val correlationId = UUID.randomUUID().toString
     val correlated = Correlated(request, correlationId)
-    val withHistory = WithRetryingHistory.firstAttempt(correlated, Instant.now())
+    val withHistory = WithRetryingHistory.firstAttempt(correlated, new Date)
     publicationHandler.beforePublication(correlationId)
     val publicationAckFuture = publisher.publish(withHistory).map { _ =>
       logger.debug(s"Request: $correlationId successfully acknowledged")

@@ -26,8 +26,6 @@ object CommonFormats {
     } +
     ExceptionSerializer +
     ObjectSerializer +
-    IndexedSeqSerializer +
-    InstantSerializer +
-    DurationSerializer
+    IndexedSeqSerializer
 
 }

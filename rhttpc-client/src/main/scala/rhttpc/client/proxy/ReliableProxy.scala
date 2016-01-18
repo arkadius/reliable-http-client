@@ -15,7 +15,7 @@
  */
 package rhttpc.client.proxy
 
-import java.time.{Duration => JDuration, Instant}
+import java.util.Date
 
 import akka.actor._
 import akka.pattern._
@@ -25,8 +25,8 @@ import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.transport._
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
@@ -70,12 +70,12 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
     private def handleFailure(withHistory: WithRetryingHistory[Correlated[Request]], failure: Throwable): Future[Unit] = {
       val strategy = failureHandleStrategyChooser.choose(
         withHistory.attempts,
-        withHistory.history.lastOption.flatMap(_.plannedDelay).map(_.toMillis.millis)
+        withHistory.history.lastOption.flatMap(_.plannedDelay)
       )
       strategy match {
         case Retry(delay) =>
           logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will retry in $delay")
-          requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(Instant.now, JDuration.ofMillis(delay.toMillis)), delay))
+          requestPublisher.publish(DelayedMessage(withHistory.withNextAttempt(new Date, delay), delay))
         case SendToDLQ =>
           logger.debug(s"Attempts so far: ${withHistory.attempts} for ${withHistory.msg.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)

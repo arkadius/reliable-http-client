@@ -15,20 +15,22 @@
  */
 package rhttpc.client.protocol
 
-import java.time.{Duration, Instant}
+import java.util.Date
+
+import scala.concurrent.duration.FiniteDuration
 
 case class WithRetryingHistory[T](msg: T, history: IndexedSeq[HistoryEntry]) {
   def attempts = history.size
 
-  def withNextAttempt(timestamp: Instant, plannedDelay: Duration): WithRetryingHistory[T] = {
+  def withNextAttempt(timestamp: Date, plannedDelay: FiniteDuration): WithRetryingHistory[T] = {
     copy(history = history :+ HistoryEntry(timestamp, Some(plannedDelay)))
   }
 }
 
 object WithRetryingHistory {
-  def firstAttempt[T](msg: T, timestamp: Instant): WithRetryingHistory[T] = {
+  def firstAttempt[T](msg: T, timestamp: Date): WithRetryingHistory[T] = {
     WithRetryingHistory(msg, IndexedSeq(HistoryEntry(timestamp, None)))
   }
 }
 
-case class HistoryEntry(timestamp: Instant, plannedDelay: Option[Duration])
+case class HistoryEntry(timestamp: Date, plannedDelay: Option[FiniteDuration])

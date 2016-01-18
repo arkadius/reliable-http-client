@@ -15,8 +15,7 @@
  */
 package rhttpc.akkahttp.json4s
 
-import java.time.{Duration, Instant}
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import akka.http.scaladsl.model._
 import org.json4s.native.Serialization
@@ -25,6 +24,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import rhttpc.client.protocol.{Correlated, WithRetryingHistory}
 import rhttpc.client.proxy.{ExhaustedRetry, NonSuccessResponse}
 
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
@@ -34,8 +34,8 @@ class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenProp
     "request",
     WithRetryingHistory.firstAttempt(
       Correlated(HttpRequest().withMethod(HttpMethods.POST).withEntity("foo"), UUID.randomUUID().toString),
-      Instant.now
-    ).withNextAttempt(Instant.now.plusSeconds(5), Duration.ofSeconds(10))
+      new Date
+    ).withNextAttempt(new Date(System.currentTimeMillis() + 5 * 3600), 10 seconds)
   )
 
   // FIXME: unignore tests when json4s problem with classloaders will be fixed (test fail only from cmd, from IDE work)

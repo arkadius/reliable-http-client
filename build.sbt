@@ -14,7 +14,7 @@ val commonSettings =
   Seq(
     organization  := "org.rhttpc",
     scalaVersion  := scalaV,
-    scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-target:jvm-1.8"),
+    scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
     license := apache2("Copyright 2015 the original author or authors."),
     licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
