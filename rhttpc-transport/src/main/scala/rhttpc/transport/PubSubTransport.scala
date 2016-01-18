@@ -32,6 +32,9 @@ trait PubSubTransport[-PubMsg, +SubMsg] {
   def publisher(queueData: OutboundQueueData): Publisher[PubMsg]
 
   def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+
+  def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+
 }
 
 trait WithInstantPublisher { self: PubSubTransport[_, _] =>
@@ -57,15 +60,12 @@ trait Publisher[-Msg] {
 
 trait Message[+T] {
   def content: T
+  def properties: Map[String, Any]
 }
 
-case class InstantMessage[T](content: T) extends Message[T]
+case class InstantMessage[T](content: T, properties: Map[String, Any] = Map.empty) extends Message[T]
 
-case class DelayedMessage[T](content: T, delay: FiniteDuration) extends Message[T]
-
-case class MessageWithSpecifiedProperties[T](message: Message[T], properties: Map[String, Any]) extends Message[T] {
-  override def content: T = message.content
-}
+case class DelayedMessage[T](content: T, delay: FiniteDuration, properties: Map[String, Any] = Map.empty) extends Message[T]
 
 trait Subscriber[+SubMsg] {
 

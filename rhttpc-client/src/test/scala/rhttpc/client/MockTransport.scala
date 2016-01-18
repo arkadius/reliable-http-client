@@ -64,6 +64,9 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       override def close(): Unit = {}
     }
 
+  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Try[String]]] =
+    subscriber(data, consumer)
+
   override def subscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Try[String]]] =
     new Subscriber[Correlated[Try[String]]] {
       MockTransport.this.consumer = consumer
@@ -82,6 +85,9 @@ object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], WithR
 
       override def close(): Unit = {}
     }
+
+  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[WithRetryingHistory[Correlated[String]]] =
+    subscriber(data, consumer)
 
   override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[WithRetryingHistory[Correlated[String]]] =
     new Subscriber[WithRetryingHistory[Correlated[String]]] {

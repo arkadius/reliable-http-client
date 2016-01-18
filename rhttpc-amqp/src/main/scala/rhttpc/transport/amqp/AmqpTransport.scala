@@ -56,14 +56,24 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
   override def subscriber(queueData: InboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
     val channel = connection.createChannel()
     declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
-    new AmqpSubscriber(
+    new AmqpSubscriber[SubMsg](
       channel,
       queueData.name,
       consumer,
       deserializer
-    )
+    ) with SendingSimpleMessage[SubMsg]
   }
 
+  override def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+    val channel = connection.createChannel()
+    declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
+    new AmqpSubscriber[SubMsg](
+      channel,
+      queueData.name,
+      consumer,
+      deserializer
+    ) with SendingFullMessage[SubMsg]
+  }
 }
 
 object AmqpTransport {
@@ -88,18 +98,10 @@ object AmqpTransport {
 
   import collection.convert.wrapAsJava._
 
-  final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] =
-    handleMessageWithSpecificProperties orElse handleMessage(Map.empty)
-
-  private lazy val handleMessageWithSpecificProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
-    case MessageWithSpecifiedProperties(underlying, props) =>
-      handleMessage(props)(underlying)
-  }
-
-  private def handleMessage(additionalProps: Map[String, Any]): PartialFunction[Message[Any], AMQP.BasicProperties] = {
-    case InstantMessage(_) =>
-      persistentPropertiesBuilder.build()
-    case DelayedMessage(_, delay) =>
+  final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
+    case InstantMessage(_, additionalProps) =>
+      persistentPropertiesBuilder.headers(additionalProps.asInstanceOf[Map[String, AnyRef]]).build()
+    case DelayedMessage(_, delay, additionalProps) =>
       val headers = delayHeaders(delay) ++ additionalProps
       persistentPropertiesBuilder.headers(headers.asInstanceOf[Map[String, AnyRef]]).build()
   }
