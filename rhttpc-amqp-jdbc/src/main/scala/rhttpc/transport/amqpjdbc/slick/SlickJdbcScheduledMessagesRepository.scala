@@ -47,18 +47,33 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver,
 
   override def fetchMessagesShouldByRun(queueName: String, batchSize: Int)
                                        (onMessages: (Seq[ScheduledMessage]) => Future[Any]): Future[Int] = {
-    val action = for {
+    val fetchAction = for {
       currentTimestamp <- sql"select current_timestamp".as[Timestamp].head
-      query = scheduledMessages.filter { msg =>
+      fetched <- scheduledMessages.filter { msg =>
         msg.queueName === queueName &&
-        msg.plannedRun <= currentTimestamp
-      }.sortBy(_.plannedRun desc).take(batchSize)
-      fetched <- query.result
+          msg.plannedRun <= currentTimestamp
+      }.sortBy(_.plannedRun desc).take(batchSize).result
+    } yield fetched
+    val fetchInSeparateTransactionFuture = db.run(fetchAction.transactionally)
+
+    val action = for {
+      fetched <- DBIO.from(fetchInSeparateTransactionFuture)
       fetchedIds = fetched.flatMap(_.id)
-      _ <- scheduledMessages.filter(_.id inSet fetchedIds).delete
+      deleted <- scheduledMessages.filter(_.id inSet fetchedIds).delete
+      _ <- {
+        if (deleted != fetched.size) {
+          DBIO.failed(ConcurrentFetchException)
+        } else {
+          DBIO.successful(Unit)
+        }
+      }
       _ <- DBIO.from(onMessages(fetched))
     } yield fetched.size
-    db.run(action.transactionally)
+    db.run(action.transactionally).recover {
+      case ConcurrentFetchException => 0
+    }
   }
 
 }
+
+case object ConcurrentFetchException extends Exception(s"Concurrent fetch detected")
