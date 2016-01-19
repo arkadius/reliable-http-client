@@ -25,14 +25,14 @@ import scala.language.postfixOps
 trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher
 
 // TODO: actor-based, connection recovery
-private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,
-                                                                exchangeName: String,
-                                                                serializer: Serializer[PubMsg],
-                                                                deserializer: Deserializer[SubMsg],
-                                                                declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
-                                                                declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk,
-                                                                prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
-                                                               (implicit actorSystem: ActorSystem) extends AmqpTransport[PubMsg, SubMsg] {
+private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,
+                                                                  exchangeName: String,
+                                                                  serializer: Serializer[PubMsg],
+                                                                  deserializer: Deserializer[SubMsg],
+                                                                  declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
+                                                                  declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk,
+                                                                  prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
+                                                                 (implicit actorSystem: ActorSystem) extends AmqpTransport[PubMsg, SubMsg] {
 
   import actorSystem.dispatcher
 
@@ -77,10 +77,9 @@ private[amqp] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Conn
 object AmqpTransport {
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       exchangeName: String = "",
-                                      ignoreInvalidMessages: Boolean = true,
-                                      declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = defaultDeclarePublisherQueue,
-                                      declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = defaultDeclareSubscriberQueue,
-                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = defaultPreparePublishProperties)
+                                      declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpDefaults.declarePublisherQueueWithDelayedExchangeIfNeed,
+                                      declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpDefaults.declareSubscriberQueue,
+                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpDefaults.preparePersistentMessageProperties)
                                      (implicit actorSystem: ActorSystem,
                                       serializer: Serializer[PubMsg],
                                       deserializer: Deserializer[SubMsg]): AmqpTransport[PubMsg, SubMsg] =
@@ -91,61 +90,8 @@ object AmqpTransport {
       deserializer = deserializer,
       declarePublisherQueue = declarePublisherQueue,
       declareSubscriberQueue = declareSubscriberQueue,
-      prepareProperties = defaultPreparePublishProperties
+      prepareProperties = AmqpDefaults.preparePersistentMessageProperties
     )
-
-  import collection.convert.wrapAsJava._
-
-  final val defaultPreparePublishProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
-    case Message(_, additionalProps) =>
-      persistentPropertiesBuilder.headers(additionalProps.asInstanceOf[Map[String, AnyRef]]).build()
-  }
-
-  private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()
-    .deliveryMode(PERSISTENT_DELIVERY_MODE)
-
-  private final val PERSISTENT_DELIVERY_MODE = 2
-
-  private def defaultDeclarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
-    import data._
-    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(AmqpQueuesNaming.prepareDlqName(queueData.name)), DLQ_EXCHANGE_NAME, channel)
-    declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
-    if (queueData.delayed) {
-      val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
-      declareQueueAndBindToExchange(data, "x-delayed-message", args)
-    } else if (exchangeName != "") {
-      declareQueueAndBindToExchange(data, "direct", Map.empty)
-    } else {
-      declarePublisherQueue(data)
-    }
-  }
-
-  private def declareQueueAndBindToExchange(data: AmqpDeclareOutboundQueueData, exchangeType: String, args: Map[String, AnyRef]) = {
-    import data._
-    channel.exchangeDeclare(exchangeName, exchangeType, queueData.durability, queueData.autoDelete, args)
-    val queueDeclareResult = declarePublisherQueue(data)
-    channel.queueBind(queueData.name, exchangeName, queueData.name)
-    queueDeclareResult
-  }
-
-  private def declarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
-    import data._
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
-  }
-
-  private def defaultDeclareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
-    import data._
-    channel.basicQos(queueData.batchSize)
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
-  }
-
-  private def prepareDlqArgs(queueName: String) =
-    Map(
-      "x-dead-letter-exchange" -> DLQ_EXCHANGE_NAME,
-      "x-dead-letter-routing-key" -> AmqpQueuesNaming.prepareDlqName(queueName)
-    )
-
-  private final val DLQ_EXCHANGE_NAME = "dlq"
 
 }
 

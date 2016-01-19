@@ -61,6 +61,10 @@ val logbackV = "1.1.3"
 val slf4jV = "1.7.13"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M15"
+val slickV = "3.1.1"
+val flywayV = "3.2.1"
+val hikariV = "2.4.2"
+val hsqldbV = "2.3.3"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
@@ -90,6 +94,24 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     }
   ).
   dependsOn(transport)
+
+lazy val amqpJdbcTransport = (project in file("rhttpc-amqp-jdbc")).
+  settings(commonSettings).
+  settings(publishSettings).
+  settings(
+    name := "rhttpc-amqp-jdbc",
+    libraryDependencies ++= {
+      Seq(
+        "com.typesafe.slick"       %% "slick"                         % slickV,
+        "org.flywaydb"              % "flyway-core"                   % flywayV       % "optional",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.slick"       %% "slick-hikaricp"                % slickV        % "test",
+        "org.hsqldb"                % "hsqldb"                        % hsqldbV       % "test",
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
+      )
+    }
+  ).
+  dependsOn(amqpTransport)
 
 lazy val json4sSerialization = (project in file("rhttpc-json4s")).
   settings(commonSettings).

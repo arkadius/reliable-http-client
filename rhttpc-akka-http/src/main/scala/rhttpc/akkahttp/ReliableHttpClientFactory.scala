@@ -76,11 +76,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(_ => Unit),
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
-      retryStrategy = retryStrategy,
-      additionalStopAction = {
-        recovered(connection.close(), "closing amqp connection")
-        Future.successful(Unit)
-      }
+      retryStrategy = retryStrategy
     )
   }
 

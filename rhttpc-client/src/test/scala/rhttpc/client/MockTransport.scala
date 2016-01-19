@@ -61,7 +61,9 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
         _publicationPromise.future
       }
 
-      override def close(): Unit = {}
+      override def start(): Unit = {}
+
+      override def stop(): Unit = {}
     }
 
   override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Try[String]]] =
@@ -83,7 +85,9 @@ object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], Corre
     new Publisher[Correlated[Try[String]]] {
       override def publish(msg: Message[Correlated[Try[String]]]): Future[Unit] = Future.successful(Unit)
 
-      override def close(): Unit = {}
+      override def start(): Unit = {}
+
+      override def stop(): Unit = {}
     }
 
   override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =

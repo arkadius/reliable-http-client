@@ -53,7 +53,9 @@ trait Publisher[-Msg] {
 
   def publish(msg: Message[Msg]): Future[Unit]
 
-  def close(): Unit
+  def start(): Unit
+
+  def stop(): Unit
 
 }
 

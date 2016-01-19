@@ -42,6 +42,7 @@ class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Reques
 
   def start() = {
     additionalStartAction
+    publisher.start()
   }
 
   def send(request: Request): SendResult = {
@@ -58,7 +59,7 @@ class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Reques
   }
 
   def stop(): Future[Unit] = {
-    recovered(publisher.close(), "closing request publisher")
+    recovered(publisher.stop(), "stopping request publisher")
     additionalStopAction
   }
 }
@@ -74,6 +75,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                                 batchSize: Int = config.batchSize,
                                                 queuesPrefix: String = config.queuesPrefix,
                                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                                                additionalStartAction: => Unit = {},
                                                 additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                                (implicit requestResponseTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
                                                 responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOutReliableClient[Request] = {
@@ -89,6 +91,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     )
     val requestPublisher = requestResponseTransport.publisher(prepareRequestPublisherQueueData(queuesPrefix))
     def startAdditional() = {
+      additionalStartAction
       subMgr.start()
       proxy.start()
     }
@@ -112,6 +115,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                batchSize: Int = config.batchSize,
                                queuesPrefix: String = config.queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                               additionalStartAction: => Unit = {},
                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
                               (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
                                requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
@@ -127,6 +131,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       queuesPrefix = queuesPrefix
     )
     def startAdditional() = {
+      additionalStartAction
       responseConsumer.start()
       proxy.start()
     }
@@ -147,6 +152,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                       batchSize: Int = config.batchSize,
                       queuesPrefix: String = config.queuesPrefix,
                       retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                      additionalStartAction: => Unit = {},
                       additionalStopAction: => Future[Unit] = Future.successful(Unit))
                      (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher,
                       requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
@@ -157,6 +163,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       retryStrategy = retryStrategy
     )
     def startAdditional() = {
+      additionalStartAction
       proxy.start()
     }
     def stopAdditional = {

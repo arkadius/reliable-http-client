@@ -35,7 +35,8 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
                                        send: Correlated[Request] => Future[Response],
                                        failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
                                        handleResponse: Correlated[Try[Response]] => Future[Unit],
-                                       additionalCloseAction: => Future[Unit])
+                                       additionalStartAction: => Unit,
+                                       additionalStopAction: => Future[Unit])
                                       (implicit actorSystem: ActorSystem) {
   
   private lazy val logger = LoggerFactory.getLogger(getClass)
@@ -97,6 +98,8 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
   private val subscriber = subscriberForConsumer(consumingActor)
 
   def start() {
+    additionalStartAction
+    requestPublisher.start()
     subscriber.start()
   }
   
@@ -106,7 +109,9 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
     recoveredFuture(gracefulStop(consumingActor, 30 seconds).map(stopped =>
       if (!stopped)
         throw new IllegalStateException("Request consumer actor hasn't been stopped correctly")
-    ), "stopping request consumer actor").flatMap(_ => additionalCloseAction)
+    ), "stopping request consumer actor")
+      .map(_ => recovered(requestPublisher.stop(), "stopping request publisher"))
+      .flatMap(_ => additionalStopAction)
   }
   
 }
@@ -127,15 +132,20 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                              batchSize: Int = config.batchSize,
                                              queuesPrefix: String = config.queuesPrefix,
                                              retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                                             additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                             additionalStartAction: => Unit = {},
+                                             additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                             (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher,
                                              requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
     val responsePublisher = responseRequestTransport.publisher(OutboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix)))
-    def publisherCloseAction = {
-      recovered(responsePublisher.close(), "stopping response publisher")
-      additionalCloseAction
+    def startAdditional() = {
+      additionalStartAction
+      responsePublisher.start()
+    }
+    def stopAdditional = {
+      recovered(responsePublisher.stop(), "stopping response publisher")
+      additionalStopAction
     }
     create(
       send = send,
@@ -143,7 +153,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
-      additionalCloseAction = publisherCloseAction
+      additionalStartAction = startAdditional(),
+      additionalStopAction = stopAdditional
     )
   }
 
@@ -151,7 +162,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                            batchSize: Int = config.batchSize,
                                            queuesPrefix: String = config.queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                                           additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                           additionalStartAction: => Unit = {},
+                                           additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                           (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
                                            requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
@@ -162,7 +174,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
-      additionalCloseAction = additionalCloseAction
+      additionalStartAction = additionalStartAction,
+      additionalStopAction = additionalStopAction
     )
   }
 
@@ -171,7 +184,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                 batchSize: Int = config.batchSize,
                                 queuesPrefix: String = config.queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                                additionalCloseAction: => Future[Unit] = Future.successful(Unit))
+                                additionalStartAction: => Unit = {},
+                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
                                (implicit requestSubscriberTransport: PubSubTransport[Nothing, Correlated[Request]],
                                 requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
@@ -182,7 +196,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       send = send,
       failureHandleStrategyChooser = retryStrategy,
       handleResponse = handleResponse,
-      additionalCloseAction = additionalCloseAction
+      additionalStartAction = additionalStartAction,
+      additionalStopAction = additionalStopAction
     )
   }
 
