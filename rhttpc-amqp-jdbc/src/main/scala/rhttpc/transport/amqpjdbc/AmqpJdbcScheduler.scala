@@ -41,8 +41,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
                                                       batchSize: Int,
                                                       publisher: Publisher[PubMsg],
                                                       serializer: Serializer[Message[PubMsg]],
-                                                      deserializer: Deserializer[Message[PubMsg]],
-                                                      onCountChange: Int => Unit)
+                                                      deserializer: Deserializer[Message[PubMsg]])
                                                      (implicit ec: ExecutionContext) extends AmqpJdbcScheduler[PubMsg] {
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -52,23 +51,19 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
 
   override def schedule(msg: Message[PubMsg], delay: FiniteDuration): Future[Unit] = {
     val serialized = serializer.serialize(msg)
-    val saveFuture = repo.save(MessageToSchedule(queueName, serialized, delay))
-    saveFuture.onSuccess {
-      case _ => onCountChange(+1)
-    }
-    saveFuture
+    repo.save(MessageToSchedule(queueName, serialized, delay))
   }
 
   override def start(): Unit = {
     lock.synchronized {
       if (!ran) {
         ran = true
-        publishFetchedMessages
+        publishFetchedMessagesThanReschedule
       }
     }
   }
 
-  private def publishFetchedMessages: Future[Unit] = {
+  private def publishFetchedMessagesThanReschedule: Future[Int] = {
     val publishedFetchedFuture = repo.fetchMessagesShouldByRun(queueName, batchSize) { messages =>
       if (messages.nonEmpty) {
         logger.debug(s"Fetched ${messages.size}, publishing")
@@ -85,10 +80,6 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
       }
       Future.sequence(handlingFutures)
     }
-    publishedFetchedFuture.onSuccess {
-      case fetchedCount if fetchedCount > 0 =>
-        onCountChange(-fetchedCount)
-    }
     publishedFetchedFuture.onFailure {
       case NonFatal(ex) =>
         logger.error("Exception while publishing fetched messages", ex)
@@ -96,11 +87,11 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
     publishedFetchedFuture.onComplete { _ =>
       lock.synchronized {
         if (ran) {
-          scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessages))
+          scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule))
         }
       }
     }
-    publishedFetchedFuture.map(_ => Unit)
+    publishedFetchedFuture
   }
 
   override def stop(): Unit = {

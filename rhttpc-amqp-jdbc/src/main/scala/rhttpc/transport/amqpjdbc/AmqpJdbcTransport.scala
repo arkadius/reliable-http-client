@@ -59,8 +59,7 @@ object AmqpJdbcTransport {
                                       exchangeName: String = "",
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpJdbcDefaults.declarePublisherQueueWithExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,
-                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties,
-                                      onCountChange: (String, Int) => Unit = { (_, _) => Unit })
+                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
                                      (implicit actorSystem: ActorSystem,
                                       serializer: Serializer[PubMsg],
                                       deserializer: Deserializer[SubMsg],
@@ -85,8 +84,7 @@ object AmqpJdbcTransport {
           schedulerMessagesFetchBatchSize,
           publisher,
           msgSerializer,
-          msgDeserializer,
-          onCountChange(queueName, _)
+          msgDeserializer
         )
       schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
     }
