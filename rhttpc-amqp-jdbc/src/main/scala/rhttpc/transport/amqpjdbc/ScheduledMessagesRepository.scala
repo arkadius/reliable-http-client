@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc
+package rhttpc.transport.amqpjdbc
 
-import rhttpc.transport.amqp.{AmqpDeclareOutboundQueueData, AmqpDefaults}
+import java.sql.Timestamp
 
-object AmqpJdbcDefaults extends AmqpJdbcDefaults
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
-trait AmqpJdbcDefaults extends AmqpDefaults {
+trait ScheduledMessagesRepository {
+  def save(message: MessageToSchedule): Future[Unit]
 
-  private[rhttpc] def declarePublisherQueueWithExchangeIfNeed(data: AmqpDeclareOutboundQueueData) = {
-    declareDlqAndBindToExchang(data)
-    if (data.exchangeName != "") {
-      declareQueueAndBindToExchange(data, "direct", Map.empty)
-    } else {
-      declarePublisherQueue(data)
-    }
-  }
+  def fetchMessagesShouldByRun(queueName: String, batchSize: Int)
+                              (action: Seq[ScheduledMessage] => Future[Any]): Future[Int]
 }
+
+case class MessageToSchedule(queueName: String, message: String, delay: FiniteDuration)
+
+case class ScheduledMessage(id: Option[Long], queueName: String, message: String, plannedRun: Timestamp)

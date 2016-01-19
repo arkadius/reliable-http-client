@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc.slick
+package rhttpc.transport.amqpjdbc.slick
 
 import java.io.PrintWriter
 import java.lang.reflect.{InvocationHandler, Method, Proxy}

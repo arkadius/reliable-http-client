@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc
+package rhttpc.transport.amqpjdbc
 
 import _root_.slick.driver.JdbcDriver
 import _root_.slick.jdbc.JdbcBackend
 import akka.actor.{ActorRef, ActorSystem}
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
-import rhttpc.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
+import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
 
@@ -51,8 +51,8 @@ object AmqpJdbcTransport {
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       driver: JdbcDriver,
                                       db: JdbcBackend.Database,
-                                      checkInterval: FiniteDuration = 10 seconds,
-                                      schedulerMessagesFetchBatchSize: Int = 10,
+                                      checkInterval: FiniteDuration = 30 seconds,
+                                      schedulerMessagesFetchBatchSize: Int = 20,
                                       exchangeName: String = "",
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpJdbcDefaults.declarePublisherQueueWithExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,

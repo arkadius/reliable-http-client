@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc.slick
+package rhttpc.transport.amqpjdbc.slick
 
 import java.sql.Timestamp
 
-import rhttpc.amqpjdbc.{MessageToSchedule, ScheduledMessage, ScheduledMessagesRepository}
+import rhttpc.transport.amqpjdbc.{MessageToSchedule, ScheduledMessage, ScheduledMessagesRepository}
 import slick.driver.JdbcDriver
 import slick.jdbc.JdbcBackend
 

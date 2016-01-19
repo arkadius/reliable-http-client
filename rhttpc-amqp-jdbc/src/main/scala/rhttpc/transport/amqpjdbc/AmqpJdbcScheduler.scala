@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc
+package rhttpc.transport.amqpjdbc
 
 import akka.actor.{Scheduler, Cancellable}
 import akka.pattern._
@@ -82,6 +82,10 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
     publishedFetchedFuture.onSuccess {
       case fetchedCount if fetchedCount > 0 =>
         onCountChange(-fetchedCount)
+    }
+    publishedFetchedFuture.onFailure {
+      case NonFatal(ex) =>
+        logger.error("Exception while publishing fetched messages", ex)
     }
     publishedFetchedFuture.onComplete { _ =>
       scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessages))

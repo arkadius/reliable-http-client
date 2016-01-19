@@ -15,7 +15,7 @@
  */
 package db.migration
 
-import rhttpc.amqpjdbc.slick.CreatingScheduledMessagesTableMigration
+import rhttpc.transport.amqpjdbc.slick.CreatingScheduledMessagesTableMigration
 import slick.driver.{HsqldbDriver, JdbcDriver}
 
 class V1_001__CreateScheduledMessagesTable extends CreatingScheduledMessagesTableMigration {

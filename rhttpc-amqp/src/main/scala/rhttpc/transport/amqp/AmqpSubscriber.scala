@@ -64,10 +64,13 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
 
   private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
     case Success(_) =>
+      logger.debug(s"ACK: $deliveryTag")
       channel.basicAck(deliveryTag, false)
-    case Failure(_ : Exception with RejectingMessage) =>
+    case Failure(ex : Exception with RejectingMessage) =>
+      logger.debug(s"REJECT: $deliveryTag because of rejecting failure", ex)
       channel.basicReject(deliveryTag, false)
-    case Failure(_) =>
+    case Failure(ex) =>
+      logger.debug(s"NACK: $deliveryTag because of failure", ex)
       channel.basicNack(deliveryTag, false, true)
   }
 

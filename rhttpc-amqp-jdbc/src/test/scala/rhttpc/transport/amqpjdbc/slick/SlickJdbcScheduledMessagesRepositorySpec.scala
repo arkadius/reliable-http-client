@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.amqpjdbc.slick
+package rhttpc.transport.amqpjdbc.slick
 
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Millis, Span}
-import rhttpc.amqpjdbc.slick.helpers.SlickJdbcSpec
-import rhttpc.amqpjdbc.{ScheduledMessage, MessageToSchedule, ScheduledMessagesRepository}
+import rhttpc.transport.amqpjdbc.slick.helpers.SlickJdbcSpec
+import rhttpc.transport.amqpjdbc.{ScheduledMessage, MessageToSchedule, ScheduledMessagesRepository}
 import slick.jdbc.JdbcBackend
 
 import scala.concurrent.ExecutionContext.Implicits.global

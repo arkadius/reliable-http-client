@@ -63,7 +63,6 @@ val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M15"
 val slickV = "3.1.1"
 val flywayV = "3.2.1"
-val hikariV = "2.4.2"
 val hsqldbV = "2.3.3"
 
 lazy val transport = (project in file("rhttpc-transport")).

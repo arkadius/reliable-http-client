@@ -24,7 +24,7 @@ object DelayedMessage {
   def apply[T](content: T, delay: FiniteDuration, attempt: Int): Message[T] = {
     val props = Map(
       MessagePropertiesNaming.delayProperty -> delay.toMillis,
-      MessagePropertiesNaming.attemptProperty -> attempt
+      MessagePropertiesNaming.attemptProperty -> attempt.toLong
     )
     Message(content, properties = props)
   }
@@ -33,7 +33,7 @@ object DelayedMessage {
     Option(message).collect {
       case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Long] millis
-        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Int]).getOrElse(1)
+        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Long].toInt).getOrElse(1)
         (content, delay, attempt)
     }
   }

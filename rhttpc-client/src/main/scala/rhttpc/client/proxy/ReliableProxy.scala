@@ -64,7 +64,7 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
               logger.debug(s"Success response for ${casted.correlationId}")
               handleResponse(Correlated(Success(response), casted.correlationId))
             case Failure(ex) =>
-              logger.error(s"Failure response for ${casted.correlationId}")
+              logger.error(s"Failure response for ${casted.correlationId}", ex)
               handleFailure(casted, attemptsSoFar, lastPlannedDelay, ex)
           }
         } yield result) pipeTo sender()

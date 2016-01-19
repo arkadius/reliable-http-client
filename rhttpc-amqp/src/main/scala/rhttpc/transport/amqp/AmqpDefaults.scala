@@ -26,7 +26,10 @@ trait AmqpDefaults extends AmqpQueuesNaming {
 
   private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
     case Message(_, additionalProps) =>
-      persistentPropertiesBuilder.headers(additionalProps.asInstanceOf[Map[String, AnyRef]]).build()
+      persistentPropertiesBuilder.headers(additionalProps.mapValues {
+        case b: BigInt => b.toLong.underlying()
+        case other => other.asInstanceOf[AnyRef]
+      }).build()
   }
 
   private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()
@@ -35,7 +38,7 @@ trait AmqpDefaults extends AmqpQueuesNaming {
   private final val PERSISTENT_DELIVERY_MODE = 2
 
   private[rhttpc] def declarePublisherQueueWithDelayedExchangeIfNeed(data: AmqpDeclareOutboundQueueData) = {
-    declareDlqAndBindToExchang(data)
+    declareDlqAndBindToExchange(data)
     if (data.queueData.delayed) {
       val args = Map[String, AnyRef]("x-delayed-type" -> "direct")
       declareQueueAndBindToExchange(data, "x-delayed-message", args)
@@ -46,7 +49,7 @@ trait AmqpDefaults extends AmqpQueuesNaming {
     }
   }
 
-  private[rhttpc] def declareDlqAndBindToExchang(data: AmqpDeclareOutboundQueueData) = {
+  private[rhttpc] def declareDlqAndBindToExchange(data: AmqpDeclareOutboundQueueData) = {
     val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(AmqpQueuesNaming.prepareDlqName(data.queueData.name)), DLQ_EXCHANGE_NAME, data.channel)
     declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
   }
