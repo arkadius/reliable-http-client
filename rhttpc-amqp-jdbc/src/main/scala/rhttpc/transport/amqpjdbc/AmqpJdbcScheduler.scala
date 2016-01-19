@@ -15,15 +15,14 @@
  */
 package rhttpc.transport.amqpjdbc
 
-import akka.actor.{Scheduler, Cancellable}
-import akka.pattern._
+import akka.actor.{Cancellable, Scheduler}
 import org.slf4j.LoggerFactory
-import rhttpc.transport.{Serializer, Deserializer, Publisher, Message}
+import rhttpc.transport.{Deserializer, Message, Publisher, Serializer}
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success}
 
 private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
@@ -47,7 +46,9 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
                                                      (implicit ec: ExecutionContext) extends AmqpJdbcScheduler[PubMsg] {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  @volatile private var scheduledCheck: Option[Cancellable] = None
+  private val lock: AnyRef = new AnyRef
+  private var ran: Boolean = false
+  private var scheduledCheck: Option[Cancellable] = None
 
   override def schedule(msg: Message[PubMsg], delay: FiniteDuration): Future[Unit] = {
     val serialized = serializer.serialize(msg)
@@ -59,7 +60,12 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
   }
 
   override def start(): Unit = {
-    publishFetchedMessages
+    lock.synchronized {
+      if (!ran) {
+        ran = true
+        publishFetchedMessages
+      }
+    }
   }
 
   private def publishFetchedMessages: Future[Unit] = {
@@ -88,13 +94,20 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
         logger.error("Exception while publishing fetched messages", ex)
     }
     publishedFetchedFuture.onComplete { _ =>
-      scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessages))
+      lock.synchronized {
+        if (ran) {
+          scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessages))
+        }
+      }
     }
     publishedFetchedFuture.map(_ => Unit)
   }
 
   override def stop(): Unit = {
-    scheduledCheck.foreach(_.cancel())
+    lock.synchronized {
+      scheduledCheck.foreach(_.cancel())
+      ran = false
+    }
   }
 
 }
