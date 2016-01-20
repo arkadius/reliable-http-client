@@ -13,14 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client.proxy
+package rhttpc.client.protocol
 
-import rhttpc.client.protocol.{Correlated, Exchange}
-import rhttpc.transport.Publisher
+import scala.util.{Failure, Success, Try}
 
-import scala.concurrent.Future
+sealed trait Exchange[+Request, +Response] {
+  def request: Request
+  def tryResponse: Try[Response]
+}
 
-object PublishMsg {
-  def apply[Request, Response](publisher: Publisher[Correlated[Exchange[Request, Response]]]): Correlated[Exchange[Request, Response]] => Future[Unit] =
-    publisher.publish
+case class SuccessExchange[Request, Response](request: Request, response: Response) extends Exchange[Request, Response] {
+  override def tryResponse: Try[Response] = Success(response)
+}
+
+case class FailureExchange[Request](request: Request, exception: Throwable) extends Exchange[Request, Nothing] {
+  override def tryResponse: Try[Nothing] = Failure(exception)
 }

@@ -21,20 +21,20 @@ import org.slf4j.LoggerFactory
 import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
 import rhttpc.transport._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscriber[Correlated[Request]],
                                        requestPublisher: Publisher[Correlated[Request]],
                                        send: Correlated[Request] => Future[Response],
                                        failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
-                                       handleResponse: Correlated[Try[Response]] => Future[Unit],
+                                       handleResponse: Correlated[Exchange[Request, Response]] => Future[Unit],
                                        additionalStartAction: => Unit,
                                        additionalStopAction: => Future[Unit])
                                       (implicit actorSystem: ActorSystem) {
@@ -54,18 +54,17 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
 
     private def handleRequest(correlated: Correlated[Request], attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]) = {
       try {
-        val casted = correlated.asInstanceOf[Correlated[Request]]
         (for {
-          tryResponse <- send(casted).map(Success(_)).recover {
+          tryResponse <- send(correlated).map(Success(_)).recover {
             case NonFatal(ex) => Failure(ex)
           }
           result <- tryResponse match {
             case Success(response) =>
-              logger.debug(s"Success response for ${casted.correlationId}")
-              handleResponse(Correlated(Success(response), casted.correlationId))
+              logger.debug(s"Success response for ${correlated.correlationId}")
+              handleResponse(Correlated(SuccessExchange(correlated.msg, response), correlated.correlationId))
             case Failure(ex) =>
-              logger.error(s"Failure response for ${casted.correlationId}", ex)
-              handleFailure(casted, attemptsSoFar, lastPlannedDelay, ex)
+              logger.error(s"Failure response for ${correlated.correlationId}", ex)
+              handleFailure(correlated, attemptsSoFar, lastPlannedDelay, ex)
           }
         } yield result) pipeTo sender()
       } catch {
@@ -83,11 +82,11 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
         case SendToDLQ =>
           logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)
-          handleResponse(Correlated(Failure(exhaustedRetryError), correlated.correlationId))
+          handleResponse(Correlated(FailureExchange(correlated.msg, exhaustedRetryError), correlated.correlationId))
           Future.failed(exhaustedRetryError)
         case Handle =>
           logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will handle")
-          handleResponse(Correlated(Failure(failure), correlated.correlationId))
+          handleResponse(Correlated(FailureExchange(correlated.msg, failure), correlated.correlationId))
         case Skip =>
           logger.debug(s"Attempts so far: $attemptsSoFar for ${correlated.correlationId}, will skip")
           Future.successful(Unit)
@@ -134,7 +133,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
                                              retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                              additionalStartAction: => Unit = {},
                                              additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                                            (implicit responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher,
+                                            (implicit responseRequestTransport: PubSubTransport[Correlated[Exchange[Request, Response]], Correlated[Request]] with WithInstantPublisher,
                                              requestPublisherTransport: PubSubTransport[Correlated[Request], Any] with WithDelayedPublisher):
   ReliableProxy[Request, Response] = {
 
@@ -180,7 +179,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
   }
 
   def create[Request, Response](send: Correlated[Request] => Future[Response],
-                                handleResponse: Correlated[Try[Response]] => Future[Unit],
+                                handleResponse: Correlated[Exchange[Request, Response]] => Future[Unit],
                                 batchSize: Int = config.batchSize,
                                 queuesPrefix: String = config.queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,

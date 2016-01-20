@@ -23,14 +23,14 @@ import akka.util.Timeout
 import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
+import scala.util.Failure
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
 
 trait SubscriptionManager {
   def start(): Unit
@@ -129,14 +129,18 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
 
   private lazy val config = ConfigParser.parse(actorSystem)
   
-  def create[Response](batchSize: Int = config.batchSize,
-                       queuesPrefix: String = config.queuesPrefix)
-                      (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+  def create[Request, Response](batchSize: Int = config.batchSize,
+                                queuesPrefix: String = config.queuesPrefix)
+                               (implicit transport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]):
+  SubscriptionManager with PublicationHandler[ReplyFuture] = {
+
     create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
-  private[client] def create[Response](queueData: InboundQueueData)
-                                      (implicit transport: PubSubTransport[Nothing, Correlated[Try[Response]]]): SubscriptionManager with PublicationHandler[ReplyFuture] = {
+  private[client] def create[Request, Response](queueData: InboundQueueData)
+                                               (implicit transport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]):
+  SubscriptionManager with PublicationHandler[ReplyFuture] = {
+
     val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor])
     val subscriber = transport.subscriber(queueData, dispatcherActor)
     new SubscriptionManagerImpl(subscriber, dispatcherActor)

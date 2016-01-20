@@ -20,9 +20,7 @@ import java.util.UUID
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest._
-import rhttpc.client.protocol.Correlated
-
-import scala.util.Success
+import rhttpc.client.protocol.{Correlated, SuccessExchange}
 
 class MessageDispatcherActorSpec
   extends TestKit(ActorSystem("MessageDispatcherActorSpec"))
@@ -40,7 +38,7 @@ class MessageDispatcherActorSpec
     actor ! ConfirmOrRegisterSubscription(sub, replyMock.ref)
 
     val ackProbe = TestProbe()
-    ackProbe.send(actor, Correlated(Success("foo"), sub.correlationId))
+    ackProbe.send(actor, Correlated(SuccessExchange("fooReq", "foo"), sub.correlationId))
     replyMock.expectMsg(MessageFromSubscription("foo", sub))
 
     ackProbe.expectNoMsg()
@@ -57,7 +55,7 @@ class MessageDispatcherActorSpec
     actor ! RegisterSubscriptionPromise(sub)
 
     val ackProbe = TestProbe()
-    ackProbe.send(actor, Correlated(Success("foo"), sub.correlationId))
+    ackProbe.send(actor, Correlated(SuccessExchange("fooReq", "foo"), sub.correlationId))
 
     val replyMock = TestProbe()
     actor ! ConfirmOrRegisterSubscription(sub, replyMock.ref)

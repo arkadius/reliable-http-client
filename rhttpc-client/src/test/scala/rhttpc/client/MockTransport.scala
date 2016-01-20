@@ -18,16 +18,16 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
 import rhttpc.transport._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
-import scala.util.Try
+import scala.util.{Failure, Success}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[Correlated[String], Correlated[Try[String]]] with WithDelayedPublisher {
+  extends PubSubTransport[Correlated[String], Correlated[Exchange[String, String]]] with WithDelayedPublisher {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile private var _replySubscriptionPromise: Promise[String] = _
@@ -55,8 +55,11 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
         _publicationPromise = Promise[Unit]()
         _replySubscriptionPromise = Promise[String]()
         implicit val timeout = Timeout(5 seconds)
-        _replySubscriptionPromise.future.onComplete { result =>
-          _ackOnReplySubscriptionFuture = consumer ? Correlated(result, request.content.correlationId)
+        _replySubscriptionPromise.future.onComplete {
+          case Success(result) =>
+            _ackOnReplySubscriptionFuture = consumer ? Correlated(SuccessExchange(request.content.msg, result), request.content.correlationId)
+          case Failure(ex) =>
+            _ackOnReplySubscriptionFuture = consumer ? Correlated(FailureExchange(request.content.msg, ex), request.content.correlationId)
         }
         _publicationPromise.future
       }
@@ -66,11 +69,11 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       override def stop(): Unit = {}
     }
 
-  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Try[String]]] =
+  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Exchange[String, String]]] =
     subscriber(data, consumer)
 
-  override def subscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Try[String]]] =
-    new Subscriber[Correlated[Try[String]]] {
+  override def subscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Exchange[String, String]]] =
+    new Subscriber[Correlated[Exchange[String, String]]] {
       MockTransport.this.consumer = consumer
 
       override def start(): Unit = {}
@@ -80,10 +83,10 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
 }
 
-object MockProxyTransport extends PubSubTransport[Correlated[Try[String]], Correlated[String]] with WithInstantPublisher {
-  override def publisher(queueData: OutboundQueueData): Publisher[Correlated[Try[String]]] =
-    new Publisher[Correlated[Try[String]]] {
-      override def publish(msg: Message[Correlated[Try[String]]]): Future[Unit] = Future.successful(Unit)
+object MockProxyTransport extends PubSubTransport[Correlated[Exchange[String, String]], Correlated[String]] with WithInstantPublisher {
+  override def publisher(queueData: OutboundQueueData): Publisher[Correlated[Exchange[String, String]]] =
+    new Publisher[Correlated[Exchange[String, String]]] {
+      override def publish(msg: Message[Correlated[Exchange[String, String]]]): Future[Unit] = Future.successful(Unit)
 
       override def start(): Unit = {}
 

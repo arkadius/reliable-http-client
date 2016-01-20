@@ -16,10 +16,9 @@
 package rhttpc.client.subscription
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Status}
-import rhttpc.client._
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 private[subscription] class MessageDispatcherActor extends Actor with ActorLogging {
 
@@ -55,9 +54,9 @@ private[subscription] class MessageDispatcherActor extends Actor with ActorLoggi
         case None =>
           log.warning(s"Confirmed subscription promise: $sub was missing")
       }
-    case Correlated(msg: Try[_], correlationId) =>
+    case Correlated(msg: Exchange[_, _], correlationId) =>
       val sub = SubscriptionOnResponse(correlationId)
-      val underlyingOrFailure = msg match {
+      val underlyingOrFailure = msg.tryResponse match {
         case Success(underlying) => underlying
         case Failure(ex) => Status.Failure(ex)
       }

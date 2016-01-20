@@ -15,21 +15,20 @@
  */
 package rhttpc.client
 
-import java.util.{Date, UUID}
+import java.util.UUID
 
 import akka.actor._
 import org.slf4j.LoggerFactory
 import rhttpc.client.Recovered._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.consume.MessageConsumerFactory
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
 import rhttpc.transport.{PubSubTransport, Publisher, WithDelayedPublisher, WithInstantPublisher}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
-import scala.util.Try
 import scala.util.control.NonFatal
 
 class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Request]],
@@ -77,15 +76,15 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
                                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                                 additionalStartAction: => Unit = {},
                                                 additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                                               (implicit requestResponseTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
-                                                responseRequestTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOutReliableClient[Request] = {
+                                               (implicit requestResponseTransport: PubSubTransport[Correlated[Request], Correlated[Exchange[Request, Response]]] with WithDelayedPublisher,
+                                                responseRequestTransport: PubSubTransport[Correlated[Exchange[Request, Response]], Correlated[Request]] with WithInstantPublisher): InOutReliableClient[Request] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
-    val subMgr = SubscriptionManagerFactory().create[Response](
+    val subMgr = SubscriptionManagerFactory().create[Request, Response](
       batchSize = batchSize,
       queuesPrefix = queuesPrefix
     )
@@ -111,21 +110,21 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   }
 
   def inOut[Request, Response](send: Correlated[Request] => Future[Response],
-                               handleResponse: Correlated[Try[Response]] => Future[Unit],
+                               handleResponse: Correlated[Exchange[Request, Response]] => Future[Unit],
                                batchSize: Int = config.batchSize,
                                queuesPrefix: String = config.queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                additionalStartAction: => Unit = {},
                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                              (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Correlated[Try[Response]]] with WithDelayedPublisher,
-                               requestSubscriberTransport: PubSubTransport[Correlated[Try[Response]], Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
+                              (implicit requestPublisherTransport: PubSubTransport[Correlated[Request], Correlated[Exchange[Request, Response]]] with WithDelayedPublisher,
+                               requestSubscriberTransport: PubSubTransport[Correlated[Exchange[Request, Response]], Correlated[Request]] with WithInstantPublisher): InOnlyReliableClient[Request] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
-    val responseConsumer = MessageConsumerFactory().create[Response](
+    val responseConsumer = MessageConsumerFactory().create[Request, Response](
       handleMessage = handleResponse,
       batchSize = batchSize,
       queuesPrefix = queuesPrefix

@@ -20,18 +20,17 @@ import akka.pattern._
 import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.Try
 import scala.util.control.NonFatal
 
-class MessageConsumer[Message](subscriberForConsumer: ActorRef => Subscriber[Correlated[Try[Message]]],
-                               handleMessage: Correlated[Try[Message]] => Future[Unit])
-                              (implicit actorSystem: ActorSystem){
+class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subscriber[Correlated[Exchange[Request, Response]]],
+                                         handleMessage: Correlated[Exchange[Request, Response]] => Future[Unit])
+                                        (implicit actorSystem: ActorSystem){
 
   private val consumingActor = actorSystem.actorOf(Props(new Actor {
     import context.dispatcher
@@ -39,7 +38,7 @@ class MessageConsumer[Message](subscriberForConsumer: ActorRef => Subscriber[Cor
     override def receive: Receive = {
       case correlated: Correlated[_] =>
         try {
-          handleMessage(correlated.asInstanceOf[Correlated[Try[Message]]]) pipeTo sender()
+          handleMessage(correlated.asInstanceOf[Correlated[Exchange[Request, Response]]]) pipeTo sender()
         } catch {
           case NonFatal(ex) =>
             sender() ! Status.Failure(ex)
@@ -70,16 +69,18 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
   
   private lazy val config = ConfigParser.parse(actorSystem)
   
-  def create[Message](handleMessage: Correlated[Try[Message]] => Future[Unit],
-                      batchSize: Int = config.batchSize,
-                      queuesPrefix: String = config.queuesPrefix)
-                     (implicit messageSubscriberTransport: PubSubTransport[Nothing, Correlated[Try[Message]]]): MessageConsumer[Message] = {
+  def create[Request, Response](handleMessage: Correlated[Exchange[Request, Response]] => Future[Unit],
+                                batchSize: Int = config.batchSize,
+                                queuesPrefix: String = config.queuesPrefix)
+                               (implicit messageSubscriberTransport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]): MessageConsumer[Request, Response] = {
     new MessageConsumer(prepareSubscriber(messageSubscriberTransport, batchSize, queuesPrefix), handleMessage)
   }
 
-  private def prepareSubscriber[Message](transport: PubSubTransport[Nothing, Correlated[Try[Message]]], batchSize: Int, queuesPrefix: String)
-                                        (implicit actorSystem: ActorSystem):
-  (ActorRef) => Subscriber[Correlated[Try[Message]]] =
+  private def prepareSubscriber[Request, Response](transport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]],
+                                                   batchSize: Int,
+                                                   queuesPrefix: String)
+                                                  (implicit actorSystem: ActorSystem):
+  (ActorRef) => Subscriber[Correlated[Exchange[Request, Response]]] =
     transport.subscriber(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize), _)
 
 }

@@ -23,11 +23,10 @@ import rhttpc.akkahttp.proxy.{AcceptSuccessHttpStatus, ReliableHttpProxyFactory,
 import rhttpc.client.Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
 
 import scala.concurrent.Future
-import scala.util.Try
 
 case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
@@ -51,7 +50,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
   }
 
   def inOut(connection: Connection,
-            handleResponse: Correlated[Try[HttpResponse]] => Future[Unit],
+            handleResponse: Correlated[Exchange[HttpRequest, HttpResponse]] => Future[Unit],
             successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
             batchSize: Int = config.batchSize,
             queuesPrefix: String = config.queuesPrefix,
@@ -101,7 +100,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       }
     }
 
-    def inOut(handleResponse: Correlated[Try[HttpResponse]] => Future[Unit],
+    def inOut(handleResponse: Correlated[Exchange[HttpRequest, HttpResponse]] => Future[Unit],
               successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
               batchSize: Int = config.batchSize,
               queuesPrefix: String = config.queuesPrefix,

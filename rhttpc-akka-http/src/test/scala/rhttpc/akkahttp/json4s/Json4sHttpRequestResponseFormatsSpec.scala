@@ -21,10 +21,8 @@ import akka.http.scaladsl.model._
 import org.json4s.native.Serialization
 import org.scalatest._
 import org.scalatest.prop.TableDrivenPropertyChecks
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
 import rhttpc.client.proxy.{ExhaustedRetry, NonSuccessResponse}
-
-import scala.util.{Failure, Success, Try}
 
 class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
   implicit val formats = Json4sHttpRequestResponseFormats.formats
@@ -47,10 +45,10 @@ class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenProp
     }
   }
 
-  val responsesData = Table[Correlated[Try[HttpResponse]]](
+  val responsesData = Table[Correlated[Exchange[HttpRequest, HttpResponse]]](
     "responses",
-    Correlated(Success(HttpResponse().withEntity("bar")), UUID.randomUUID().toString),
-    Correlated(Failure(ExhaustedRetry(NonSuccessResponse)), UUID.randomUUID().toString)
+    Correlated(SuccessExchange(HttpRequest(), HttpResponse().withEntity("bar")), UUID.randomUUID().toString),
+    Correlated(FailureExchange(HttpRequest(), ExhaustedRetry(NonSuccessResponse)), UUID.randomUUID().toString)
   )
 
   ignore should "work round-trip for responses" in {
@@ -58,7 +56,7 @@ class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenProp
       val serialized = Serialization.writePretty(response)
       println("Serialized: " + serialized)
       withClue("Serialized: " + serialized) {
-        val deserialized = Serialization.read[Correlated[Try[HttpResponse]]](serialized)
+        val deserialized = Serialization.read[Correlated[Exchange[HttpRequest, HttpResponse]]](serialized)
         println("Deserialized: " + deserialized)
         deserialized shouldEqual response
       }

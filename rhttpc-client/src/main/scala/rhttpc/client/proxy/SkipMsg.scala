@@ -15,11 +15,10 @@
  */
 package rhttpc.client.proxy
 
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Exchange}
 
 import scala.concurrent.Future
-import scala.util.Try
 
-object SkipMsg extends (Correlated[Try[Any]] => Future[Unit]) {
-  def apply(msg: Correlated[Try[Any]]): Future[Unit] = Future.successful(Unit)
+object SkipMsg extends (Correlated[Exchange[Any, Any]] => Future[Unit]) {
+  def apply(msg: Correlated[Exchange[Any, Any]]): Future[Unit] = Future.successful(Unit)
 }
