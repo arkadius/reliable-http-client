@@ -40,11 +40,11 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     val queueName = "fooQueue"
     fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
-    fixture.repo.save(MessageToSchedule(queueName, "scheduled in future", 5 second))
+    fixture.save(MessageToSchedule(queueName, "scheduled in future", 5 second))
     fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
     val content = "scheduled for now"
-    fixture.repo.save(MessageToSchedule(queueName, content, 0 second))
+    fixture.save(MessageToSchedule(queueName, content, 0 second))
 
     fixture.fetchAndCheck(queueName) { fetched =>
       fetched should have length 1
@@ -61,7 +61,7 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     fixture.save(fooQueue)
     fixture.save(barQueue)
 
-    whenReady(fixture.repo.queuesStats) { stats =>
+    fixture.queuesStatsCheck { stats =>
       stats(fooQueue) shouldBe 2
       stats(barQueue) shouldBe 1
     }
@@ -71,9 +71,9 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     FixtureParam(new SlickJdbcScheduledMessagesRepository(driver, db))
   }
 
-  case class FixtureParam(repo: ScheduledMessagesRepository) {
+  case class FixtureParam(private val repo: ScheduledMessagesRepository) {
     def fetchAndCheck(queueName: String)
-                     (check: Seq[ScheduledMessage] => Unit) = {
+                     (check: Seq[ScheduledMessage] => Unit): Unit = {
       val fetchResult = repo.fetchMessagesShouldByRun(queueName, batchSize) { msgs =>
         check(msgs)
         Future.successful(Unit)
@@ -81,8 +81,16 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
       whenReady(fetchResult) { _ => Unit }
     }
 
-    def save(queueName: String) = {
-      repo.save(MessageToSchedule(queueName, "some message", 5 second))
+    def save(message: MessageToSchedule): Unit = {
+      whenReady(repo.save(message)){ _ => Unit }
+    }
+
+    def save(queueName: String): Unit = {
+      whenReady(repo.save(MessageToSchedule(queueName, "some message", 5 second))){ _ => Unit }
+    }
+
+    def queuesStatsCheck(check: Map[String, Int] => Unit): Unit = {
+      whenReady(repo.queuesStats)(check)
     }
   }
 
