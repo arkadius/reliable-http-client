@@ -25,13 +25,17 @@ import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher
+trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+  def queuesStats: Future[Map[String, Int]]
+}
 
 private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlying: AmqpTransport[PubMsg, SubMsg],
-                                                                        schedulerByQueueAndPublisher: (String, Publisher[PubMsg]) => AmqpJdbcScheduler[PubMsg])
+                                                                        schedulerByQueueAndPublisher: (String, Publisher[PubMsg]) => AmqpJdbcScheduler[PubMsg],
+                                                                        repo: ScheduledMessagesRepository)
   extends AmqpJdbcTransport[PubMsg, SubMsg] {
 
   override def publisher(queueData: OutboundQueueData): Publisher[PubMsg] = {
@@ -45,6 +49,11 @@ private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlyi
 
   override def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.fullMessageSubscriber(queueData, consumer)
+
+  override def queuesStats: Future[Map[String, Int]] = {
+    repo.queuesStats
+  }
+
 }
 
 object AmqpJdbcTransport {
@@ -88,7 +97,7 @@ object AmqpJdbcTransport {
         )
       schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
     }
-    new AmqpJdbcTransportImpl(underlying, schedulerByQueueAndPublisher)
+    new AmqpJdbcTransportImpl(underlying, schedulerByQueueAndPublisher, repo)
   }
 
 }

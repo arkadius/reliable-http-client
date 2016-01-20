@@ -40,7 +40,9 @@ trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
 
     def * = (id.?, queueName, message, plannedRun) <> (ScheduledMessage.apply _ tupled, ScheduledMessage.unapply)
 
-    def idxPlannedRun = index("name_planned_run_idx", (queueName, plannedRun))
+    def idxQueueName = index("queue_name_idx", queueName)
+
+    def idxQueueNamePlannedRun = index("name_planned_run_idx", (queueName, plannedRun))
 
   }
 

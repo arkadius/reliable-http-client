@@ -25,6 +25,8 @@ trait ScheduledMessagesRepository {
 
   def fetchMessagesShouldByRun(queueName: String, batchSize: Int)
                               (action: Seq[ScheduledMessage] => Future[Any]): Future[Int]
+
+  def queuesStats: Future[Map[String, Int]]
 }
 
 case class MessageToSchedule(queueName: String, message: String, delay: FiniteDuration)

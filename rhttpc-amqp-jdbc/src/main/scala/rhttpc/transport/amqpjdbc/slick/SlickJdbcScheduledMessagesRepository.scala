@@ -54,26 +54,40 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver,
           msg.plannedRun <= currentTimestamp
       }.sortBy(_.plannedRun desc).take(batchSize).result
     } yield fetched
-    val fetchInSeparateTransactionFuture = db.run(fetchAction.transactionally)
 
-    val action = for {
-      fetched <- DBIO.from(fetchInSeparateTransactionFuture)
-      fetchedIds = fetched.flatMap(_.id)
-      deleted <- scheduledMessages.filter(_.id inSet fetchedIds).delete
-      _ <- {
-        if (deleted != fetched.size) {
-          DBIO.failed(ConcurrentFetchException)
-        } else {
-          DBIO.successful(Unit)
+    def consumeAction(fetched: Seq[ScheduledMessage]) = {
+      val fetchedIds = fetched.flatMap(_.id)
+      for {
+        deleted <- scheduledMessages.filter(_.id inSet fetchedIds).delete
+        _ <- {
+          if (deleted != fetched.size) {
+            DBIO.failed(ConcurrentFetchException)
+          } else {
+            DBIO.successful(Unit)
+          }
         }
-      }
-      _ <- DBIO.from(onMessages(fetched))
-    } yield fetched.size
-    db.run(action.transactionally).recover {
+        _ <- DBIO.from(onMessages(fetched))
+      } yield fetched.size
+    }
+
+    val consumedFuture = for {
+      fetched <- db.run(fetchAction.transactionally)
+      consumed <- db.run(consumeAction(fetched).transactionally)
+    } yield consumed
+
+    consumedFuture.recover {
       case ConcurrentFetchException => 0
     }
+    consumedFuture
   }
 
+  override def queuesStats: Future[Map[String, Int]] = {
+    val action = scheduledMessages.groupBy(_.queueName).map {
+      case (queueName, msgs) =>
+        (queueName, msgs.size)
+    }.result
+    db.run(action).map(_.toMap)
+  }
 }
 
 case object ConcurrentFetchException extends Exception(s"Concurrent fetch detected")

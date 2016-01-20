@@ -34,23 +34,36 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     interval = scaled(Span(100, Millis))
   )
 
-  private final val queueName = "fooQueue"
   private final val batchSize = 10
 
   it should "save message" in { fixture =>
-    fixture.fetchAndCheck(_ shouldBe empty)
+    val queueName = "fooQueue"
+    fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
     fixture.repo.save(MessageToSchedule(queueName, "scheduled in future", 5 second))
-    fixture.fetchAndCheck(_ shouldBe empty)
+    fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
     val content = "scheduled for now"
     fixture.repo.save(MessageToSchedule(queueName, content, 0 second))
 
-    fixture.fetchAndCheck { fetched =>
+    fixture.fetchAndCheck(queueName) { fetched =>
       fetched should have length 1
       val msg = fetched.head
       msg.queueName shouldEqual queueName
       msg.message shouldEqual content
+    }
+  }
+  
+  it should "provide stats" in { fixture =>
+    val fooQueue = "fooQueue"
+    val barQueue = "barQueue"
+    fixture.save(fooQueue)
+    fixture.save(fooQueue)
+    fixture.save(barQueue)
+
+    whenReady(fixture.repo.queuesStats) { stats =>
+      stats(fooQueue) shouldBe 2
+      stats(barQueue) shouldBe 1
     }
   }
 
@@ -59,12 +72,17 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
   }
 
   case class FixtureParam(repo: ScheduledMessagesRepository) {
-    def fetchAndCheck(check: Seq[ScheduledMessage] => Unit) = {
+    def fetchAndCheck(queueName: String)
+                     (check: Seq[ScheduledMessage] => Unit) = {
       val fetchResult = repo.fetchMessagesShouldByRun(queueName, batchSize) { msgs =>
         check(msgs)
         Future.successful(Unit)
       }
       whenReady(fetchResult) { _ => Unit }
+    }
+
+    def save(queueName: String) = {
+      repo.save(MessageToSchedule(queueName, "some message", 5 second))
     }
   }
 
