@@ -110,7 +110,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   }
 
   def inOut[Request, Response](send: Correlated[Request] => Future[Response],
-                               handleResponse: Correlated[Exchange[Request, Response]] => Future[Unit],
+                               handleResponse: Exchange[Request, Response] => Future[Unit],
                                batchSize: Int = config.batchSize,
                                queuesPrefix: String = config.queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,

@@ -29,7 +29,7 @@ import scala.language.postfixOps
 import scala.util.control.NonFatal
 
 class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subscriber[Correlated[Exchange[Request, Response]]],
-                                         handleMessage: Correlated[Exchange[Request, Response]] => Future[Unit])
+                                         handleMessage: Exchange[Request, Response] => Future[Unit])
                                         (implicit actorSystem: ActorSystem){
 
   private val consumingActor = actorSystem.actorOf(Props(new Actor {
@@ -38,7 +38,7 @@ class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subs
     override def receive: Receive = {
       case correlated: Correlated[_] =>
         try {
-          handleMessage(correlated.asInstanceOf[Correlated[Exchange[Request, Response]]]) pipeTo sender()
+          handleMessage(correlated.asInstanceOf[Correlated[Exchange[Request, Response]]].msg) pipeTo sender()
         } catch {
           case NonFatal(ex) =>
             sender() ! Status.Failure(ex)
@@ -69,7 +69,7 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
   
   private lazy val config = ConfigParser.parse(actorSystem)
   
-  def create[Request, Response](handleMessage: Correlated[Exchange[Request, Response]] => Future[Unit],
+  def create[Request, Response](handleMessage: Exchange[Request, Response] => Future[Unit],
                                 batchSize: Int = config.batchSize,
                                 queuesPrefix: String = config.queuesPrefix)
                                (implicit messageSubscriberTransport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]): MessageConsumer[Request, Response] = {

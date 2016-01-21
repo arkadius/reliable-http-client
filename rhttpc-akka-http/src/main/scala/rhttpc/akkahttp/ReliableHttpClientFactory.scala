@@ -50,7 +50,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
   }
 
   def inOut(connection: Connection,
-            handleResponse: Correlated[Exchange[HttpRequest, HttpResponse]] => Future[Unit],
+            handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
             successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
             batchSize: Int = config.batchSize,
             queuesPrefix: String = config.queuesPrefix,
@@ -100,7 +100,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       }
     }
 
-    def inOut(handleResponse: Correlated[Exchange[HttpRequest, HttpResponse]] => Future[Unit],
+    def inOut(handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
               successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
               batchSize: Int = config.batchSize,
               queuesPrefix: String = config.queuesPrefix,
