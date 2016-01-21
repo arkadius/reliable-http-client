@@ -20,16 +20,16 @@ import _root_.slick.jdbc.JdbcBackend
 import akka.actor.{ActorRef, ActorSystem}
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
-import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
+import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithDelayedPublisher {
   def queuesStats: Future[Map[String, Int]]
 }
 

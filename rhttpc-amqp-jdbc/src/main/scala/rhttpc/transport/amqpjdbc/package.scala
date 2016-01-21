@@ -17,20 +17,28 @@ package rhttpc.transport
 
 import akka.actor.ActorSystem
 import com.rabbitmq.client.Connection
+import rhttpc.transport.amqp.AmqpTransport
 import slick.driver.JdbcDriver
 import slick.jdbc.JdbcBackend
 
 package object amqpjdbc {
 
-  implicit def transport[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
-                                                   connection: Connection,
-                                                   driver: JdbcDriver,
-                                                   db: JdbcBackend.Database,
-                                                   serializer: Serializer[PubMsg],
-                                                   deserializer: Deserializer[SubMsg],
-                                                   msgSerializer: Serializer[Message[PubMsg]],
-                                                   msgDeserializer: Deserializer[Message[PubMsg]]):
-  PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher =
+  implicit def transportWithInstantPublisher[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
+                                                                       connection: Connection,
+                                                                       serializer: Serializer[PubMsg],
+                                                                       deserializer: Deserializer[SubMsg]):
+  PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher =
+    AmqpTransport(connection)
+
+  implicit def transportWithDelayedPublisher[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
+                                                                       connection: Connection,
+                                                                       driver: JdbcDriver,
+                                                                       db: JdbcBackend.Database,
+                                                                       serializer: Serializer[PubMsg],
+                                                                       deserializer: Deserializer[SubMsg],
+                                                                       msgSerializer: Serializer[Message[PubMsg]],
+                                                                       msgDeserializer: Deserializer[Message[PubMsg]]):
+  PubSubTransport[PubMsg, SubMsg] with WithDelayedPublisher =
     AmqpJdbcTransport(
       connection = connection,
       driver = driver,
