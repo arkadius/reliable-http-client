@@ -1,6 +1,7 @@
 # reliable-http-client
 
 [![circle-ci](https://circleci.com/gh/arkadius/reliable-http-client/tree/master.svg?style=shield&circle-token=1287932dad2962d954d6eac289d36cb4f5a05e2b)](https://circleci.com/gh/arkadius/reliable-http-client/tree/master)
+[![Codacy Badge](https://api.codacy.com/project/badge/grade/46b882f05c87468a849b8805fb9aeb68)](https://www.codacy.com/app/arek-burdach/reliable-http-client)
 [![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
