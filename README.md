@@ -93,7 +93,7 @@ AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
     send = ownClient.send,
     handleResponse = consumer.consume
   )
-  client.send("foo)
+  client.send("foo")
 }
 ```
 
