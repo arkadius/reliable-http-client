@@ -72,7 +72,8 @@ import rhttpc.client._
 implicit val actorSystem = ActorSystem()
 import actorSystem.dispatcher
 AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
-  ReliableClientFactory().inOnly[String](ownClient.send)
+  val client = ReliableClientFactory().inOnly[String](ownClient.send)
+  client.send("foo")
 }
 ```
 
@@ -88,10 +89,11 @@ import rhttpc.client._
 implicit val actorSystem = ActorSystem()
 import actorSystem.dispatcher
 AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
-  ReliableClientFactory().inOut[String, String](
+  val client = ReliableClientFactory().inOut[String, String](
     send = ownClient.send,
     handleResponse = consumer.consume
   )
+  client.send("foo)
 }
 ```
 
