@@ -61,7 +61,7 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     fixture.save(fooQueue)
     fixture.save(barQueue)
 
-    fixture.queuesStatsCheck { stats =>
+    fixture.queuesStatsCheck(Set(fooQueue, barQueue)) { stats =>
       stats(fooQueue) shouldBe 2
       stats(barQueue) shouldBe 1
     }
@@ -89,8 +89,9 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
       whenReady(repo.save(MessageToSchedule(queueName, "some message", 5 second))){ _ => Unit }
     }
 
-    def queuesStatsCheck(check: Map[String, Int] => Unit): Unit = {
-      whenReady(repo.queuesStats)(check)
+    def queuesStatsCheck(queueNames: Set[String])
+                        (check: Map[String, Int] => Unit): Unit = {
+      whenReady(repo.queuesStats(queueNames))(check)
     }
   }
 

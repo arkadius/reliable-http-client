@@ -81,8 +81,10 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver,
     consumedFuture
   }
 
-  override def queuesStats: Future[Map[String, Int]] = {
-    val action = scheduledMessages.groupBy(_.queueName).map {
+  override def queuesStats(names: Set[String]): Future[Map[String, Int]] = {
+    val action = scheduledMessages
+      .filter(_.queueName inSet names)
+      .groupBy(_.queueName).map {
       case (queueName, msgs) =>
         (queueName, msgs.size)
     }.result

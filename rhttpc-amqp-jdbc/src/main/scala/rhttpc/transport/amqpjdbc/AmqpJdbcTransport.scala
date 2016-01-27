@@ -18,6 +18,7 @@ package rhttpc.transport.amqpjdbc
 import _root_.slick.driver.JdbcDriver
 import _root_.slick.jdbc.JdbcBackend
 import akka.actor.{ActorRef, ActorSystem}
+import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
 import rhttpc.transport._
@@ -39,9 +40,12 @@ private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlyi
                                                                        (implicit ec: ExecutionContext)
   extends AmqpJdbcTransport[PubMsg, SubMsg] {
 
+  private val publisherQueueNamesAgent = Agent[Set[String]](Set.empty)
+
   override def publisher(queueData: OutboundQueueData): Publisher[PubMsg] = {
     val underlyingPublisher = underlying.publisher(queueData)
     val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
+    publisherQueueNamesAgent.send(_ + queueData.name)
     new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler)
   }
 
@@ -54,7 +58,8 @@ private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlyi
   override def queuesStats: Future[Map[String, AmqpJdbcQueueStats]] = {
     for {
       amqpStats <- underlying.queueStats
-      scheduledStats <- repo.queuesStats
+      currentPublisherQueueNames <- publisherQueueNamesAgent.future()
+      scheduledStats <- repo.queuesStats(currentPublisherQueueNames)
     } yield {
       val mergedKeys = amqpStats.keySet ++ scheduledStats.keySet
       mergedKeys.map { queueName =>
