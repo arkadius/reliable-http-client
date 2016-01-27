@@ -21,21 +21,22 @@ import akka.actor.{ActorRef, ActorSystem}
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
 import rhttpc.transport._
-import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
+import rhttpc.transport.amqp.{AmqpQueueStats, AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
-  def queuesStats: Future[Map[String, Int]]
+  def queuesStats: Future[Map[String, AmqpJdbcQueueStats]]
 }
 
 private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlying: AmqpTransport[PubMsg, SubMsg],
                                                                         schedulerByQueueAndPublisher: (String, Publisher[PubMsg]) => AmqpJdbcScheduler[PubMsg],
                                                                         repo: ScheduledMessagesRepository)
+                                                                       (implicit ec: ExecutionContext)
   extends AmqpJdbcTransport[PubMsg, SubMsg] {
 
   override def publisher(queueData: OutboundQueueData): Publisher[PubMsg] = {
@@ -50,11 +51,26 @@ private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlyi
   override def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.fullMessageSubscriber(queueData, consumer)
 
-  override def queuesStats: Future[Map[String, Int]] = {
-    repo.queuesStats
+  override def queuesStats: Future[Map[String, AmqpJdbcQueueStats]] = {
+    for {
+      amqpStats <- underlying.queueStats
+      scheduledStats <- repo.queuesStats
+    } yield {
+      val mergedKeys = amqpStats.keySet ++ scheduledStats.keySet
+      mergedKeys.map { queueName =>
+        val amqpQueueStats = amqpStats.getOrElse(queueName, AmqpQueueStats.zero)
+        val stats = AmqpJdbcQueueStats(
+          amqpStats = amqpQueueStats,
+          scheduledMessageCount = scheduledStats.getOrElse(queueName, 0)
+        )
+        queueName -> stats
+      }.toMap
+    }
   }
 
 }
+
+case class AmqpJdbcQueueStats(amqpStats: AmqpQueueStats, scheduledMessageCount: Int)
 
 object AmqpJdbcTransport {
 

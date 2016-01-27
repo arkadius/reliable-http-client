@@ -16,13 +16,18 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
+import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Channel, Connection}
 import rhttpc.transport._
 
+import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.util.Try
 
-trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher
+trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+  def queueStats: Future[Map[String, AmqpQueueStats]]
+}
 
 // TODO: actor-based, connection recovery
 private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Connection,
@@ -36,9 +41,14 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
 
   import actorSystem.dispatcher
 
+  private lazy val statsChannel = connection.createChannel()
+  
+  private val queueNamesAgent = Agent[Set[String]](Set.empty)
+  
   override def publisher(queueData: OutboundQueueData): AmqpPublisher[PubMsg] = {
     val channel = connection.createChannel()
     declarePublisherQueue(AmqpDeclareOutboundQueueData(queueData, exchangeName, channel))
+    queueNamesAgent.send(_ + queueData.name)
     val publisher = new AmqpPublisher[PubMsg](
       channel = channel,
       queueName = queueData.name,
@@ -54,6 +64,7 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
   override def subscriber(queueData: InboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
     val channel = connection.createChannel()
     declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
+    queueNamesAgent.send(_ + queueData.name)
     new AmqpSubscriber[SubMsg](
       channel,
       queueData.name,
@@ -72,6 +83,34 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
       deserializer
     ) with SendingFullMessage[SubMsg]
   }
+  
+  override def queueStats: Future[Map[String, AmqpQueueStats]] = {
+    queueNamesAgent.future().map { names =>
+      names.map { queueName =>
+        val dlqQueueName = AmqpDefaults.prepareDlqName(queueName)
+        val stats = AmqpQueueStats(
+          messageCount = messageCount(queueName),
+          consumerCount = consumerCount(queueName),
+          dlqMessageCount = messageCount(dlqQueueName),
+          dlqConsumerCount = consumerCount(dlqQueueName)
+        )
+        queueName -> stats
+      }.toMap
+    }
+  }
+
+  private def messageCount(queueName: String): Long =
+    Try(statsChannel.messageCount(queueName)).getOrElse(0L)
+
+  private def consumerCount(queueName: String): Long =
+    Try(statsChannel.consumerCount(queueName)).getOrElse(0L)
+  
+}
+
+case class AmqpQueueStats(messageCount: Long, consumerCount: Long, dlqMessageCount: Long, dlqConsumerCount: Long)
+
+object AmqpQueueStats {
+  def zero = AmqpQueueStats(0, 0, 0, 0)
 }
 
 object AmqpTransport {
