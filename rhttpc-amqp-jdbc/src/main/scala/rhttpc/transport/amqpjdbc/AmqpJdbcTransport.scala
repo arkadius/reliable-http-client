@@ -15,6 +15,8 @@
  */
 package rhttpc.transport.amqpjdbc
 
+import java.util.concurrent.ConcurrentLinkedQueue
+
 import _root_.slick.driver.JdbcDriver
 import _root_.slick.jdbc.JdbcBackend
 import akka.actor.{ActorRef, ActorSystem}
@@ -30,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait AmqpJdbcTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+trait AmqpJdbcTransport[-PubMsg <: AnyRef, +SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
   def queuesStats: Future[Map[String, AmqpJdbcQueueStats]]
 }
 
@@ -57,7 +59,7 @@ private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlyi
 
   override def queuesStats: Future[Map[String, AmqpJdbcQueueStats]] = {
     for {
-      amqpStats <- underlying.queueStats
+      amqpStats <- underlying.queuesStats
       currentPublisherQueueNames <- publisherQueueNamesAgent.future()
       scheduledStats <- repo.queuesStats(currentPublisherQueueNames)
     } yield {
@@ -80,6 +82,17 @@ case class AmqpJdbcQueueStats(amqpStats: AmqpQueueStats, scheduledMessageCount: 
 object AmqpJdbcTransport {
 
   private val schedulersCache = TrieMap[String, AmqpJdbcScheduler[_]]()
+
+  private val transportsCache = new ConcurrentLinkedQueue[AmqpJdbcTransport[Nothing, Any]]()
+
+  def aggregatedQueuesStats(implicit ec: ExecutionContext): Future[Map[String, AmqpJdbcQueueStats]] = {
+    import collection.convert.wrapAsScala._
+    Future.sequence(transportsCache.map { transport =>
+      transport.queuesStats
+    }).map {
+      _.foldLeft(Map.empty[String, AmqpJdbcQueueStats])(_ ++ _)
+    }
+  }
 
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       driver: JdbcDriver,
@@ -118,7 +131,9 @@ object AmqpJdbcTransport {
         )
       schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
     }
-    new AmqpJdbcTransportImpl(underlying, schedulerByQueueAndPublisher, repo)
+    val transport = new AmqpJdbcTransportImpl(underlying, schedulerByQueueAndPublisher, repo)
+    transportsCache.add(transport)
+    transport
   }
 
 }

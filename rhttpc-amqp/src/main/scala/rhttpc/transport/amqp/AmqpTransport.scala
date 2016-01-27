@@ -15,18 +15,20 @@
  */
 package rhttpc.transport.amqp
 
+import java.util.concurrent.ConcurrentLinkedQueue
+
 import akka.actor._
 import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Channel, Connection}
 import rhttpc.transport._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-trait AmqpTransport[PubMsg <: AnyRef, SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
-  def queueStats: Future[Map[String, AmqpQueueStats]]
+trait AmqpTransport[-PubMsg <: AnyRef, +SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+  def queuesStats: Future[Map[String, AmqpQueueStats]]
 }
 
 // TODO: actor-based, connection recovery
@@ -84,7 +86,7 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
     ) with SendingFullMessage[SubMsg]
   }
   
-  override def queueStats: Future[Map[String, AmqpQueueStats]] = {
+  override def queuesStats: Future[Map[String, AmqpQueueStats]] = {
     queueNamesAgent.future().map { names =>
       names.map { queueName =>
         val dlqQueueName = AmqpDefaults.prepareDlqName(queueName)
@@ -114,6 +116,18 @@ object AmqpQueueStats {
 }
 
 object AmqpTransport {
+
+  private val transportsCache = new ConcurrentLinkedQueue[AmqpTransport[Nothing, Any]]()
+
+  def aggregatedQueuesStats(implicit ec: ExecutionContext): Future[Map[String, AmqpQueueStats]] = {
+    import collection.convert.wrapAsScala._
+    Future.sequence(transportsCache.map { transport =>
+      transport.queuesStats
+    }).map {
+      _.foldLeft(Map.empty[String, AmqpQueueStats])(_ ++ _)
+    }
+  }
+
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       exchangeName: String = "",
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpDefaults.declarePublisherQueueWithDelayedExchangeIfNeed,
@@ -121,8 +135,8 @@ object AmqpTransport {
                                       prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpDefaults.preparePersistentMessageProperties)
                                      (implicit actorSystem: ActorSystem,
                                       serializer: Serializer[PubMsg],
-                                      deserializer: Deserializer[SubMsg]): AmqpTransport[PubMsg, SubMsg] =
-    new AmqpTransportImpl[PubMsg, SubMsg](
+                                      deserializer: Deserializer[SubMsg]): AmqpTransport[PubMsg, SubMsg] = {
+    val transport = new AmqpTransportImpl[PubMsg, SubMsg](
       connection = connection,
       exchangeName = exchangeName,
       serializer = serializer,
@@ -131,6 +145,9 @@ object AmqpTransport {
       declareSubscriberQueue = declareSubscriberQueue,
       prepareProperties = AmqpDefaults.preparePersistentMessageProperties
     )
+    transportsCache.add(transport)
+    transport
+  }
 
 }
 
