@@ -22,19 +22,25 @@ import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
+import rhttpc.utils.Recovered._
 
 private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
                                                  queueName: String,
                                                  consumer: ActorRef,
-                                                 deserializer: Deserializer[Sub])
-                                                (implicit ec: ExecutionContext)
+                                                 deserializer: Deserializer[Sub],
+                                                 consumeTimeout: FiniteDuration,
+                                                 nackDelay: FiniteDuration)
+                                                (implicit system: ActorSystem)
   extends Subscriber[Sub] {
 
+  import system.dispatcher
+
   private lazy val logger = LoggerFactory.getLogger(getClass)
+
+  @volatile private var consumerTag: Option[String] = None
 
   override def start(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
@@ -52,13 +58,13 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
         }
       }
     }
-    channel.basicConsume(queueName, false, queueConsumer)
+    consumerTag = Some(channel.basicConsume(queueName, false, queueConsumer))
   }
 
   protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any
 
   private def handleDeserializedMessage(msgObj: Any, deliveryTag: Long) = {
-    implicit val timeout = Timeout(5 minute)
+    implicit val timeout = Timeout(consumeTimeout)
     (consumer ? msgObj) onComplete handleConsumerResponse(deliveryTag)
   }
 
@@ -70,12 +76,16 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
       logger.debug(s"REJECT: $deliveryTag because of rejecting failure", ex)
       channel.basicReject(deliveryTag, false)
     case Failure(ex) =>
-      logger.debug(s"NACK: $deliveryTag because of failure", ex)
-      channel.basicNack(deliveryTag, false, true)
+      logger.debug(s"Will NACK: $deliveryTag after $nackDelay because of failure", ex)
+      system.scheduler.scheduleOnce(nackDelay) {
+        logger.debug(s"NACK: $deliveryTag because of previous failure")
+        channel.basicNack(deliveryTag, false, true)
+      }
   }
 
   override def stop(): Unit = {
-    channel.close()
+    recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
+    recovered("closing channel", channel.close())
   }
 
 }

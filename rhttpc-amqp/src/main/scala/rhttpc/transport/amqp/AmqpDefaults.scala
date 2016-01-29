@@ -18,11 +18,22 @@ package rhttpc.transport.amqp
 import com.rabbitmq.client.AMQP
 import rhttpc.transport.{OutboundQueueData, Message}
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 object AmqpDefaults extends AmqpDefaults
 
 trait AmqpDefaults extends AmqpQueuesNaming {
 
   import collection.convert.wrapAsJava._
+
+  private[rhttpc] final val instantExchangeName: String = ""
+  
+  private[rhttpc] final val delayedExchangeName: String = "delayed"
+
+  private[rhttpc] final val consumeTimeout: FiniteDuration = 5 minutes
+  
+  private[rhttpc] final val nackDelay: FiniteDuration = 10 seconds
 
   private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
     case Message(_, additionalProps) =>

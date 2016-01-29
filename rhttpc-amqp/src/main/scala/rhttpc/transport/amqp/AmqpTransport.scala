@@ -23,6 +23,7 @@ import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Channel, Connection}
 import rhttpc.transport._
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
@@ -36,6 +37,8 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
                                                                   exchangeName: String,
                                                                   serializer: Serializer[PubMsg],
                                                                   deserializer: Deserializer[SubMsg],
+                                                                  consumeTimeout: FiniteDuration,
+                                                                  nackDelay: FiniteDuration,
                                                                   declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
                                                                   declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk,
                                                                   prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
@@ -68,10 +71,12 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
     declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
     queueNamesAgent.send(_ + queueData.name)
     new AmqpSubscriber[SubMsg](
-      channel,
-      queueData.name,
-      consumer,
-      deserializer
+      channel = channel,
+      queueName = queueData.name,
+      consumer = consumer,
+      deserializer = deserializer,
+      consumeTimeout = consumeTimeout,
+      nackDelay = nackDelay
     ) with SendingSimpleMessage[SubMsg]
   }
 
@@ -79,10 +84,12 @@ private[rhttpc] class AmqpTransportImpl[PubMsg <: AnyRef, SubMsg](connection: Co
     val channel = connection.createChannel()
     declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
     new AmqpSubscriber[SubMsg](
-      channel,
-      queueData.name,
-      consumer,
-      deserializer
+      channel = channel,
+      queueName = queueData.name,
+      consumer = consumer,
+      deserializer = deserializer,
+      consumeTimeout = consumeTimeout,
+      nackDelay = nackDelay
     ) with SendingFullMessage[SubMsg]
   }
   
@@ -129,7 +136,9 @@ object AmqpTransport {
   }
 
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
-                                      exchangeName: String = "",
+                                      exchangeName: String = AmqpDefaults.instantExchangeName,
+                                      consumeTimeout: FiniteDuration = AmqpDefaults.consumeTimeout,
+                                      nackDelay: FiniteDuration = AmqpDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpDefaults.declarePublisherQueueWithDelayedExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpDefaults.declareSubscriberQueue,
                                       prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpDefaults.preparePersistentMessageProperties)
@@ -141,6 +150,8 @@ object AmqpTransport {
       exchangeName = exchangeName,
       serializer = serializer,
       deserializer = deserializer,
+      consumeTimeout = consumeTimeout,
+      nackDelay = nackDelay,
       declarePublisherQueue = declarePublisherQueue,
       declareSubscriberQueue = declareSubscriberQueue,
       prepareProperties = AmqpDefaults.preparePersistentMessageProperties

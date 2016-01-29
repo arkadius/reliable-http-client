@@ -32,7 +32,7 @@ package object amqp {
                                                                        deserializer: Deserializer[SubMsg]): PubSubTransport[PubMsg, SubMsg] with WithDelayedPublisher =
     AmqpTransport(
       connection = connection,
-      exchangeName = "delayed"
+      exchangeName = AmqpDefaults.delayedExchangeName
     )
 
 }

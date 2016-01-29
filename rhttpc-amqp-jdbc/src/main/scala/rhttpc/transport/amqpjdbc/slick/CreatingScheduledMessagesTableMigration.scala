@@ -29,13 +29,15 @@ trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
     scheduledMessages.schema.create
   }
 
+  protected val messageMaxSize = 8192
+
   val scheduledMessages = TableQuery[ScheduledMessageEntity]
 
   class ScheduledMessageEntity(tag: Tag) extends Table[ScheduledMessage](tag, "scheduled_messages") {
 
     def id = column[Long]("id", NotNull, O.PrimaryKey, O.AutoInc)
     def queueName = column[String]("queue_name", NotNull, O.Length(64))
-    def message = column[String]("message", NotNull)
+    def message = column[String]("message", NotNull, O.Length(messageMaxSize))
     def plannedRun = column[Timestamp]("planned_run", NotNull)
 
     def * = (id.?, queueName, message, plannedRun) <> (ScheduledMessage.apply _ tupled, ScheduledMessage.unapply)

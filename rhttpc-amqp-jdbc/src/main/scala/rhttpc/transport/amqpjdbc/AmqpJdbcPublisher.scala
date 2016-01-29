@@ -18,6 +18,7 @@ package rhttpc.transport.amqpjdbc
 import rhttpc.transport.{DelayedMessage, Message, Publisher}
 
 import scala.concurrent.Future
+import rhttpc.utils.Recovered._
 
 private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publisher[PubMsg],
                                                             queueName: String,
@@ -39,8 +40,8 @@ private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publishe
   }
 
   override def stop(): Unit = {
-    scheduler.stop()
-    underlying.stop()
+    recovered("stopping scheduler", scheduler.stop())
+    recovered("stopping underlying publisher", underlying.stop())
   }
 
 }

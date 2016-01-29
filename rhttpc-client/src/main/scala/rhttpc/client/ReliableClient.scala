@@ -19,7 +19,8 @@ import java.util.UUID
 
 import akka.actor._
 import org.slf4j.LoggerFactory
-import rhttpc.client.Recovered._
+import rhttpc.utils.Recovered
+import Recovered._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.consume.MessageConsumerFactory
 import rhttpc.client.protocol.{Correlated, Exchange}
@@ -58,8 +59,8 @@ class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Reques
   }
 
   def stop(): Future[Unit] = {
-    recovered(publisher.stop(), "stopping request publisher")
-    additionalStopAction
+    recovered("stopping request publisher", publisher.stop())
+    recoveredFuture("additional stop action", additionalStopAction)
   }
 }
 
@@ -95,9 +96,9 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       proxy.start()
     }
     def stopAdditional = {
-      recoveredFuture(proxy.stop(), "stopping proxy")
-        .flatMap(_ => recoveredFuture(subMgr.stop(), "stopping subscription manager"))
-        .flatMap(_ => additionalStopAction)
+      recoveredFuture("stopping proxy", proxy.stop())
+        .flatMap(_ => recoveredFuture("stopping subscription manager", subMgr.stop()))
+        .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
     }
     new ReliableClient(
       publisher = requestPublisher,
@@ -135,9 +136,9 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       proxy.start()
     }
     def stopAdditional = {
-      recoveredFuture(proxy.stop(), "stopping proxy")
-        .flatMap(_ => recoveredFuture(responseConsumer.stop(), "stopping response consumer"))
-        .flatMap(_ => additionalStopAction)
+      recoveredFuture("stopping proxy", proxy.stop())
+        .flatMap(_ => recoveredFuture("stopping response consumer", responseConsumer.stop()))
+        .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
     }
     create(
       publicationHandler = StraightforwardPublicationHandler,
@@ -166,8 +167,8 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       proxy.start()
     }
     def stopAdditional = {
-      recoveredFuture(proxy.stop(), "stopping proxy")
-        .flatMap(_ => additionalStopAction)
+      recoveredFuture("stopping proxy", proxy.stop())
+        .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
     }
     create(
       publicationHandler = StraightforwardPublicationHandler,

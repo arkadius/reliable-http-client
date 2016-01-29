@@ -20,7 +20,8 @@ import java.util.concurrent.TimeoutException
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.client.Recovered._
+import rhttpc.utils.Recovered
+import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
@@ -81,11 +82,8 @@ private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_],
   }
 
   override def stop(): Future[Unit] = {
-    recovered(transportSub.stop(), "stopping subscriber")
-    recoveredFuture(gracefulStop(dispatcher, 30 seconds).map(stopped =>
-      if (!stopped)
-        throw new IllegalStateException("Dispatcher actor hasn't been stopped correctly")
-    ), "stopping dispatcher actor")
+    recovered("stopping subscriber", transportSub.stop())
+    recoveredFuture("stopping dispatcher actor", gracefulStop(dispatcher, 30 seconds).map(_ => Unit))
   }
 
 }

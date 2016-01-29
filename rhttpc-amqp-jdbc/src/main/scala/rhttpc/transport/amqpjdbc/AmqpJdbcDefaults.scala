@@ -17,9 +17,16 @@ package rhttpc.transport.amqpjdbc
 
 import rhttpc.transport.amqp.{AmqpDeclareOutboundQueueData, AmqpDefaults}
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 object AmqpJdbcDefaults extends AmqpJdbcDefaults
 
 trait AmqpJdbcDefaults extends AmqpDefaults {
+
+  private[rhttpc] final val schedulerCheckInterval: FiniteDuration = 30 seconds
+
+  private[rhttpc] final val schedulerMessagesFetchBatchSize: Int = 50
 
   private[rhttpc] def declarePublisherQueueWithExchangeIfNeed(data: AmqpDeclareOutboundQueueData) = {
     declareDlqAndBindToExchange(data)

@@ -72,7 +72,8 @@ lazy val transport = (project in file("rhttpc-transport")).
     name := "rhttpc-transport",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-actor"                    % akkaV
+        "com.typesafe.akka"        %% "akka-actor"                    % akkaV,
+        "org.slf4j"                 % "slf4j-api"                     % slf4jV
       )
     }
   )
@@ -87,7 +88,6 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
-        "org.slf4j"                 % "slf4j-api"                     % slf4jV,
         "org.scala-lang"            % "scala-reflect"                 % scalaV
       )
     }
@@ -133,7 +133,6 @@ lazy val client = (project in file("rhttpc-client")).
     name := "rhttpc-client",
     libraryDependencies ++= {
       Seq(
-        "org.slf4j"                 % "slf4j-api"                     % slf4jV,
         "com.iheart"               %% "ficus"                         % ficusV,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",

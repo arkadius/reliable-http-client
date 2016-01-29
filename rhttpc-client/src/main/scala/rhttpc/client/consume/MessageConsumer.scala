@@ -17,7 +17,8 @@ package rhttpc.client.consume
 
 import akka.actor._
 import akka.pattern._
-import rhttpc.client.Recovered._
+import rhttpc.utils.Recovered
+import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
@@ -56,11 +57,8 @@ class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subs
 
   def stop(): Future[Unit] = {
     import actorSystem.dispatcher
-    recovered(subscriber.stop(), "stopping message subscriber")
-    recoveredFuture(gracefulStop(consumingActor, 30 seconds).map(stopped =>
-      if (!stopped)
-        throw new IllegalStateException("Message consumer actor hasn't been stopped correctly")
-    ), "stopping message consumer actor")
+    recovered("stopping message subscriber", subscriber.stop())
+    recoveredFuture("stopping message consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit))
   }
 
 }

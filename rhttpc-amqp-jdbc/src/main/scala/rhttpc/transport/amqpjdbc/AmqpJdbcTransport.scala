@@ -24,12 +24,12 @@ import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
 import rhttpc.transport._
-import rhttpc.transport.amqp.{AmqpQueueStats, AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpTransport}
+import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpQueueStats, AmqpTransport}
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
 trait AmqpJdbcTransport[-PubMsg <: AnyRef, +SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
@@ -97,9 +97,11 @@ object AmqpJdbcTransport {
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       driver: JdbcDriver,
                                       db: JdbcBackend.Database,
-                                      checkInterval: FiniteDuration = 30 seconds,
-                                      schedulerMessagesFetchBatchSize: Int = 50,
-                                      exchangeName: String = "",
+                                      schedulerCheckInterval: FiniteDuration = AmqpJdbcDefaults.schedulerCheckInterval,
+                                      schedulerMessagesFetchBatchSize: Int = AmqpJdbcDefaults.schedulerMessagesFetchBatchSize,
+                                      exchangeName: String = AmqpJdbcDefaults.instantExchangeName,
+                                      consumeTimeout: FiniteDuration = AmqpJdbcDefaults.consumeTimeout,
+                                      nackDelay: FiniteDuration = AmqpJdbcDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpJdbcDefaults.declarePublisherQueueWithExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,
                                       prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
@@ -110,24 +112,26 @@ object AmqpJdbcTransport {
                                       msgDeserializer: Deserializer[Message[PubMsg]]): AmqpJdbcTransport[PubMsg, SubMsg] = {
     import actorSystem.dispatcher
     val underlying = AmqpTransport[PubMsg, SubMsg](
-      connection,
-      exchangeName,
-      declarePublisherQueue,
-      declareSubscriberQueue,
-      prepareProperties
+      connection = connection,
+      exchangeName = exchangeName,
+      consumeTimeout = consumeTimeout,
+      nackDelay = nackDelay,
+      declarePublisherQueue = declarePublisherQueue,
+      declareSubscriberQueue = declareSubscriberQueue,
+      prepareProperties = prepareProperties      
     )
     val repo = new SlickJdbcScheduledMessagesRepository(driver, db)
     def schedulerByQueueAndPublisher(queueName: String, publisher: Publisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {
       def createScheduler =
         new AmqpJdbcSchedulerImpl[PubMsg](
-          actorSystem.scheduler,
-          checkInterval,
-          repo,
-          queueName,
-          schedulerMessagesFetchBatchSize,
-          publisher,
-          msgSerializer,
-          msgDeserializer
+          scheduler = actorSystem.scheduler,
+          checkInterval = schedulerCheckInterval,
+          repo = repo,
+          queueName = queueName,
+          batchSize = schedulerMessagesFetchBatchSize,
+          publisher = publisher,
+          serializer = msgSerializer,
+          deserializer = msgDeserializer
         )
       schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
     }

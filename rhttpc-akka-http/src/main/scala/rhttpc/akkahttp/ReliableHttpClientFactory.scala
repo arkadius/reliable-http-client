@@ -20,7 +20,8 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.proxy.{AcceptSuccessHttpStatus, ReliableHttpProxyFactory, SuccessHttpResponseRecognizer}
-import rhttpc.client.Recovered._
+import rhttpc.utils.Recovered
+import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
@@ -81,6 +82,8 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
 
   def withOwnAmqpConnection = new {
 
+    private final val AMQP_CLOSE_TIMEOUT_MILLIS = 5 * 1000
+
     def inOutWithSubscriptions(successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
                                batchSize: Int = config.batchSize,
                                queuesPrefix: String = config.queuesPrefix,
@@ -93,7 +96,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered(connection.close(), "closing amqp connection")
+            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
             Future.successful(Unit)
           }
         )
@@ -114,7 +117,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered(connection.close(), "closing amqp connection")
+            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
             Future.successful(Unit)
           }
         )
@@ -133,7 +136,7 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered(connection.close(), "closing amqp connection")
+            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
             Future.successful(Unit)
           }
         )

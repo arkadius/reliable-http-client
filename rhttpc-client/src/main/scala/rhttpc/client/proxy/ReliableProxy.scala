@@ -18,7 +18,8 @@ package rhttpc.client.proxy
 import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
-import rhttpc.client.Recovered._
+import rhttpc.utils.Recovered
+import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
@@ -54,19 +55,16 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
 
     private def handleRequest(correlated: Correlated[Request], attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]) = {
       try {
-        (for {
-          tryResponse <- send(correlated).map(Success(_)).recover {
-            case NonFatal(ex) => Failure(ex)
-          }
-          result <- tryResponse match {
-            case Success(response) =>
-              logger.debug(s"Success response for ${correlated.correlationId}")
-              handleResponse(Correlated(SuccessExchange(correlated.msg, response), correlated.correlationId))
-            case Failure(ex) =>
-              logger.error(s"Failure response for ${correlated.correlationId}", ex)
-              handleFailure(correlated, attemptsSoFar, lastPlannedDelay, ex)
-          }
-        } yield result) pipeTo sender()
+        send(correlated).map(Success(_)).recover {
+          case NonFatal(ex) => Failure(ex)
+        }.flatMap {
+          case Success(response) =>
+            logger.debug(s"Success response for ${correlated.correlationId}")
+            handleResponse(Correlated(SuccessExchange(correlated.msg, response), correlated.correlationId))
+          case Failure(ex) =>
+            logger.error(s"Failure response for ${correlated.correlationId}", ex)
+            handleFailure(correlated, attemptsSoFar, lastPlannedDelay, ex)
+        }.pipeTo(sender())
       } catch {
         case NonFatal(ex) =>
           sender() ! Status.Failure(ex)
@@ -104,13 +102,10 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
   
   def stop(): Future[Unit] = {
     import actorSystem.dispatcher
-    recovered(subscriber.stop(), "stopping request subscriber")
-    recoveredFuture(gracefulStop(consumingActor, 30 seconds).map(stopped =>
-      if (!stopped)
-        throw new IllegalStateException("Request consumer actor hasn't been stopped correctly")
-    ), "stopping request consumer actor")
-      .map(_ => recovered(requestPublisher.stop(), "stopping request publisher"))
-      .flatMap(_ => additionalStopAction)
+    recovered("stopping request subscriber", subscriber.stop())
+    recoveredFuture("stopping request consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit))
+      .map(_ => recovered("stopping request publisher", requestPublisher.stop()))
+      .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
   }
   
 }
@@ -124,6 +119,8 @@ object ExhaustedRetry {
 }
 
 case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
+
+  import actorSystem.dispatcher
 
   private lazy val config = ConfigParser.parse(actorSystem)
   
@@ -143,8 +140,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       responsePublisher.start()
     }
     def stopAdditional = {
-      recovered(responsePublisher.stop(), "stopping response publisher")
-      additionalStopAction
+      recovered("stopping response publisher", responsePublisher.stop())
+      recoveredFuture("additional stop action", additionalStopAction)
     }
     create(
       send = send,

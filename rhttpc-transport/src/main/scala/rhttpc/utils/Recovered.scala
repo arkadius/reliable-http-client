@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.client
+package rhttpc.utils
 
 import org.slf4j.LoggerFactory
 
@@ -24,7 +24,7 @@ object Recovered {
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  def recovered(run: => Unit, action: String): Unit = {
+  def recovered(action: String, run: => Unit): Unit = {
     try {
       run
     } catch {
@@ -34,7 +34,7 @@ object Recovered {
     }
   }
 
-  def recoveredFuture(future: => Future[Unit], action: String)
+  def recoveredFuture(action: String, future: => Future[Unit])
                      (implicit ec: ExecutionContext): Future[Unit] = {
     try {
       future.recover {
