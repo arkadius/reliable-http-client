@@ -17,12 +17,13 @@ package rhttpc.transport.amqpjdbc
 
 import rhttpc.transport.{DelayedMessage, Message, Publisher}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import rhttpc.utils.Recovered._
 
 private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publisher[PubMsg],
                                                             queueName: String,
-                                                            scheduler: AmqpJdbcScheduler[PubMsg]) extends Publisher[PubMsg] {
+                                                            scheduler: AmqpJdbcScheduler[PubMsg])
+                                                           (implicit ec: ExecutionContext) extends Publisher[PubMsg] {
 
   override def publish(msg: Message[PubMsg]): Future[Unit] = {
     msg match {
@@ -39,9 +40,9 @@ private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publishe
     scheduler.start()
   }
 
-  override def stop(): Unit = {
-    recovered("stopping scheduler", scheduler.stop())
-    recovered("stopping underlying publisher", underlying.stop())
+  override def stop(): Future[Unit] = {
+    recoveredFuture("stopping scheduler", scheduler.stop())
+      .flatMap(_ => recoveredFuture("stopping underlying publisher", underlying.stop()))
   }
 
 }

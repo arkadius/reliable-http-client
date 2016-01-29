@@ -30,7 +30,7 @@ private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
   def start(): Unit
 
-  def stop(): Unit
+  def stop(): Future[Unit]
 
 }
 
@@ -45,9 +45,9 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
                                                      (implicit ec: ExecutionContext) extends AmqpJdbcScheduler[PubMsg] {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val lock: AnyRef = new AnyRef
   private var ran: Boolean = false
   private var scheduledCheck: Option[Cancellable] = None
+  @volatile private var currentPublishedFetchedFuture: Future[Int] = Future.successful(0)
 
   override def schedule(msg: Message[PubMsg], delay: FiniteDuration): Future[Unit] = {
     val serialized = serializer.serialize(msg)
@@ -55,7 +55,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
   }
 
   override def start(): Unit = {
-    lock.synchronized {
+    synchronized {
       if (!ran) {
         ran = true
         publishFetchedMessagesThanReschedule
@@ -80,12 +80,13 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
       }
       Future.sequence(handlingFutures)
     }
+    currentPublishedFetchedFuture = publishedFetchedFuture
     publishedFetchedFuture.onFailure {
       case NonFatal(ex) =>
         logger.error("Exception while publishing fetched messages", ex)
     }
     publishedFetchedFuture.onComplete { _ =>
-      lock.synchronized {
+      synchronized {
         if (ran) {
           scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule))
         }
@@ -94,11 +95,12 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
     publishedFetchedFuture
   }
 
-  override def stop(): Unit = {
-    lock.synchronized {
+  override def stop(): Future[Unit] = {
+    synchronized {
       scheduledCheck.foreach(_.cancel())
       ran = false
     }
+    currentPublishedFetchedFuture.map(_ => Unit)
   }
 
 }

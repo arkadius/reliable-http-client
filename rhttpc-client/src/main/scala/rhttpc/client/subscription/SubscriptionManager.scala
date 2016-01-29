@@ -82,8 +82,8 @@ private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_],
   }
 
   override def stop(): Future[Unit] = {
-    recovered("stopping subscriber", transportSub.stop())
-    recoveredFuture("stopping dispatcher actor", gracefulStop(dispatcher, 30 seconds).map(_ => Unit))
+    recoveredFuture("stopping subscriber", transportSub.stop())
+      .flatMap(_ => recoveredFuture("stopping dispatcher actor", gracefulStop(dispatcher, 30 seconds).map(_ => Unit)))
   }
 
 }

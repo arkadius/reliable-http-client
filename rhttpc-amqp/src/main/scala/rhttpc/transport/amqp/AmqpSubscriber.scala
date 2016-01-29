@@ -22,6 +22,7 @@ import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -83,9 +84,11 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
       }
   }
 
-  override def stop(): Unit = {
-    recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
-    recovered("closing channel", channel.close())
+  override def stop(): Future[Unit] = {
+    Future {
+      recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
+      recovered("closing channel", channel.close())
+    }
   }
 
 }

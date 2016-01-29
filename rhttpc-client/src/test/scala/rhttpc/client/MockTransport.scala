@@ -66,7 +66,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
       override def start(): Unit = {}
 
-      override def stop(): Unit = {}
+      override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
   override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Exchange[String, String]]] =
@@ -78,7 +78,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
       override def start(): Unit = {}
 
-      override def stop(): Unit = {}
+      override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
 }
@@ -90,7 +90,7 @@ object MockProxyTransport extends PubSubTransport[Correlated[Exchange[String, St
 
       override def start(): Unit = {}
 
-      override def stop(): Unit = {}
+      override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
   override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
@@ -98,8 +98,8 @@ object MockProxyTransport extends PubSubTransport[Correlated[Exchange[String, St
 
   override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
     new Subscriber[Correlated[String]] {
-      override def stop(): Unit = {}
-
       override def start(): Unit = {}
+
+      override def stop(): Future[Unit] = Future.successful(Unit)
     }
 }

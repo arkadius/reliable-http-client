@@ -59,8 +59,8 @@ class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Reques
   }
 
   def stop(): Future[Unit] = {
-    recovered("stopping request publisher", publisher.stop())
-    recoveredFuture("additional stop action", additionalStopAction)
+    recoveredFuture("stopping request publisher", publisher.stop())
+      .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
   }
 }
 

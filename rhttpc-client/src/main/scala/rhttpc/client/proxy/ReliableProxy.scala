@@ -102,9 +102,9 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
   
   def stop(): Future[Unit] = {
     import actorSystem.dispatcher
-    recovered("stopping request subscriber", subscriber.stop())
-    recoveredFuture("stopping request consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit))
-      .map(_ => recovered("stopping request publisher", requestPublisher.stop()))
+    recoveredFuture("stopping request subscriber", subscriber.stop())
+      .flatMap(_ => recoveredFuture("stopping request consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit)))
+      .flatMap(_ => recoveredFuture("stopping request publisher", requestPublisher.stop()))
       .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
   }
   
@@ -140,8 +140,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       responsePublisher.start()
     }
     def stopAdditional = {
-      recovered("stopping response publisher", responsePublisher.stop())
-      recoveredFuture("additional stop action", additionalStopAction)
+      recoveredFuture("stopping response publisher", responsePublisher.stop())
+        .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
     }
     create(
       send = send,

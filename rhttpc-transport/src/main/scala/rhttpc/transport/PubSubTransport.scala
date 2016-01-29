@@ -55,7 +55,7 @@ trait Publisher[-Msg] {
 
   def start(): Unit
 
-  def stop(): Unit
+  def stop(): Future[Unit]
 
 }
 
@@ -63,7 +63,7 @@ trait Subscriber[+SubMsg] {
 
   def start(): Unit
 
-  def stop(): Unit
+  def stop(): Future[Unit]
 }
 
 trait RejectingMessage { self: Exception =>

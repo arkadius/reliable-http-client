@@ -20,11 +20,9 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import com.rabbitmq.client.Connection
 import rhttpc.akkahttp.proxy.{AcceptSuccessHttpStatus, ReliableHttpProxyFactory, SuccessHttpResponseRecognizer}
-import rhttpc.utils.Recovered
-import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
-import rhttpc.client.protocol.{Correlated, Exchange}
+import rhttpc.client.protocol.Exchange
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
 
 import scala.concurrent.Future
@@ -96,8 +94,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
-            Future.successful(Unit)
+            Future {
+              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+            }
           }
         )
       }
@@ -117,8 +116,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
-            Future.successful(Unit)
+            Future {
+              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+            }
           }
         )
       }
@@ -136,8 +136,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
-            recovered("closing amqp connection", connection.close(AMQP_CLOSE_TIMEOUT_MILLIS))
-            Future.successful(Unit)
+            Future {
+              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+            }
           }
         )
       }

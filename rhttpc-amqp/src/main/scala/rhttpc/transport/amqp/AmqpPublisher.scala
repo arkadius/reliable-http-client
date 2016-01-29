@@ -86,8 +86,10 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
 
   override def start(): Unit = {}
 
-  override def stop(): Unit = {
-    channel.close()
+  override def stop(): Future[Unit] = {
+    Future {
+      channel.close()
+    }
   }
 }
 
