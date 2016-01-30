@@ -86,9 +86,11 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
         logger.error("Exception while publishing fetched messages", ex)
     }
     publishedFetchedFuture.onComplete { _ =>
-      synchronized {
+      AmqpJdbcSchedulerImpl.this.synchronized {
         if (ran) {
           scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule))
+        } else {
+          logger.debug(s"Scheduler is stopping, next check will be skipped")
         }
       }
     }
