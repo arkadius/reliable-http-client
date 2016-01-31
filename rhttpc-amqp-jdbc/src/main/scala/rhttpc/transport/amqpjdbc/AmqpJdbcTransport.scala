@@ -53,7 +53,11 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
     val underlyingPublisher = underlying.publisher[PubMsg](queueData)
     val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
     publisherQueueNamesAgent.send(_ + queueData.name)
-    new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler)
+    def removeFromCache(): Future[Unit] = {
+      schedulersCache.remove(queueData.name)
+      Future.successful(Unit)
+    }
+    new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler, removeFromCache())
   }
 
   private def schedulerByQueueAndPublisher[PubMsg <: AnyRef](queueName: String, publisher: Publisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {

@@ -22,7 +22,8 @@ import rhttpc.utils.Recovered._
 
 private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publisher[PubMsg],
                                                             queueName: String,
-                                                            scheduler: AmqpJdbcScheduler[PubMsg])
+                                                            scheduler: AmqpJdbcScheduler[PubMsg],
+                                                            additionalStopAction: => Future[Unit])
                                                            (implicit ec: ExecutionContext) extends Publisher[PubMsg] {
 
   override def publish(msg: Message[PubMsg]): Future[Unit] = {
@@ -43,6 +44,7 @@ private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publishe
   override def stop(): Future[Unit] = {
     recoveredFuture("stopping scheduler", scheduler.stop())
       .flatMap(_ => recoveredFuture("stopping underlying publisher", underlying.stop()))
+      .flatMap(_ => recoveredFuture("additional action", additionalStopAction))
   }
 
 }
