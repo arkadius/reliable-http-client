@@ -27,7 +27,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport[Correlated[String], Correlated[Exchange[String, String]]] with WithDelayedPublisher {
+  extends PubSubTransport with WithDelayedPublisher {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile private var _replySubscriptionPromise: Promise[String] = _
@@ -49,19 +49,24 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _ackOnReplySubscriptionFuture
   }
 
-  override def publisher(data: OutboundQueueData): Publisher[Correlated[String]] =
-    new Publisher[Correlated[String]] {
-      override def publish(request: Message[Correlated[String]]): Future[Unit] = {
-        _publicationPromise = Promise[Unit]()
-        _replySubscriptionPromise = Promise[String]()
-        implicit val timeout = Timeout(5 seconds)
-        _replySubscriptionPromise.future.onComplete {
-          case Success(result) =>
-            _ackOnReplySubscriptionFuture = consumer ? Correlated(SuccessExchange(request.content.msg, result), request.content.correlationId)
-          case Failure(ex) =>
-            _ackOnReplySubscriptionFuture = consumer ? Correlated(FailureExchange(request.content.msg, ex), request.content.correlationId)
+  override def publisher[PubMsg <: AnyRef](data: OutboundQueueData): Publisher[PubMsg] =
+    new Publisher[PubMsg] {
+      override def publish(request: Message[PubMsg]): Future[Unit] = {
+        request.content match {
+          case Correlated(msg, correlationId) =>
+            _publicationPromise = Promise[Unit]()
+            _replySubscriptionPromise = Promise[String]()
+            implicit val timeout = Timeout(5 seconds)
+            _replySubscriptionPromise.future.onComplete {
+              case Success(result) =>
+                _ackOnReplySubscriptionFuture = consumer ? Correlated(SuccessExchange(msg, result), correlationId)
+              case Failure(ex) =>
+                _ackOnReplySubscriptionFuture = consumer ? Correlated(FailureExchange(msg, ex), correlationId)
+            }
+            _publicationPromise.future
+          case other =>
+            throw new IllegalArgumentException("Illegal message content: " + other)
         }
-        _publicationPromise.future
       }
 
       override def start(): Unit = {}
@@ -69,11 +74,11 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
-  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Exchange[String, String]]] =
+  override def fullMessageSubscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(data, consumer)
 
-  override def subscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[Exchange[String, String]]] =
-    new Subscriber[Correlated[Exchange[String, String]]] {
+  override def subscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+    new Subscriber[SubMsg] {
       MockTransport.this.consumer = consumer
 
       override def start(): Unit = {}
@@ -83,21 +88,21 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
 }
 
-object MockProxyTransport extends PubSubTransport[Correlated[Exchange[String, String]], Correlated[String]] with WithInstantPublisher {
-  override def publisher(queueData: OutboundQueueData): Publisher[Correlated[Exchange[String, String]]] =
-    new Publisher[Correlated[Exchange[String, String]]] {
-      override def publish(msg: Message[Correlated[Exchange[String, String]]]): Future[Unit] = Future.successful(Unit)
+object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
+  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] =
+    new Publisher[PubMsg] {
+      override def publish(msg: Message[PubMsg]): Future[Unit] = Future.successful(Unit)
 
       override def start(): Unit = {}
 
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
-  override def fullMessageSubscriber(data: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
+  override def fullMessageSubscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(data, consumer)
 
-  override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[Correlated[String]] =
-    new Subscriber[Correlated[String]] {
+  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+    new Subscriber[SubMsg] {
       override def start(): Unit = {}
 
       override def stop(): Future[Unit] = Future.successful(Unit)

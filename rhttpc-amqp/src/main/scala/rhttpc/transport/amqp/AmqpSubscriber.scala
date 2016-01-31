@@ -28,13 +28,13 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 import rhttpc.utils.Recovered._
 
-private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
-                                                 queueName: String,
-                                                 consumer: ActorRef,
-                                                 deserializer: Deserializer[Sub],
-                                                 consumeTimeout: FiniteDuration,
-                                                 nackDelay: FiniteDuration)
-                                                (implicit system: ActorSystem)
+private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
+                                                           queueName: String,
+                                                           consumer: ActorRef,
+                                                           deserializer: Deserializer,
+                                                           consumeTimeout: FiniteDuration,
+                                                           nackDelay: FiniteDuration)
+                                                          (implicit system: ActorSystem)
   extends Subscriber[Sub] {
 
   import system.dispatcher

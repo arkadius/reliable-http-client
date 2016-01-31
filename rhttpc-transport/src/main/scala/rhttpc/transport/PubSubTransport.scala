@@ -21,25 +21,25 @@ import scala.concurrent.Future
 import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
-trait PubSubTransport[-PubMsg, +SubMsg] {
-  def publisher(queueName: String): Publisher[PubMsg] =
+trait PubSubTransport {
+  def publisher[PubMsg <: AnyRef](queueName: String): Publisher[PubMsg] =
     publisher(OutboundQueueData(queueName))
 
-  def subscriber(queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
+  def subscriber[SubMsg: Manifest](queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(InboundQueueData(queueName, batchSize = 10), consumer)
 
-  def publisher(queueData: OutboundQueueData): Publisher[PubMsg]
+  def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg]
 
-  def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+  def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 
-  def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+  def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 
 }
 
-trait WithInstantPublisher { self: PubSubTransport[_, _] =>
+trait WithInstantPublisher { self: PubSubTransport =>
 }
 
-trait WithDelayedPublisher { self: PubSubTransport[_, _] =>
+trait WithDelayedPublisher { self: PubSubTransport =>
 }
 
 case class InboundQueueData(name: String, batchSize: Int, durability: Boolean = true, autoDelete: Boolean = false)
@@ -69,10 +69,10 @@ trait Subscriber[+SubMsg] {
 trait RejectingMessage { self: Exception =>
 }
 
-trait Serializer[-PubMsg] {
-  def serialize(obj: PubMsg): String
+trait Serializer {
+  def serialize[Msg <: AnyRef](obj: Msg): String
 }
 
-trait Deserializer[+SubMsg] {
-  def deserialize(value: String): Try[SubMsg]
+trait Deserializer {
+  def deserialize[Msg: Manifest](value: String): Try[Msg]
 }

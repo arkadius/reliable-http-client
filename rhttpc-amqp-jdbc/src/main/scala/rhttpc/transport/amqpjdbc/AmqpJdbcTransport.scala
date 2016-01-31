@@ -15,8 +15,6 @@
  */
 package rhttpc.transport.amqpjdbc
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import _root_.slick.driver.JdbcDriver
 import _root_.slick.jdbc.JdbcBackend
 import akka.actor.{ActorRef, ActorSystem}
@@ -28,33 +26,53 @@ import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQu
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 import scala.language.postfixOps
 
-trait AmqpJdbcTransport[-PubMsg <: AnyRef, +SubMsg] extends PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher with WithDelayedPublisher {
+trait AmqpJdbcTransport extends PubSubTransport with WithInstantPublisher with WithDelayedPublisher {
   def queuesStats: Future[Map[String, AmqpJdbcQueueStats]]
 }
 
-private[amqpjdbc] class AmqpJdbcTransportImpl[PubMsg <: AnyRef, SubMsg](underlying: AmqpTransport[PubMsg, SubMsg],
-                                                                        schedulerByQueueAndPublisher: (String, Publisher[PubMsg]) => AmqpJdbcScheduler[PubMsg],
-                                                                        repo: ScheduledMessagesRepository)
-                                                                       (implicit ec: ExecutionContext)
-  extends AmqpJdbcTransport[PubMsg, SubMsg] {
+private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
+                                              repo: ScheduledMessagesRepository,
+                                              schedulerCheckInterval: FiniteDuration,
+                                              schedulerMessagesFetchBatchSize: Int)
+                                             (implicit actorSystem: ActorSystem,
+                                              serializer: Serializer,
+                                              deserializer: Deserializer)
+  extends AmqpJdbcTransport {
+
+  import actorSystem.dispatcher
+
+  private val schedulersCache = TrieMap[String, AmqpJdbcScheduler[_]]()
 
   private val publisherQueueNamesAgent = Agent[Set[String]](Set.empty)
 
-  override def publisher(queueData: OutboundQueueData): Publisher[PubMsg] = {
-    val underlyingPublisher = underlying.publisher(queueData)
+  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] = {
+    val underlyingPublisher = underlying.publisher[PubMsg](queueData)
     val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
     publisherQueueNamesAgent.send(_ + queueData.name)
     new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler)
   }
 
-  override def subscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  private def schedulerByQueueAndPublisher[PubMsg <: AnyRef](queueName: String, publisher: Publisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {
+    def createScheduler =
+      new AmqpJdbcSchedulerImpl[PubMsg](
+        scheduler = actorSystem.scheduler,
+        checkInterval = schedulerCheckInterval,
+        repo = repo,
+        queueName = queueName,
+        batchSize = schedulerMessagesFetchBatchSize,
+        publisher = publisher
+      )
+    schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
+  }
+
+  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.subscriber(queueData, consumer)
 
-  override def fullMessageSubscriber(queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.fullMessageSubscriber(queueData, consumer)
 
   override def queuesStats: Future[Map[String, AmqpJdbcQueueStats]] = {
@@ -81,19 +99,6 @@ case class AmqpJdbcQueueStats(amqpStats: AmqpQueueStats, scheduledMessageCount: 
 
 object AmqpJdbcTransport {
 
-  private val schedulersCache = TrieMap[SchedulerCacheKey, AmqpJdbcScheduler[_]]()
-
-  private val transportsCache = new ConcurrentLinkedQueue[AmqpJdbcTransport[Nothing, Any]]()
-
-  def aggregatedQueuesStats(implicit ec: ExecutionContext): Future[Map[String, AmqpJdbcQueueStats]] = {
-    import collection.convert.wrapAsScala._
-    Future.sequence(transportsCache.map { transport =>
-      transport.queuesStats
-    }).map {
-      _.foldLeft(Map.empty[String, AmqpJdbcQueueStats])(_ ++ _)
-    }
-  }
-
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
                                       driver: JdbcDriver,
                                       db: JdbcBackend.Database,
@@ -106,10 +111,8 @@ object AmqpJdbcTransport {
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,
                                       prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
                                      (implicit actorSystem: ActorSystem,
-                                      serializer: Serializer[PubMsg],
-                                      deserializer: Deserializer[SubMsg],
-                                      msgSerializer: Serializer[Message[PubMsg]],
-                                      msgDeserializer: Deserializer[Message[PubMsg]]): AmqpJdbcTransport[PubMsg, SubMsg] = {
+                                      serializer: Serializer,
+                                      deserializer: Deserializer): AmqpJdbcTransport = {
     import actorSystem.dispatcher
     val underlying = AmqpTransport[PubMsg, SubMsg](
       connection = connection,
@@ -121,27 +124,12 @@ object AmqpJdbcTransport {
       prepareProperties = prepareProperties      
     )
     val repo = new SlickJdbcScheduledMessagesRepository(driver, db)
-    def schedulerByQueueAndPublisher(connection: Connection, db: JdbcBackend.Database, actorSystem: ActorSystem)
-                                    (queueName: String, publisher: Publisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {
-      def createScheduler =
-        new AmqpJdbcSchedulerImpl[PubMsg](
-          scheduler = actorSystem.scheduler,
-          checkInterval = schedulerCheckInterval,
-          repo = repo,
-          queueName = queueName,
-          batchSize = schedulerMessagesFetchBatchSize,
-          publisher = publisher,
-          serializer = msgSerializer,
-          deserializer = msgDeserializer
-        )
-      val key = SchedulerCacheKey(connection, db, actorSystem, queueName)
-      schedulersCache.getOrElseUpdate(key, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
-    }
-    val transport = new AmqpJdbcTransportImpl(underlying, schedulerByQueueAndPublisher(connection, db, actorSystem), repo)
-    transportsCache.add(transport)
-    transport
+    new AmqpJdbcTransportImpl(
+      underlying,
+      repo,
+      schedulerCheckInterval,
+      schedulerMessagesFetchBatchSize
+    )
   }
 
 }
-
-case class SchedulerCacheKey(connection: Connection, db: JdbcBackend.Database, actorSystem: ActorSystem, queueName: String)

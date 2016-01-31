@@ -28,7 +28,7 @@ import scala.language.postfixOps
 private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
                                                     queueName: String,
                                                     exchangeName: String,
-                                                    serializer: Serializer[PubMsg],
+                                                    serializer: Serializer,
                                                     prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
                                                    (implicit ec: ExecutionContext)
   extends Publisher[PubMsg] with ConfirmListener {

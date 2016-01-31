@@ -34,15 +34,15 @@ private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
 }
 
-private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
-                                                      checkInterval: FiniteDuration,
-                                                      repo: ScheduledMessagesRepository,
-                                                      queueName: String,
-                                                      batchSize: Int,
-                                                      publisher: Publisher[PubMsg],
-                                                      serializer: Serializer[Message[PubMsg]],
-                                                      deserializer: Deserializer[Message[PubMsg]])
-                                                     (implicit ec: ExecutionContext) extends AmqpJdbcScheduler[PubMsg] {
+private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Scheduler,
+                                                                checkInterval: FiniteDuration,
+                                                                repo: ScheduledMessagesRepository,
+                                                                queueName: String,
+                                                                batchSize: Int,
+                                                                publisher: Publisher[PubMsg])
+                                                               (implicit ec: ExecutionContext,
+                                                                serializer: Serializer,
+                                                                deserializer: Deserializer) extends AmqpJdbcScheduler[PubMsg] {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private var ran: Boolean = false
@@ -69,10 +69,10 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
         logger.debug(s"Fetched ${messages.size}, publishing")
       }
       val handlingFutures = messages.map { message =>
-        val tryDeserialized = deserializer.deserialize(message.message)
+        val tryDeserialized = deserializer.deserialize[Message[_]](message.message)
         tryDeserialized match {
           case Success(deseralized) =>
-            publisher.publish(deseralized)
+            publisher.publish(deseralized.asInstanceOf[Message[PubMsg]])
           case Failure(ex) =>
             logger.error(s"Message ${message.message} skipped because of parse failure", ex)
             Future.successful(())
@@ -86,7 +86,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
         logger.error("Exception while publishing fetched messages", ex)
     }
     publishedFetchedFuture.onComplete { _ =>
-      AmqpJdbcSchedulerImpl.this.synchronized {
+      synchronized {
         if (ran) {
           scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule))
         } else {

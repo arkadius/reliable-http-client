@@ -23,22 +23,18 @@ import slick.jdbc.JdbcBackend
 
 package object amqpjdbc {
 
-  implicit def transportWithInstantPublisher[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
-                                                                       connection: Connection,
-                                                                       serializer: Serializer[PubMsg],
-                                                                       deserializer: Deserializer[SubMsg]):
-  PubSubTransport[PubMsg, SubMsg] with WithInstantPublisher =
+  implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
+                                             connection: Connection,
+                                             serializer: Serializer,
+                                             deserializer: Deserializer): PubSubTransport with WithInstantPublisher =
     AmqpTransport(connection)
 
-  implicit def transportWithDelayedPublisher[PubMsg <: AnyRef, SubMsg](implicit actorSystem: ActorSystem,
-                                                                       connection: Connection,
-                                                                       driver: JdbcDriver,
-                                                                       db: JdbcBackend.Database,
-                                                                       serializer: Serializer[PubMsg],
-                                                                       deserializer: Deserializer[SubMsg],
-                                                                       msgSerializer: Serializer[Message[PubMsg]],
-                                                                       msgDeserializer: Deserializer[Message[PubMsg]]):
-  PubSubTransport[PubMsg, SubMsg] with WithDelayedPublisher =
+  implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
+                                             connection: Connection,
+                                             driver: JdbcDriver,
+                                             db: JdbcBackend.Database,
+                                             serializer: Serializer,
+                                             deserializer: Deserializer): PubSubTransport with WithDelayedPublisher =
     AmqpJdbcTransport(
       connection = connection,
       driver = driver,

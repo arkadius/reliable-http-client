@@ -127,20 +127,20 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
 
   private lazy val config = ConfigParser.parse(actorSystem)
   
-  def create[Request, Response](batchSize: Int = config.batchSize,
-                                queuesPrefix: String = config.queuesPrefix)
-                               (implicit transport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]):
+  def create(batchSize: Int = config.batchSize,
+             queuesPrefix: String = config.queuesPrefix)
+            (implicit transport: PubSubTransport):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
     create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize))
   }
 
-  private[client] def create[Request, Response](queueData: InboundQueueData)
-                                               (implicit transport: PubSubTransport[Nothing, Correlated[Exchange[Request, Response]]]):
+  private[client] def create(queueData: InboundQueueData)
+                            (implicit transport: PubSubTransport):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
     val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor])
-    val subscriber = transport.subscriber(queueData, dispatcherActor)
+    val subscriber = transport.subscriber[Correlated[_]](queueData, dispatcherActor)
     new SubscriptionManagerImpl(subscriber, dispatcherActor)
   }
 }

@@ -19,9 +19,8 @@ import org.json4s.Formats
 
 package object json4s {
 
-  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer[Msg] = new Json4sSerializer[Msg]()
+  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer = new Json4sSerializer()
 
-  implicit def deserializer[Msg](implicit msgManifest: Manifest[Msg],
-                                 formats: Formats): Deserializer[Msg] = new Json4sDeserializer[Msg]()
+  implicit def deserializer[Msg](implicit formats: Formats): Deserializer = new Json4sDeserializer()
 
 }
