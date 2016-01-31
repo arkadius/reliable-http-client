@@ -37,12 +37,12 @@ implicit val actorSystem = ActorSystem()
 import actorSystem.dispatcher
 
 AmqpConnectionFactory.connect(actorSystem).map { connection =>
-  val transport = AmqpTransport[String, Int](connection)
+  val transport = AmqpTransport(connection)
   
-  val publisher = transport.publisher("foo-queue")
+  val publisher = transport.publisher[String]("foo-queue")
   publisher.publish("foo-message")
   
-  val subscriber = transport.subscriber("bar-queue", actorSystem.actorOf(Props(new Actor {
+  val subscriber = transport.subscriber[Int]("bar-queue", actorSystem.actorOf(Props(new Actor {
     def receive: Receive = {
       case i: Int => println(s"got: $i")
     }
