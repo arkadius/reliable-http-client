@@ -21,6 +21,7 @@ import akka.agent.Agent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport.{Message, Publisher, Serializer}
+import rhttpc.utils.Recovered._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
@@ -71,7 +72,8 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
     confirm(deliveryTag, multiple)(_.failure(NoPubMsgAckException))
   }
 
-  private def confirm(deliveryTag: Long, multiple: Boolean)(complete: Promise[Unit] => Unit): Unit = {
+  private def confirm(deliveryTag: Long, multiple: Boolean)
+                     (complete: Promise[Unit] => Unit): Unit = {
     seqNoOnAckPromiseAgent.alter { curr =>
       val (toAck, rest) = curr.partition {
         case (seqNo, ackPromise) =>
@@ -87,10 +89,14 @@ private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
   override def start(): Unit = {}
 
   override def stop(): Future[Unit] = {
-    Future {
-      channel.close()
-    }
+    recoveredFuture("completing publishing", currentPublishingFuturesComplete)
+      .map(_ => recovered("channel closing", channel.close()))
   }
+
+  private def currentPublishingFuturesComplete: Future[Unit] =
+    seqNoOnAckPromiseAgent.future()
+      .flatMap(map => Future.sequence(map.values.map(_.future)))
+      .map(_ => Unit)
 }
 
 case object NoPubMsgAckException extends Exception(s"No acknowledgement for published message")

@@ -16,13 +16,14 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
+import akka.agent.Agent
 import akka.pattern._
 import akka.util.Timeout
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
 
-import scala.concurrent.Future
+import scala.concurrent.{Promise, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
@@ -40,6 +41,8 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
   import system.dispatcher
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
+
+  private val pendingConsumePromises = Agent[Set[Promise[Unit]]](Set.empty)
 
   @volatile private var consumerTag: Option[String] = None
 
@@ -66,31 +69,48 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
 
   private def handleDeserializedMessage(msgObj: Any, deliveryTag: Long) = {
     implicit val timeout = Timeout(consumeTimeout)
-    (consumer ? msgObj) onComplete handleConsumerResponse(deliveryTag)
+    val consumePromise = Promise[Unit]()
+    def complete() = {
+      pendingConsumePromises.send { current =>
+        consumePromise.success(Unit)
+        current - consumePromise
+      }
+    }
+    val replyFuture = for {
+      _ <- pendingConsumePromises.alter(_ + consumePromise)
+      _ <- consumer ? msgObj
+    } yield Unit
+    replyFuture onComplete handleConsumerResponse(deliveryTag, complete)
   }
 
-  private def handleConsumerResponse[U](deliveryTag: Long): Try[Any] => Unit = {
+  private def handleConsumerResponse[U](deliveryTag: Long, complete: () => Unit): Try[Any] => Unit = {
     case Success(_) =>
       logger.debug(s"ACK: $deliveryTag")
       channel.basicAck(deliveryTag, false)
+      complete()
     case Failure(ex : Exception with RejectingMessage) =>
       logger.debug(s"REJECT: $deliveryTag because of rejecting failure", ex)
       channel.basicReject(deliveryTag, false)
+      complete()
     case Failure(ex) =>
       logger.debug(s"Will NACK: $deliveryTag after $nackDelay because of failure", ex)
       system.scheduler.scheduleOnce(nackDelay) {
         logger.debug(s"NACK: $deliveryTag because of previous failure")
         channel.basicNack(deliveryTag, false, true)
+        complete()
       }
   }
 
   override def stop(): Future[Unit] = {
-    Future {
-      recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
-      recovered("closing channel", channel.close())
-    }
+    recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
+    recoveredFuture("completing publishing", currentConsumingFuturesComplete)
+      .map(_ => recovered("closing channel", channel.close()))
   }
 
+  private def currentConsumingFuturesComplete: Future[Unit] =
+    pendingConsumePromises.future()
+      .flatMap(set => Future.sequence(set.map(_.future)))
+      .map(_ => Unit)
 }
 
 trait SendingSimpleMessage[Sub] { self: AmqpSubscriber[Sub] =>
