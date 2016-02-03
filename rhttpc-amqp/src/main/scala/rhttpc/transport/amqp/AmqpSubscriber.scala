@@ -103,7 +103,7 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
 
   override def stop(): Future[Unit] = {
     recovered("canceling consumer", consumerTag.foreach(channel.basicCancel))
-    recoveredFuture("completing publishing", currentConsumingFuturesComplete)
+    recoveredFuture("completing consuming", currentConsumingFuturesComplete)
       .map(_ => recovered("closing channel", channel.close()))
   }
 
