@@ -22,7 +22,7 @@ import rhttpc.transport.{Deserializer, Message, Publisher, Serializer}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
@@ -47,7 +47,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Sched
 
   private var ran: Boolean = false
   private var scheduledCheck: Option[Cancellable] = None
-  @volatile private var currentPublishedFetchedFuture: Future[Int] = Future.successful(0)
+  private var currentPublishedFetchedFuture: Future[Int] = Future.successful(0)
 
   override def schedule(msg: Message[PubMsg], delay: FiniteDuration): Future[Unit] = {
     val serialized = serializer.serialize(msg)
@@ -58,51 +58,59 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Sched
     synchronized {
       if (!ran) {
         ran = true
-        publishFetchedMessagesThanReschedule
+        publishFetchedMessagesThanReschedule()
       }
     }
   }
 
-  private def publishFetchedMessagesThanReschedule: Future[Int] = {
-    val publishedFetchedFuture = repo.fetchMessagesShouldByRun(queueName, batchSize) { messages =>
-      if (messages.nonEmpty) {
-        logger.debug(s"Fetched ${messages.size}, publishing")
+  private def publishFetchedMessagesThanReschedule(): Unit = {
+    synchronized {
+      if (ran) {
+        val publishedFetchedFuture = repo.fetchMessagesShouldByRun(queueName, batchSize)(publish)
+        currentPublishedFetchedFuture = publishedFetchedFuture
+        publishedFetchedFuture onComplete handlePublicationResult
       }
-      val handlingFutures = messages.map { message =>
-        val tryDeserialized = deserializer.deserialize[Message[_]](message.message)
-        tryDeserialized match {
-          case Success(deseralized) =>
-            publisher.publish(deseralized.asInstanceOf[Message[PubMsg]])
-          case Failure(ex) =>
-            logger.error(s"Message ${message.message} skipped because of parse failure", ex)
-            Future.successful(())
-        }
-      }
-      Future.sequence(handlingFutures)
     }
-    currentPublishedFetchedFuture = publishedFetchedFuture
-    publishedFetchedFuture.onFailure {
-      case NonFatal(ex) =>
+  }
+
+  private def publish(messages: Seq[ScheduledMessage]): Future[Seq[Unit]] = {
+    if (messages.nonEmpty) {
+      logger.debug(s"Fetched ${messages.size}, publishing")
+    }
+    val handlingFutures = messages.map { message =>
+      val tryDeserialized = deserializer.deserialize[Message[_]](message.message)
+      tryDeserialized match {
+        case Success(deseralized) =>
+          publisher.publish(deseralized.asInstanceOf[Message[PubMsg]])
+        case Failure(ex) =>
+          logger.error(s"Message ${message.message} skipped because of parse failure", ex)
+          Future.successful(())
+      }
+    }
+    Future.sequence(handlingFutures)
+  }
+
+  private def handlePublicationResult(tryResult: Try[Int]): Unit = {
+    tryResult match {
+      case Failure(ex) =>
         logger.error("Exception while publishing fetched messages", ex)
+      case _ =>
     }
-    publishedFetchedFuture.onComplete { _ =>
-      synchronized {
-        if (ran) {
-          scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule))
-        } else {
-          logger.debug(s"Scheduler is stopping, next check will be skipped")
-        }
+    synchronized {
+      if (ran) {
+        scheduledCheck = Some(scheduler.scheduleOnce(checkInterval)(publishFetchedMessagesThanReschedule()))
+      } else {
+        logger.debug(s"Scheduler is stopping, next check will be skipped")
       }
     }
-    publishedFetchedFuture
   }
 
   override def stop(): Future[Unit] = {
     synchronized {
       scheduledCheck.foreach(_.cancel())
       ran = false
+      currentPublishedFetchedFuture.map(_ => Unit)
     }
-    currentPublishedFetchedFuture.map(_ => Unit)
   }
 
 }
