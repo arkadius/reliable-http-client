@@ -15,6 +15,7 @@
  */
 package rhttpc.akkahttp.proxy
 
+import akka.NotUsed
 import akka.actor._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse}
@@ -43,7 +44,7 @@ object ReliableHttpProxyFactory {
 
   private def prepareHttpFlow(parallelism: Int)
                              (implicit actorSystem: ActorSystem, materialize: Materializer):
-    Flow[(HttpRequest, String), HttpResponse, Unit] = {
+    Flow[(HttpRequest, String), HttpResponse, NotUsed] = {
 
     import actorSystem.dispatcher
     Http().superPool[String]().mapAsync(parallelism) {

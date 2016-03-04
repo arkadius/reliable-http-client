@@ -53,7 +53,6 @@ val publishSettings = Seq(
 )
 
 val akkaV = "2.4.2"
-val akkaStreamsV = "2.0.1"
 val ficusV = "1.2.3"
 val amqpcV = "3.6.1"
 val json4sV = "3.3.0"
@@ -91,7 +90,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "org.scala-lang"            % "scala-reflect"                 % scalaV,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
-        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV  % "test",
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaV  % "test",
         "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV     % "test",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
         "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
@@ -156,7 +155,7 @@ lazy val akkaHttpClient = (project in file("rhttpc-akka-http")).
     name := "rhttpc-akka-http",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }
@@ -186,7 +185,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaV,
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
@@ -204,7 +203,7 @@ lazy val sampleApp = (project in file("sample/sample-app")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV,
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaV,
         "org.iq80.leveldb"          % "leveldb"                       % "0.7",
         "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
