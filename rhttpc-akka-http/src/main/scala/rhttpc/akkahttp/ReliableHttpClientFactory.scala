@@ -37,12 +37,14 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
   def inOutWithSubscriptions(connection: Connection,
                              successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
                              batchSize: Int = config.batchSize,
+                             parallelConsumers: Int = config.parallelConsumers,
                              queuesPrefix: String = config.queuesPrefix,
                              retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): InOutReliableHttpClient = {
     implicit val implicitConnection = connection
     ReliableClientFactory().inOutWithSubscriptions(
-      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
@@ -52,13 +54,15 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
             handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
             successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
             batchSize: Int = config.batchSize,
+            parallelConsumers: Int = config.parallelConsumers,
             queuesPrefix: String = config.queuesPrefix,
             retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): InOnlyReliableHttpClient = {
     implicit val implicitConnection = connection
     ReliableClientFactory().inOut(
-      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
       handleResponse = handleResponse,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
@@ -67,12 +71,14 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
   def inOnly(connection: Connection,
              successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
              batchSize: Int = config.batchSize,
+             parallelConsumers: Int = config.parallelConsumers,
              queuesPrefix: String = config.queuesPrefix,
              retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): InOnlyReliableHttpClient = {
     implicit val implicitConnection = connection
     ReliableClientFactory().inOnly[HttpRequest](
-      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(_ => Unit),
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers)(_).map(_ => Unit),
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
@@ -84,13 +90,15 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
 
     def inOutWithSubscriptions(successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
                                batchSize: Int = config.batchSize,
+                               parallelConsumers: Int = config.parallelConsumers,
                                queuesPrefix: String = config.queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): Future[InOutReliableHttpClient] = {
       val connectionF = AmqpConnectionFactory.connect(actorSystem)
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOutWithSubscriptions(
-          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
           batchSize = batchSize,
+          parallelConsumers = parallelConsumers,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
@@ -105,14 +113,16 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
     def inOut(handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
               successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
               batchSize: Int = config.batchSize,
+              parallelConsumers: Int = config.parallelConsumers,
               queuesPrefix: String = config.queuesPrefix,
               retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): Future[InOnlyReliableHttpClient] = {
       val connectionF = AmqpConnectionFactory.connect(actorSystem)
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOut(
-          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize),
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
           handleResponse = handleResponse,
           batchSize = batchSize,
+          parallelConsumers = parallelConsumers,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {
@@ -126,13 +136,15 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
 
     def inOnly(successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
                batchSize: Int = config.batchSize,
+               parallelConsumers: Int = config.parallelConsumers,
                queuesPrefix: String = config.queuesPrefix,
                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): Future[InOnlyReliableHttpClient] = {
       val connectionF = AmqpConnectionFactory.connect(actorSystem)
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOnly[HttpRequest](
-          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize)(_).map(_ => Unit),
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers)(_).map(_ => Unit),
           batchSize = batchSize,
+          parallelConsumers = parallelConsumers,
           queuesPrefix = queuesPrefix,
           retryStrategy = retryStrategy,
           additionalStopAction = {

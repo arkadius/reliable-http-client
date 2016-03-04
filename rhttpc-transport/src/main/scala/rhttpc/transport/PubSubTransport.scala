@@ -17,7 +17,7 @@ package rhttpc.transport
 
 import akka.actor.ActorRef
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
@@ -42,7 +42,7 @@ trait WithInstantPublisher { self: PubSubTransport =>
 trait WithDelayedPublisher { self: PubSubTransport =>
 }
 
-case class InboundQueueData(name: String, batchSize: Int, durability: Boolean = true, autoDelete: Boolean = false)
+case class InboundQueueData(name: String, batchSize: Int, parallelConsumers: Int = 1, durability: Boolean = true, autoDelete: Boolean = false)
 
 case class OutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false)
 
@@ -64,6 +64,18 @@ trait Subscriber[+SubMsg] {
   def start(): Unit
 
   def stop(): Future[Unit]
+
+}
+
+class SubscriberAggregate[SubMsg](subscribers: Seq[Subscriber[SubMsg]])
+                                 (implicit ec: ExecutionContext) extends Subscriber[SubMsg] {
+  override def start(): Unit = {
+    subscribers.foreach(_.start())
+  }
+
+  override def stop(): Future[Unit] = {
+    Future.sequence(subscribers.map(_.stop())).map(_ => Unit)
+  }
 }
 
 trait RejectingMessage { self: Exception =>

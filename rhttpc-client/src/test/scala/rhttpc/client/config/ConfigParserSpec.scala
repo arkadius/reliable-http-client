@@ -28,6 +28,7 @@ class ConfigParserSpec extends FlatSpec with Matchers {
       """x {
         |  queuesPrefix = "rhttpc"
         |  batchSize = 10
+        |  parallelConsumers = 1
         |  retryStrategy {
         |    initialDelay = 5 seconds
         |    multiplier = 1.2
@@ -36,7 +37,7 @@ class ConfigParserSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, BackoffRetry(5 seconds, 1.2, 3))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3))
   }
 
   it should "parse config with publish all strategy" in {
@@ -44,11 +45,12 @@ class ConfigParserSpec extends FlatSpec with Matchers {
       """x {
         |  queuesPrefix = "rhttpc"
         |  batchSize = 10
+        |  parallelConsumers = 1
         |  retryStrategy = handle-all
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, HandleAll)
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll)
   }
 
 }

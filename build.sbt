@@ -52,10 +52,10 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.1"
+val akkaV = "2.4.2"
 val akkaStreamsV = "2.0.1"
-val ficusV = "1.2.1"
-val amqpcV = "3.6.0"
+val ficusV = "1.2.3"
+val amqpcV = "3.6.1"
 val json4sV = "3.3.0"
 val logbackV = "1.1.3"
 val slf4jV = "1.7.13"
@@ -88,7 +88,13 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
-        "org.scala-lang"            % "scala-reflect"                 % scalaV
+        "org.scala-lang"            % "scala-reflect"                 % scalaV,
+        "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.akka"        %% "akka-http-experimental"        % akkaStreamsV  % "test",
+        "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV     % "test",
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
       )
     }
   ).

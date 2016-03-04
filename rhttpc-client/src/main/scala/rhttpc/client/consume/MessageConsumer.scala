@@ -69,17 +69,19 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
   
   def create[Request, Response](handleMessage: Exchange[Request, Response] => Future[Unit],
                                 batchSize: Int = config.batchSize,
+                                parallelConsumers: Int = config.parallelConsumers,
                                 queuesPrefix: String = config.queuesPrefix)
                                (implicit transport: PubSubTransport): MessageConsumer[Request, Response] = {
-    new MessageConsumer(prepareSubscriber(transport, batchSize, queuesPrefix), handleMessage)
+    new MessageConsumer(prepareSubscriber(transport, batchSize, parallelConsumers, queuesPrefix), handleMessage)
   }
 
   private def prepareSubscriber[Request, Response](transport: PubSubTransport,
                                                    batchSize: Int,
+                                                   parallelConsumers: Int,
                                                    queuesPrefix: String)
                                                   (implicit actorSystem: ActorSystem):
   (ActorRef) => Subscriber[Correlated[Exchange[Request, Response]]] =
-    transport.subscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize), _)
+    transport.subscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers), _)
       .asInstanceOf[Subscriber[Correlated[Exchange[Request, Response]]]]
 
 }

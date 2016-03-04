@@ -64,31 +64,37 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
     publisher
   }
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): AmqpSubscriber[SubMsg] = {
-    val channel = connection.createChannel()
-    declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
-    queueNamesAgent.send(_ + queueData.name)
-    new AmqpSubscriber[SubMsg](
-      channel = channel,
-      queueName = queueData.name,
-      consumer = consumer,
-      deserializer = deserializer,
-      consumeTimeout = consumeTimeout,
-      nackDelay = nackDelay
-    ) with SendingSimpleMessage[SubMsg]
+  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+    val subscribers = (1 to queueData.parallelConsumers).map { _ =>
+      val channel = connection.createChannel()
+      declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
+      queueNamesAgent.send(_ + queueData.name)
+      new AmqpSubscriber[SubMsg](
+        channel = channel,
+        queueName = queueData.name,
+        consumer = consumer,
+        deserializer = deserializer,
+        consumeTimeout = consumeTimeout,
+        nackDelay = nackDelay
+      ) with SendingSimpleMessage[SubMsg]
+    }
+    new SubscriberAggregate[SubMsg](subscribers)
   }
 
   override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
-    val channel = connection.createChannel()
-    declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
-    new AmqpSubscriber[SubMsg](
-      channel = channel,
-      queueName = queueData.name,
-      consumer = consumer,
-      deserializer = deserializer,
-      consumeTimeout = consumeTimeout,
-      nackDelay = nackDelay
-    ) with SendingFullMessage[SubMsg]
+    val subscribers = (1 to queueData.parallelConsumers).map { _ =>
+      val channel = connection.createChannel()
+      declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
+      new AmqpSubscriber[SubMsg](
+        channel = channel,
+        queueName = queueData.name,
+        consumer = consumer,
+        deserializer = deserializer,
+        consumeTimeout = consumeTimeout,
+        nackDelay = nackDelay
+      ) with SendingFullMessage[SubMsg]
+    }
+    new SubscriberAggregate[SubMsg](subscribers)
   }
   
   override def queuesStats: Future[Map[String, AmqpQueueStats]] = {

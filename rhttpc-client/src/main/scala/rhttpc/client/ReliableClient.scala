@@ -73,6 +73,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   
   def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Response],
                                                 batchSize: Int = config.batchSize,
+                                                parallelConsumers: Int = config.parallelConsumers,
                                                 queuesPrefix: String = config.queuesPrefix,
                                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                                 additionalStartAction: => Unit = {},
@@ -82,11 +83,13 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
     val subMgr = SubscriptionManagerFactory().create(
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix
     )(requestResponseTransport)
     val requestPublisher = requestResponseTransport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix))
@@ -113,6 +116,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   def inOut[Request, Response](send: Correlated[Request] => Future[Response],
                                handleResponse: Exchange[Request, Response] => Future[Unit],
                                batchSize: Int = config.batchSize,
+                               parallelConsumers: Int = config.parallelConsumers,
                                queuesPrefix: String = config.queuesPrefix,
                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                additionalStartAction: => Unit = {},
@@ -122,12 +126,14 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
     val responseConsumer = MessageConsumerFactory().create[Request, Response](
       handleMessage = handleResponse,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix
     )(requestSubscriberTransport)
     def startAdditional() = {
@@ -150,6 +156,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
 
   def inOnly[Request](send: Correlated[Request] => Future[Unit],
                       batchSize: Int = config.batchSize,
+                      parallelConsumers: Int = config.parallelConsumers,
                       queuesPrefix: String = config.queuesPrefix,
                       retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                       additionalStartAction: => Unit = {},
@@ -159,6 +166,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     val proxy = ReliableProxyFactory().skippingResponses(
       send = send,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )

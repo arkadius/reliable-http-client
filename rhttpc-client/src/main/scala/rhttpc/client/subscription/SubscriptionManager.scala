@@ -128,11 +128,12 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
   private lazy val config = ConfigParser.parse(actorSystem)
   
   def create(batchSize: Int = config.batchSize,
+             parallelConsumers: Int = config.parallelConsumers,
              queuesPrefix: String = config.queuesPrefix)
             (implicit transport: PubSubTransport):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
-    create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize))
+    create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers))
   }
 
   private[client] def create(queueData: InboundQueueData)

@@ -46,4 +46,7 @@ object RetryStrategyValueReader extends ValueReader[FailureResponseHandleStrateg
   }
 }
 
-case class RhttpcConfig(queuesPrefix: String, batchSize: Int, retryStrategy: FailureResponseHandleStrategyChooser)
+case class RhttpcConfig(queuesPrefix: String,
+                        batchSize: Int,
+                        parallelConsumers: Int,
+                        retryStrategy: FailureResponseHandleStrategyChooser)

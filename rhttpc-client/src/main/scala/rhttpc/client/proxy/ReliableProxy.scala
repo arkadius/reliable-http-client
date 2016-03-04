@@ -126,6 +126,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
   
   def publishingResponses[Request, Response](send: Correlated[Request] => Future[Response],
                                              batchSize: Int = config.batchSize,
+                                             parallelConsumers: Int = config.parallelConsumers,
                                              queuesPrefix: String = config.queuesPrefix,
                                              retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                              additionalStartAction: => Unit = {},
@@ -149,6 +150,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       send = send,
       handleResponse = PublishMsg(responsePublisher),
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
       additionalStartAction = startAdditional(),
@@ -158,6 +160,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
 
   def skippingResponses[Request, Response](send: Correlated[Request] => Future[Response],
                                            batchSize: Int = config.batchSize,
+                                           parallelConsumers: Int = config.parallelConsumers,
                                            queuesPrefix: String = config.queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                            additionalStartAction: => Unit = {},
@@ -169,6 +172,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       send = send,
       handleResponse = SkipMsg,
       batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy,
       additionalStartAction = additionalStartAction,
@@ -179,6 +183,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
   def create[Request, Response](send: Correlated[Request] => Future[Response],
                                 handleResponse: Correlated[Exchange[Request, Response]] => Future[Unit],
                                 batchSize: Int = config.batchSize,
+                                parallelConsumers: Int = config.parallelConsumers,
                                 queuesPrefix: String = config.queuesPrefix,
                                 retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                 additionalStartAction: => Unit = {},
@@ -187,7 +192,7 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
   ReliableProxy[Request, Response] = {
 
     new ReliableProxy(
-      subscriberForConsumer = prepareSubscriber(transport, batchSize, queuesPrefix),
+      subscriberForConsumer = prepareSubscriber(transport, batchSize, parallelConsumers, queuesPrefix),
       requestPublisher = transport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix)),
       send = send,
       failureHandleStrategyChooser = retryStrategy,
@@ -197,10 +202,10 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  private def prepareSubscriber[Request](transport: PubSubTransport, batchSize: Int, queuesPrefix: String)
+  private def prepareSubscriber[Request](transport: PubSubTransport, batchSize: Int, parallelConsumers: Int, queuesPrefix: String)
                                         (implicit actorSystem: ActorSystem):
   (ActorRef) => Subscriber[Correlated[Request]] =
-    transport.fullMessageSubscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), batchSize), _)
+    transport.fullMessageSubscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), batchSize, parallelConsumers), _)
       .asInstanceOf[Subscriber[Correlated[Request]]]
 
 

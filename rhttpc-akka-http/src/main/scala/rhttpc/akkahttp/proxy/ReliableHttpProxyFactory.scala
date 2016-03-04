@@ -34,19 +34,19 @@ object ReliableHttpProxyFactory {
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  def send(successRecognizer: SuccessHttpResponseRecognizer, batchSize: Int)
+  def send(successRecognizer: SuccessHttpResponseRecognizer, batchSize: Int, parallelConsumers: Int)
           (corr: Correlated[HttpRequest])
           (implicit actorSystem: ActorSystem, materialize: Materializer): Future[HttpResponse] = {
     import actorSystem.dispatcher
-    send(prepareHttpFlow(batchSize), successRecognizer)(corr)
+    send(prepareHttpFlow(batchSize * parallelConsumers), successRecognizer)(corr)
   }
 
-  private def prepareHttpFlow(batchSize: Int)
+  private def prepareHttpFlow(parallelism: Int)
                              (implicit actorSystem: ActorSystem, materialize: Materializer):
     Flow[(HttpRequest, String), HttpResponse, Unit] = {
 
     import actorSystem.dispatcher
-    Http().superPool[String]().mapAsync(batchSize) {
+    Http().superPool[String]().mapAsync(parallelism) {
       case (tryResponse, id) =>
         tryResponse match {
           case Success(response) =>
