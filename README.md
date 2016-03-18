@@ -22,8 +22,8 @@ For the third scenario there is also provided module with *persistent Akka FSM A
 
 If You only want to use *Akka* wrapper for *amqp-client* with *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.5.2"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.5.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.5.3"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.5.3"
 ```
 
 Than:
@@ -55,9 +55,9 @@ AmqpConnectionFactory.connect(actorSystem).map { connection =>
 
 For using of client with *AMQP* transport and *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.5.2"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.5.2"
-libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.5.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.5.3"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.5.3"
+libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.5.3"
 ```
 
 ### In-only scenario
