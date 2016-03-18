@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.{HttpEntity, HttpRequest, HttpResponse}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import org.slf4j.LoggerFactory
-import rhttpc.client.protocol.Correlated
+import rhttpc.client.protocol.{Correlated, Request}
 import rhttpc.client.proxy._
 
 import scala.concurrent.duration._
@@ -36,10 +36,10 @@ object ReliableHttpProxyFactory {
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
   def send(successRecognizer: SuccessHttpResponseRecognizer, batchSize: Int, parallelConsumers: Int)
-          (corr: Correlated[HttpRequest])
+          (request: Request[HttpRequest])
           (implicit actorSystem: ActorSystem, materialize: Materializer): Future[HttpResponse] = {
     import actorSystem.dispatcher
-    send(prepareHttpFlow(batchSize * parallelConsumers), successRecognizer)(corr)
+    send(prepareHttpFlow(batchSize * parallelConsumers), successRecognizer)(request.correlated)
   }
 
   private def prepareHttpFlow(parallelism: Int)

@@ -21,7 +21,7 @@ import akka.actor._
 import org.slf4j.LoggerFactory
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.consume.MessageConsumerFactory
-import rhttpc.client.protocol.{Correlated, Exchange}
+import rhttpc.client.protocol.{Correlated, Exchange, Request}
 import rhttpc.client.proxy.{FailureResponseHandleStrategyChooser, ReliableProxyFactory}
 import rhttpc.client.subscription.{SubscriptionManager, SubscriptionManagerFactory, WithSubscriptionManager}
 import rhttpc.transport.{PubSubTransport, Publisher, WithDelayedPublisher, WithInstantPublisher}
@@ -68,18 +68,18 @@ case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No
 
 case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
-  
+
   private lazy val config = ConfigParser.parse(actorSystem)
-  
-  def inOutWithSubscriptions[Request, Response](send: Correlated[Request] => Future[Response],
-                                                batchSize: Int = config.batchSize,
-                                                parallelConsumers: Int = config.parallelConsumers,
-                                                queuesPrefix: String = config.queuesPrefix,
-                                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                                                additionalStartAction: => Unit = {},
-                                                additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                                               (implicit requestResponseTransport: PubSubTransport with WithDelayedPublisher,
-                                                responseRequestTransport: PubSubTransport with WithInstantPublisher): InOutReliableClient[Request] = {
+
+  def inOutWithSubscriptions[Req, Resp](send: Request[Req] => Future[Resp],
+                                        batchSize: Int = config.batchSize,
+                                        parallelConsumers: Int = config.parallelConsumers,
+                                        queuesPrefix: String = config.queuesPrefix,
+                                        retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                                        additionalStartAction: => Unit = {},
+                                        additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                       (implicit requestResponseTransport: PubSubTransport with WithDelayedPublisher,
+                                        responseRequestTransport: PubSubTransport with WithInstantPublisher): InOutReliableClient[Req] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
@@ -92,7 +92,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix
     )(requestResponseTransport)
-    val requestPublisher = requestResponseTransport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix))
+    val requestPublisher = requestResponseTransport.publisher[Correlated[Req]](prepareRequestPublisherQueueData(queuesPrefix))
     def startAdditional() = {
       additionalStartAction
       subMgr.start()
@@ -113,16 +113,16 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     }
   }
 
-  def inOut[Request, Response](send: Correlated[Request] => Future[Response],
-                               handleResponse: Exchange[Request, Response] => Future[Unit],
-                               batchSize: Int = config.batchSize,
-                               parallelConsumers: Int = config.parallelConsumers,
-                               queuesPrefix: String = config.queuesPrefix,
-                               retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                               additionalStartAction: => Unit = {},
-                               additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                              (implicit requestPublisherTransport: PubSubTransport with WithDelayedPublisher,
-                               requestSubscriberTransport: PubSubTransport with WithInstantPublisher): InOnlyReliableClient[Request] = {
+  def inOut[Req, Resp](send: Request[Req] => Future[Resp],
+                       handleResponse: Exchange[Req, Resp] => Future[Unit],
+                       batchSize: Int = config.batchSize,
+                       parallelConsumers: Int = config.parallelConsumers,
+                       queuesPrefix: String = config.queuesPrefix,
+                       retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                       additionalStartAction: => Unit = {},
+                       additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                      (implicit requestPublisherTransport: PubSubTransport with WithDelayedPublisher,
+                       requestSubscriberTransport: PubSubTransport with WithInstantPublisher): InOnlyReliableClient[Req] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
       batchSize = batchSize,
@@ -130,7 +130,7 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
       queuesPrefix = queuesPrefix,
       retryStrategy = retryStrategy
     )
-    val responseConsumer = MessageConsumerFactory().create[Request, Response](
+    val responseConsumer = MessageConsumerFactory().create[Req, Resp](
       handleMessage = handleResponse,
       batchSize = batchSize,
       parallelConsumers = parallelConsumers,
@@ -154,15 +154,15 @@ case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
     )
   }
 
-  def inOnly[Request](send: Correlated[Request] => Future[Unit],
-                      batchSize: Int = config.batchSize,
-                      parallelConsumers: Int = config.parallelConsumers,
-                      queuesPrefix: String = config.queuesPrefix,
-                      retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
-                      additionalStartAction: => Unit = {},
-                      additionalStopAction: => Future[Unit] = Future.successful(Unit))
-                     (implicit requestPublisherTransport: PubSubTransport with WithDelayedPublisher,
-                      requestSubscriberTransport: PubSubTransport with WithInstantPublisher): InOnlyReliableClient[Request] = {
+  def inOnly[Req](send: Request[Req] => Future[Unit],
+                  batchSize: Int = config.batchSize,
+                  parallelConsumers: Int = config.parallelConsumers,
+                  queuesPrefix: String = config.queuesPrefix,
+                  retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
+                  additionalStartAction: => Unit = {},
+                  additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                 (implicit requestPublisherTransport: PubSubTransport with WithDelayedPublisher,
+                  requestSubscriberTransport: PubSubTransport with WithInstantPublisher): InOnlyReliableClient[Req] = {
     val proxy = ReliableProxyFactory().skippingResponses(
       send = send,
       batchSize = batchSize,
