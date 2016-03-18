@@ -17,43 +17,42 @@ package rhttpc.transport.json4s
 
 import java.lang.reflect.Constructor
 
-import org.json4s.{Extraction, CustomSerializer}
+import org.json4s.{CustomSerializer, Extraction, Formats, Serializer, TypeInfo}
 import org.json4s.JsonAST._
 
 import scala.util.Try
 
-object ExceptionSerializer extends CustomSerializer[Throwable](implicit formats =>
-  (
-    {
-      case JObject(
-        ("jsonClass", JString(ExceptionClassHavingConstructorWithMessageAndCause(constructor))) ::
+object ExceptionSerializer extends Serializer[Throwable] {
+  override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), Throwable] = {
+    case (
+      TypeInfo(clazz, _),
+      JObject(("jsonClass", JString(ExceptionClassHavingConstructorWithMessageAndCause(constructor))) ::
         ("message", JString(message)) ::
         ("cause", cause) ::
-        Nil) =>
-
-        constructor.newInstance(message, Extraction.extract[Throwable](cause))
-      case JObject(
-        ("jsonClass", JString(ExceptionClassHavingConstructorWithMessageOnly(constructor))) ::
+        Nil)) if classOf[Throwable].isAssignableFrom(clazz) =>
+      constructor.newInstance(message, Extraction.extract[Throwable](cause))
+    case (
+      TypeInfo(clazz, _),
+      JObject(("jsonClass", JString(ExceptionClassHavingConstructorWithMessageOnly(constructor))) ::
         ("message", JString(message)) ::
-        Nil) =>
+        Nil)) if classOf[Throwable].isAssignableFrom(clazz) =>
+      constructor.newInstance(message)
+  }
 
-        constructor.newInstance(message)
-    },
-    {
-      case ExceptionInstanceHavingConstructorWithMessageAndCause(ex) =>
-        JObject(
-          formats.typeHintFieldName -> JString(ex.getClass.getName),
-          "message" -> JString(ex.getMessage),
-          "cause" -> Extraction.decompose(ex.getCause)
-        )
-      case ExceptionInstanceHavingConstructorWithMessageOnly(ex) =>
-        JObject(
-          formats.typeHintFieldName -> JString(ex.getClass.getName),
-          "message" -> JString(ex.getMessage)
-        )
-    }
-  )
-)
+  override def serialize(implicit formats: Formats): PartialFunction[Any, JValue] = {
+    case ExceptionInstanceHavingConstructorWithMessageAndCause(ex) =>
+      JObject(
+        formats.typeHintFieldName -> JString(ex.getClass.getName),
+        "message" -> JString(ex.getMessage),
+        "cause" -> Extraction.decompose(ex.getCause)
+      )
+    case ExceptionInstanceHavingConstructorWithMessageOnly(ex) =>
+      JObject(
+        formats.typeHintFieldName -> JString(ex.getClass.getName),
+        "message" -> JString(ex.getMessage)
+      )
+  }
+}
 
 
 object ExceptionClassHavingConstructorWithMessageAndCause {

@@ -125,7 +125,8 @@ lazy val json4sSerialization = (project in file("rhttpc-json4s")).
     libraryDependencies ++= {
       Seq(
         "org.json4s"               %% "json4s-native"                 % json4sV,
-        "org.scala-lang"            % "scala-reflect"                 % scalaV
+        "org.scala-lang"            % "scala-reflect"                 % scalaV,
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }
   ).
