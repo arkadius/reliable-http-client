@@ -28,6 +28,10 @@ class ExceptionSerializerSpec extends FlatSpec with Matchers with TryValues {
     roundTrip(new ExceptionWithMessage("foo"))
   }
 
+  it should "round-trip serialize exception with null message" in {
+    roundTrip(new ExceptionWithMessage(null))
+  }
+
   it should "round-trip serialize exception with message and cause" in {
     roundTrip(new ExceptionWithMessageAndCause("foo", CaseClassException(123)))
   }
