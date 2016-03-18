@@ -112,10 +112,10 @@ class ReliableProxy[Request, Response](subscriberForConsumer: ActorRef => Subscr
 
 case object NonSuccessResponse extends Exception("Response was recognized as non-success")
 
-case class ExhaustedRetry(message: String, cause: Throwable) extends Exception(message, cause) with RejectingMessage
+case class ExhaustedRetry(message: String) extends Exception(message) with RejectingMessage
 
 object ExhaustedRetry {
-  def apply(cause: Throwable): ExhaustedRetry = ExhaustedRetry(s"Exhausted retry. Message will be moved to DLQ.", cause)
+  def apply(cause: Throwable): ExhaustedRetry = ExhaustedRetry(s"Exhausted retry. Message will be moved to DLQ. Cause: ${cause.getMessage}")
 }
 
 case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
