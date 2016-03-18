@@ -57,8 +57,8 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
             val msgToSend = prepareMessage(deserializedMessage, properties: AMQP.BasicProperties)
             handleDeserializedMessage(msgToSend, deliveryTag)
           case Failure(ex) =>
+            logger.debug(s"REJECT: $deliveryTag because of parse failure of: $stringMsg", ex)
             channel.basicReject(deliveryTag, false)
-            logger.error(s"Message: [$stringMsg] rejected because of parse failure", ex)
         }
       }
     }
@@ -88,7 +88,11 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
       logger.debug(s"ACK: $deliveryTag")
       channel.basicAck(deliveryTag, false)
       complete()
-    case Failure(ex : Exception with RejectingMessage) =>
+    case Failure(ex: AskTimeoutException) =>
+      logger.debug(s"REJECT: $deliveryTag because of ask timeout", ex)
+      channel.basicReject(deliveryTag, false)
+      complete()
+    case Failure(ex: Exception with RejectingMessage) =>
       logger.debug(s"REJECT: $deliveryTag because of rejecting failure", ex)
       channel.basicReject(deliveryTag, false)
       complete()
