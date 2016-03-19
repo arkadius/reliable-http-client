@@ -17,22 +17,22 @@ package rhttpc.client.protocol
 
 import scala.concurrent.duration.FiniteDuration
 
-case class Request[+T](correlated: Correlated[T], attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]) {
+case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: Option[FiniteDuration]) {
   def msg = correlated.msg
 
   def correlationId = correlated.correlationId
 
-  def isFirst: Boolean = attemptsSoFar == 0
+  def isFirst: Boolean = attempt == 1
 
   def nextAttempt: Request[T] =
-    copy(attemptsSoFar = attemptsSoFar + 1)
+    copy(attempt = attempt + 1)
 }
 
 object Request {
-  def apply[T](correlated: Correlated[T], attemptsSoFar: Int, lastPlannedDelay: FiniteDuration): Request[T] = {
+  def apply[T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: FiniteDuration): Request[T] = {
     Request(
       correlated = correlated,
-      attemptsSoFar = attemptsSoFar,
+      attempt = attempt,
       lastPlannedDelay = Some(lastPlannedDelay)
     )
   }
@@ -40,7 +40,7 @@ object Request {
   def firstAttempt[T](correlated: Correlated[T]): Request[T] = {
     Request(
       correlated = correlated,
-      attemptsSoFar = 0,
+      attempt = 1,
       lastPlannedDelay = None
     )
   }

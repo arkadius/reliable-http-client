@@ -62,7 +62,7 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
             handleResponse(Correlated(SuccessExchange(request.msg, response), request.correlationId))
           case Failure(ex) =>
             logger.error(s"Failure response for ${request.correlationId}", ex)
-            handleFailure(request.nextAttempt, ex)
+            handleFailure(request, ex)
         }.pipeTo(sender())
       } catch {
         case NonFatal(ex) =>
@@ -71,21 +71,21 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     }
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
-      val strategy = failureHandleStrategyChooser.choose(request.attemptsSoFar, request.lastPlannedDelay)
+      val strategy = failureHandleStrategyChooser.choose(request.attempt, request.lastPlannedDelay)
       strategy match {
         case Retry(delay) =>
-          logger.debug(s"Attempts so far: ${request.attemptsSoFar} for ${request.correlationId}, will retry in $delay")
-          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.attemptsSoFar))
+          logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will retry in $delay")
+          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.nextAttempt.attempt))
         case SendToDLQ =>
-          logger.debug(s"Attempts so far: ${request.attemptsSoFar} for ${request.correlationId}, will move to DLQ")
+          logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)
           handleResponse(Correlated(FailureExchange(request.msg, exhaustedRetryError), request.correlationId))
           Future.failed(exhaustedRetryError)
         case Handle =>
-          logger.debug(s"Attempts so far: ${request.attemptsSoFar} for ${request.correlationId}, will handle")
+          logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will handle")
           handleResponse(Correlated(FailureExchange(request.msg, failure), request.correlationId))
         case Skip =>
-          logger.debug(s"Attempts so far: ${request.attemptsSoFar} for ${request.correlationId}, will skip")
+          logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will skip")
           Future.successful(Unit)
       }
     }
