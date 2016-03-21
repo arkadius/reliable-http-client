@@ -22,7 +22,7 @@ case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay
 
   def correlationId = correlated.correlationId
 
-  def isFirst: Boolean = attempt == 1
+  def isFirstAttempt: Boolean = attempt == 1
 
   def nextAttempt: Request[T] =
     copy(attempt = attempt + 1)
