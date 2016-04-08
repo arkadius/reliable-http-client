@@ -56,10 +56,16 @@ private[inmem] class InMemTransport(transportActor: ActorRef) // TODO: stopping 
 
 object InMemTransport {
   def apply(createTimeout: FiniteDuration = InMemDefaults.createTimeout,
+            consumeTimeout: FiniteDuration = InMemDefaults.consumeTimeout,
+            retryDelay: FiniteDuration = InMemDefaults.retryDelay,
             stopConsumingTimeout: FiniteDuration = InMemDefaults.stopConsumingTimeout,
             stopTimeout: FiniteDuration = InMemDefaults.stopTimeout)
            (implicit system: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher = {
-    val actor = system.actorOf(TransportActor.props(QueueActor.props))
+    val actor = system.actorOf(TransportActor.props(
+      QueueActor.props(
+        consumeTimeout = consumeTimeout,
+        retryDelay = retryDelay
+      )))
     new InMemTransport(actor)(
       createTimeout = createTimeout,
       stopConsumingTimeout = stopConsumingTimeout,

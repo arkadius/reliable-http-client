@@ -179,7 +179,8 @@ lazy val akkaHttpClient = (project in file("rhttpc-akka-http")).
   ).
   dependsOn(client).
   dependsOn(amqpTransport).
-  dependsOn(json4sSerialization)
+  dependsOn(json4sSerialization).
+  dependsOn(inMemTransport)
 
 lazy val akkaPersistence = (project in file("rhttpc-akka-persistence")).
   settings(commonSettings).

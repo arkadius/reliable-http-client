@@ -24,13 +24,27 @@ import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.Exchange
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
+import rhttpc.transport._
+import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpDefaults, AmqpTransport}
 
 import scala.concurrent.Future
 
 case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
-  import rhttpc.transport.amqp._
   import rhttpc.transport.json4s._
+  import rhttpc.transport.fallback._
+  import rhttpc.transport.inmem._
+
+  private implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
+                                                     connection: Connection): PubSubTransport with WithInstantPublisher =
+    AmqpTransport(connection).withFallbackTo(InMemTransport())
+
+  private implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
+                                                     connection: Connection): PubSubTransport with WithDelayedPublisher =
+    AmqpTransport(
+      connection = connection,
+      exchangeName = AmqpDefaults.delayedExchangeName
+    ).withFallbackTo(InMemTransport())
   
   private lazy val config = ConfigParser.parse(actorSystem)
 

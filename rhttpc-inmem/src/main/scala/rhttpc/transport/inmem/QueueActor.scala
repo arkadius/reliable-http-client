@@ -15,19 +15,28 @@
  */
 package rhttpc.transport.inmem
 
+import akka.pattern._
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.routing.{RoundRobinRoutingLogic, Routee, Router}
-import rhttpc.transport.Message
+import akka.util.Timeout
+import rhttpc.transport.{Message, RejectingMessage}
 
-private class QueueActor extends Actor with Stash with ActorLogging {
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
-  private var consumers = Map.empty[ActorRef, ActorRefRouteeWithSpecifiedMessageType]
+private class QueueActor(consumeTimeout: FiniteDuration,
+                         retryDelay: FiniteDuration) extends Actor with Stash with ActorLogging {
+
+  import context.dispatcher
+
+  private var consumers = Map.empty[ActorRef, AskingActorRefRouteeWithSpecifiedMessageType]
 
   private var router = Router(RoundRobinRoutingLogic(), collection.immutable.IndexedSeq.empty)
 
   override def receive: Receive = {
     case RegisterConsumer(consumer, fullMessage) =>
-      val routee = ActorRefRouteeWithSpecifiedMessageType(consumer, fullMessage)
+      val routee = AskingActorRefRouteeWithSpecifiedMessageType(consumer, consumeTimeout, handleResponse, fullMessage)
       consumers += consumer -> routee
       router = router.addRoutee(routee)
       log.debug("Registered consumer, unstashing")
@@ -42,25 +51,44 @@ private class QueueActor extends Actor with Stash with ActorLogging {
       if (consumers.isEmpty) {
         log.debug("Got message when no consumer registered, stashing")
         stash()
+        implicit val timeout = Timeout(consumeTimeout)
         sender() ! ((): Unit)
       } else {
         router.route(msg, sender())
       }
   }
 
+  private def handleResponse(future: Future[Any], msg: Message[_]): Unit =
+    future.recover {
+      case ex: AskTimeoutException =>
+        log.error(ex, s"REJECT [${msg.content.getClass.getName}] because of ask timeout")
+      case ex: Exception with RejectingMessage =>
+        log.error(ex, s"REJECT [${msg.content.getClass.getName}] because of rejecting failure")
+      case NonFatal(ex) =>
+        log.error(ex, s"Will RETRY [${msg.content.getClass.getName}] after $retryDelay because of failure")
+        context.system.scheduler.scheduleOnce(retryDelay, self, msg)
+    }
+
 }
 
 object QueueActor {
-  def props: Props = Props(new QueueActor)
+  def props(consumeTimeout: FiniteDuration,
+            retryDelay: FiniteDuration): Props = Props(
+    new QueueActor(
+      consumeTimeout = consumeTimeout,
+      retryDelay = retryDelay))
 }
 
-private[inmem] case class ActorRefRouteeWithSpecifiedMessageType(ref: ActorRef, fullMessage: Boolean) extends Routee {
+private[inmem] case class AskingActorRefRouteeWithSpecifiedMessageType(ref: ActorRef,
+                                                                       askTimeout: FiniteDuration,
+                                                                       handleResponse: (Future[Any], Message[_]) => Unit,
+                                                                       fullMessage: Boolean)
+  extends Routee {
+
   override def send(message: Any, sender: ActorRef): Unit = {
-    if (fullMessage) {
-      ref.tell(message, sender)
-    } else {
-      ref.tell(message.asInstanceOf[Message[_]].content, sender)
-    }
+    val typedMessage = message.asInstanceOf[Message[_]]
+    val msgToSend = if (fullMessage) message else typedMessage.content
+    handleResponse(ref.ask(msgToSend)(askTimeout, sender), typedMessage)
   }
 }
 

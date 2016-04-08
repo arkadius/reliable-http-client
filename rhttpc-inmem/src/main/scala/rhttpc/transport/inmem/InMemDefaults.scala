@@ -22,6 +22,10 @@ object InMemDefaults extends InMemDefaults
 trait InMemDefaults {
   private[rhttpc] val createTimeout: FiniteDuration = 5.seconds
 
+  private[rhttpc] val consumeTimeout: FiniteDuration = 5.minutes
+
+  private[rhttpc] val retryDelay: FiniteDuration = 10.seconds
+
   private[rhttpc] val stopConsumingTimeout: FiniteDuration = 5.seconds
 
   private[rhttpc] val stopTimeout: FiniteDuration = 5.seconds

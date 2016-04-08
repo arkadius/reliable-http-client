@@ -15,12 +15,13 @@
  */
 package rhttpc.transport.inmem
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Status}
 import akka.testkit.{TestKit, TestProbe}
 import org.scalatest._
 import rhttpc.transport.PubSubTransport
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
   with fixture.FlatSpecLike
@@ -31,27 +32,33 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
   val someMessage2 = "fooMessage2"
 
   it should "delivery message to consumer subscribed before publishing" in { transport =>
-    val subscriber = transport.subscriber[String](someQueueName, testActor)
+    val probe = TestProbe()
+    val subscriber = transport.subscriber[String](someQueueName, probe.testActor)
     subscriber.start()
     val publisher = transport.publisher[String](someQueueName)
     publisher.publish(someMessage)
-    expectMsg(someMessage)
+    probe.expectMsg(someMessage)
+    probe.reply(Unit)
   }
 
   it should "delivery message to consumer subscribed after publishing" in { transport =>
+    val probe = TestProbe()
     val publisher = transport.publisher[String](someQueueName)
-    val subscriber = transport.subscriber[String](someQueueName, testActor)
+    val subscriber = transport.subscriber[String](someQueueName, probe.testActor)
     subscriber.start()
     publisher.publish(someMessage)
-    expectMsg(someMessage)
+    probe.expectMsg(someMessage)
+    probe.reply(Unit)
   }
 
   it should "delivery message to consumer started after publishing" in { transport =>
+    val probe = TestProbe()
     val publisher = transport.publisher[String](someQueueName)
-    val subscriber = transport.subscriber[String](someQueueName, testActor)
+    val subscriber = transport.subscriber[String](someQueueName, probe.testActor)
     publisher.publish(someMessage)
     subscriber.start()
-    expectMsg(someMessage)
+    probe.expectMsg(someMessage)
+    probe.reply(Unit)
   }
 
   it should "delivery message to multiple consumers" in { transport =>
@@ -68,13 +75,26 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     publisher.publish(someMessage2)
 
     probe1.expectMsg(someMessage)
+    probe1.reply(Unit)
     probe2.expectMsg(someMessage2)
+    probe2.reply(Unit)
+  }
+
+  it should "retry message if failure" in { transport =>
+    val probe = TestProbe()
+    val subscriber = transport.subscriber[String](someQueueName, probe.testActor)
+    subscriber.start()
+    val publisher = transport.publisher[String](someQueueName)
+    publisher.publish(someMessage)
+    probe.expectMsg(someMessage)
+    probe.reply(Status.Failure(new Exception("failure")))
+    probe.expectMsg(someMessage)
   }
 
   override type FixtureParam = PubSubTransport
 
   override protected def withFixture(test: OneArgTest): Outcome = {
-    val transport = InMemTransport()
+    val transport = InMemTransport(retryDelay = 0.seconds)
     try {
       test(transport)
     } finally {
