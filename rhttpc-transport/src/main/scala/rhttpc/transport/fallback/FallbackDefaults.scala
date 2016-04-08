@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport.inmem
+package rhttpc.transport.fallback
 
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration._
 
-object InMemDefaults extends InMemDefaults
+object FallbackDefaults extends FallbackDefaults
 
-trait InMemDefaults {
-  private[rhttpc] val createTimeout: FiniteDuration = 5.seconds
-
-  private[rhttpc] val stopConsumingTimeout: FiniteDuration = 5.seconds
-
-  private[rhttpc] val stopTimeout: FiniteDuration = 5.seconds
+trait FallbackDefaults {
+  private[rhttpc] val maxFailures: Int = 1
+  private[rhttpc] val callTimeout: FiniteDuration = 30.seconds
+  private[rhttpc] val resetTimeout: FiniteDuration = 1.minutes
 }

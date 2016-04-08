@@ -13,28 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport.inmem
+package rhttpc.transport
 
-import akka.actor.ActorRef
-import akka.pattern._
-import akka.util.Timeout
-import rhttpc.transport.Subscriber
+import akka.actor.ActorSystem
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-class InMemSubscriber[Msg](queueActor: ActorRef,
-                           consumer: ActorRef,
-                           fullMessage: Boolean)
-                          (stopTimeout: FiniteDuration) extends Subscriber[Msg] {
+package object fallback {
 
-  override def start(): Unit = {
-    queueActor ! RegisterConsumer(consumer, fullMessage)
-  }
+  implicit class FallbackBuilder(transport: PubSubTransport) {
 
-  override def stop(): Future[Unit] = {
-    implicit val timeout = Timeout(stopTimeout)
-    (queueActor ? UnregisterConsumer(consumer)).mapTo[Unit]
+    def withFallbackTo(fallbackTransport: PubSubTransport,
+                       maxFailures: Int = FallbackDefaults.maxFailures,
+                       callTimeout: FiniteDuration = FallbackDefaults.callTimeout,
+                       resetTimeout: FiniteDuration = FallbackDefaults.resetTimeout)
+                      (implicit system: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher =
+      new FallbackTransport(transport, fallbackTransport)(maxFailures, callTimeout, resetTimeout)
   }
 
 }

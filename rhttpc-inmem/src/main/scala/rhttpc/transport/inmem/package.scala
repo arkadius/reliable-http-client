@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport.inmem
+package rhttpc.transport
 
-import scala.concurrent.duration.{FiniteDuration, _}
+import akka.actor.ActorSystem
 
-object InMemDefaults extends InMemDefaults
+package object inmem {
 
-trait InMemDefaults {
-  private[rhttpc] val createTimeout: FiniteDuration = 5.seconds
+  implicit def transport(implicit actorSystem: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher =
+    InMemTransport()
 
-  private[rhttpc] val stopConsumingTimeout: FiniteDuration = 5.seconds
-
-  private[rhttpc] val stopTimeout: FiniteDuration = 5.seconds
 }
