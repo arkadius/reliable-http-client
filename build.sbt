@@ -77,6 +77,22 @@ lazy val transport = (project in file("rhttpc-transport")).
     }
   )
 
+lazy val inMemTransport = (project in file("rhttpc-inmem")).
+  settings(commonSettings).
+  settings(publishSettings).
+  settings(
+    name := "rhttpc-inmem",
+    libraryDependencies ++= {
+      Seq(
+        "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
+        "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
+      )
+    }
+  ).
+  dependsOn(transport)
+
 lazy val amqpTransport = (project in file("rhttpc-amqp")).
   settings(commonSettings).
   settings(publishSettings).

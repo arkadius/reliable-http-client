@@ -117,7 +117,9 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
 
   private def consumerCount(queueName: String): Long =
     Try(statsChannel.consumerCount(queueName)).getOrElse(0L)
-  
+
+  override def stop(): Future[Unit] = Future.successful(Unit)
+
 }
 
 case class AmqpQueueStats(messageCount: Long, consumerCount: Long, dlqMessageCount: Long, dlqConsumerCount: Long)

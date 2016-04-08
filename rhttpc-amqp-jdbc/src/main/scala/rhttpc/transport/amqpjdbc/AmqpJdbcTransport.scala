@@ -97,6 +97,7 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
     }
   }
 
+  override def stop(): Future[Unit] = underlying.stop()
 }
 
 case class AmqpJdbcQueueStats(amqpStats: AmqpQueueStats, scheduledMessageCount: Int)
