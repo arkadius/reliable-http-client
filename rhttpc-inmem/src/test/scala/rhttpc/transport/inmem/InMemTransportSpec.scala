@@ -89,6 +89,7 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     probe.expectMsg(someMessage)
     probe.reply(Status.Failure(new Exception("failure")))
     probe.expectMsg(someMessage)
+    probe.reply(Unit)
   }
 
   override type FixtureParam = PubSubTransport

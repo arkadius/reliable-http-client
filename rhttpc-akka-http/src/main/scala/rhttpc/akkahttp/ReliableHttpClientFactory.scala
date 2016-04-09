@@ -26,6 +26,7 @@ import rhttpc.client.protocol.Exchange
 import rhttpc.client.proxy.FailureResponseHandleStrategyChooser
 import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpDefaults, AmqpTransport}
+import rhttpc.transport.inmem.InMemTransport
 
 import scala.concurrent.Future
 
@@ -33,7 +34,6 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
   import actorSystem.dispatcher
   import rhttpc.transport.json4s._
   import rhttpc.transport.fallback._
-  import rhttpc.transport.inmem._
 
   private implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
                                                      connection: Connection): PubSubTransport with WithInstantPublisher =

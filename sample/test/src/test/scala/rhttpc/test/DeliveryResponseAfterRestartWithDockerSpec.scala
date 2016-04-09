@@ -77,7 +77,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
-  it should "fallback to in mememory transport when rabbit became unavailable" in { fixture =>
+  it should "fallback to in memory transport when rabbitmq became unavailable" in { fixture =>
     // TODO: write scenario
   }
 
