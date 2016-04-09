@@ -28,23 +28,23 @@ import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpConnectionFactory, AmqpDefaults, AmqpTransport}
 import rhttpc.transport.inmem.InMemTransport
 
-import scala.concurrent.Future
+import scala.concurrent._
 
 case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
   import rhttpc.transport.json4s._
   import rhttpc.transport.fallback._
 
-  private implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
-                                                     connection: Connection): PubSubTransport with WithInstantPublisher =
-    AmqpTransport(connection).withFallbackTo(InMemTransport())
+  private val inMemTransport = InMemTransport()
 
-  private implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
-                                                     connection: Connection): PubSubTransport with WithDelayedPublisher =
+  private implicit def transportWithInstantPublisher(implicit connection: Connection): PubSubTransport with WithInstantPublisher =
+    AmqpTransport(connection).withFallbackTo(inMemTransport)
+
+  private implicit def transportWithDelayedPublisher(implicit connection: Connection): PubSubTransport with WithDelayedPublisher =
     AmqpTransport(
       connection = connection,
       exchangeName = AmqpDefaults.delayedExchangeName
-    ).withFallbackTo(InMemTransport())
+    ).withFallbackTo(inMemTransport)
   
   private lazy val config = ConfigParser.parse(actorSystem)
 
@@ -135,7 +135,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           retryStrategy = retryStrategy,
           additionalStopAction = {
             Future {
-              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              blocking {
+                connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              }
             }
           }
         )
@@ -159,7 +161,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           retryStrategy = retryStrategy,
           additionalStopAction = {
             Future {
-              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              blocking {
+                connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              }
             }
           }
         )
@@ -183,7 +187,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           retryStrategy = retryStrategy,
           additionalStopAction = {
             Future {
-              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              blocking {
+                connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              }
             }
           }
         )
@@ -205,7 +211,9 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
           retryStrategy = retryStrategy,
           additionalStopAction = {
             Future {
-              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              blocking {
+                connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+              }
             }
           }
         )

@@ -39,9 +39,10 @@ private class QueueActor(consumeTimeout: FiniteDuration,
       val routee = AskingActorRefRouteeWithSpecifiedMessageType(consumer, consumeTimeout, handleResponse, fullMessage)
       consumers += consumer -> routee
       router = router.addRoutee(routee)
-      log.debug("Registered consumer, unstashing")
+      log.debug(s"${self.path.name}: registered consumer, unstashing")
       unstashAll()
     case UnregisterConsumer(consumer) =>
+      log.debug(s"${self.path.name}: unregistered consumer")
       consumers.get(consumer).foreach { routee =>
         consumers -= consumer
         router = router.removeRoutee(routee)
@@ -49,7 +50,7 @@ private class QueueActor(consumeTimeout: FiniteDuration,
       sender() ! ((): Unit)
     case msg: Message[_] =>
       if (consumers.isEmpty) {
-        log.debug("Got message when no consumer registered, stashing")
+        log.debug(s"${self.path.name}: got message when no consumer registered, stashing")
         stash()
         implicit val timeout = Timeout(consumeTimeout)
         sender() ! ((): Unit)
@@ -61,11 +62,11 @@ private class QueueActor(consumeTimeout: FiniteDuration,
   private def handleResponse(future: Future[Any], msg: Message[_]): Unit =
     future.recover {
       case ex: AskTimeoutException =>
-        log.error(ex, s"REJECT [${msg.content.getClass.getName}] because of ask timeout")
+        log.error(ex, s"${self.path.name}: REJECT [${msg.content.getClass.getName}] because of ask timeout")
       case ex: Exception with RejectingMessage =>
-        log.error(ex, s"REJECT [${msg.content.getClass.getName}] because of rejecting failure")
+        log.error(ex, s"${self.path.name}: REJECT [${msg.content.getClass.getName}] because of rejecting failure")
       case NonFatal(ex) =>
-        log.error(ex, s"Will RETRY [${msg.content.getClass.getName}] after $retryDelay because of failure")
+        log.error(ex, s"${self.path.name}: will RETRY [${msg.content.getClass.getName}] after $retryDelay because of failure")
         context.system.scheduler.scheduleOnce(retryDelay, self, msg)
     }
 
