@@ -82,6 +82,24 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
     )
   }
 
+  def inOutWithRequestQueueOnly(connection: Connection,
+                                handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
+                                successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+                                batchSize: Int = config.batchSize,
+                                parallelConsumers: Int = config.parallelConsumers,
+                                queuesPrefix: String = config.queuesPrefix,
+                                retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): InOnlyReliableHttpClient = {
+    implicit val implicitConnection = connection
+    ReliableClientFactory().inOutWithRequestQueueOnly(
+      send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
+      handleResponse = handleResponse,
+      batchSize = batchSize,
+      parallelConsumers = parallelConsumers,
+      queuesPrefix = queuesPrefix,
+      retryStrategy = retryStrategy
+    )
+  }
+
   def inOnly(connection: Connection,
              successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
              batchSize: Int = config.batchSize,
@@ -133,6 +151,30 @@ case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, material
       val connectionF = AmqpConnectionFactory.connect(actorSystem)
       connectionF.map { implicit connection =>
         ReliableClientFactory().inOut(
+          send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
+          handleResponse = handleResponse,
+          batchSize = batchSize,
+          parallelConsumers = parallelConsumers,
+          queuesPrefix = queuesPrefix,
+          retryStrategy = retryStrategy,
+          additionalStopAction = {
+            Future {
+              connection.close(AMQP_CLOSE_TIMEOUT_MILLIS)
+            }
+          }
+        )
+      }
+    }
+
+    def inOutWithRequestQueueOnly(handleResponse: Exchange[HttpRequest, HttpResponse] => Future[Unit],
+                                  successRecognizer: SuccessHttpResponseRecognizer = AcceptSuccessHttpStatus,
+                                  batchSize: Int = config.batchSize,
+                                  parallelConsumers: Int = config.parallelConsumers,
+                                  queuesPrefix: String = config.queuesPrefix,
+                                  retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy): Future[InOnlyReliableHttpClient] = {
+      val connectionF = AmqpConnectionFactory.connect(actorSystem)
+      connectionF.map { implicit connection =>
+        ReliableClientFactory().inOutWithRequestQueueOnly(
           send = ReliableHttpProxyFactory.send(successRecognizer, batchSize, parallelConsumers),
           handleResponse = handleResponse,
           batchSize = batchSize,

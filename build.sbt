@@ -52,17 +52,19 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.2"
+val akkaV = "2.4.3"
 val ficusV = "1.2.3"
 val amqpcV = "3.6.1"
 val json4sV = "3.3.0"
 val logbackV = "1.1.3"
-val slf4jV = "1.7.13"
+val commonsIoV = "2.4"
+val slf4jV = "1.7.21"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M15"
 val slickV = "3.1.1"
 val flywayV = "3.2.1"
 val hsqldbV = "2.3.3"
+val dockerJavaV = "1.4.0"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
@@ -241,8 +243,8 @@ lazy val testProj = (project in file("sample/test")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.github.docker-java"    % "docker-java"                   % "1.4.0" exclude("commons-logging", "commons-logging"),
-        "commons-io"                % "commons-io"                    % "2.4",
+        "com.github.docker-java"    % "docker-java"                   % dockerJavaV exclude("commons-logging", "commons-logging"),
+        "commons-io"                % "commons-io"                    % commonsIoV,
         "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
