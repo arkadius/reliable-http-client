@@ -77,6 +77,15 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
+  it should "fallback to in memory transport when rabbitmq became unavailable" in { fixture =>
+    val id = "123"
+    fixture.stopRabbitMq()
+    await(fixture.fooBarClient.foo(id))
+    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
+    Thread.sleep(10 * 1000)
+    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
+  }
+
   def await[T](future: Future[T]): T =
     Await.result(future, 10 seconds)
 
@@ -84,7 +93,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     Await.result(Future.sequence(futures), 60 seconds)
 
   class FixtureParam(val fooBarClient: FooBarClient)
-                    (docker: DockerClient, appContainerId: String) {
+                    (docker: DockerClient, appContainerId: String, rabbitmqContainerId: String) {
     def restartApp(waitAfterStart: Long) = {
       docker.stopContainerCmd(appContainerId).exec()
       docker.startContainerCmd(appContainerId).exec()
@@ -92,6 +101,11 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       HttpProbe(appHealthCheckUrl).await()
       Thread.sleep(waitAfterStart * 1000)
       logger.info("App restarted")
+    }
+
+    def stopRabbitMq() = {
+      docker.stopContainerCmd(rabbitmqContainerId).exec()
+      logger.info("RabbitMQ stopped")
     }
   }
 
@@ -114,7 +128,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val (echoContainerId, appContainerId) = startServices()
 
     val fooBarClient = new FooBarClient(dispatch.url("http://localhost:8081"))
-    val result = test(new FixtureParam(fooBarClient)(docker, appContainerId))
+    val result = test(new FixtureParam(fooBarClient)(docker, appContainerId, rabbitmqContainerId))
     stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, appContainerId)
     result
   }

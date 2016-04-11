@@ -86,6 +86,8 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
+  override def stop(): Future[Unit] = Future.successful(Unit)
+
 }
 
 object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
@@ -107,4 +109,6 @@ object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
 
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
+
+  override def stop(): Future[Unit] = Future.successful(Unit)
 }

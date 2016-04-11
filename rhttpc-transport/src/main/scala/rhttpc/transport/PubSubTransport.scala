@@ -34,6 +34,7 @@ trait PubSubTransport {
 
   def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 
+  def stop(): Future[Unit]
 }
 
 trait WithInstantPublisher { self: PubSubTransport =>
