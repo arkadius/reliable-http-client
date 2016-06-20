@@ -51,7 +51,7 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         val deliveryTag = envelope.getDeliveryTag
         val stringMsg = new String(body, "UTF-8")
-        val tryDeserializedMessage = deserializer.deserialize(stringMsg)
+        val tryDeserializedMessage = deserializer.deserialize[Sub](stringMsg)
         tryDeserializedMessage match {
           case Success(deserializedMessage) =>
             val msgToSend = prepareMessage(deserializedMessage, properties: AMQP.BasicProperties)
