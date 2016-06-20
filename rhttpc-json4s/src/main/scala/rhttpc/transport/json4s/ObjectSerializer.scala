@@ -23,7 +23,7 @@ object ObjectSerializer extends Serializer[Any] {
   private final val ID_FIELD = "jsonObject"
 
   override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, JValue), Any] = {
-    case (_, JObject(List(JField(ID_FIELD, JString(className))))) =>
+    case (TypeInfo(clazz, _), JObject(List(JField(ID_FIELD, JString(className))))) if clazz.isAssignableFrom(Class.forName(className)) =>
       val typeMirror = runtimeMirror(ClassLoader.getSystemClassLoader)
       val sym = typeMirror.moduleSymbol(Class.forName(className))
       typeMirror.reflectModule(sym).instance
