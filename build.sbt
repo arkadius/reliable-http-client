@@ -1,7 +1,6 @@
 import com.banno.license.Licenses._
 import com.banno.license.Plugin.LicenseKeys._
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
-import net.virtualvoid.sbt.graph.Plugin._
 import sbt.Keys._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 
@@ -9,7 +8,6 @@ val scalaV = "2.11.7"
 
 val commonSettings =
   filterSettings ++
-  graphSettings ++
   licenseSettings ++
   Seq(
     organization  := "org.rhttpc",

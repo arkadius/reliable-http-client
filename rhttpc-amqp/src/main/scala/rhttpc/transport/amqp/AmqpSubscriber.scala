@@ -57,7 +57,7 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
             val msgToSend = prepareMessage(deserializedMessage, properties: AMQP.BasicProperties)
             handleDeserializedMessage(msgToSend, deliveryTag)
           case Failure(ex) =>
-            logger.debug(s"REJECT: $deliveryTag because of parse failure of: $stringMsg", ex)
+            logger.error(s"REJECT: $deliveryTag because of parse failure of: $stringMsg", ex)
             channel.basicReject(deliveryTag, false)
         }
       }
