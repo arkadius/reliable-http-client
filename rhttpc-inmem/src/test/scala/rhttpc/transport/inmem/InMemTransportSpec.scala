@@ -27,6 +27,8 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
   with fixture.FlatSpecLike
   with BeforeAndAfterAll {
 
+  import rhttpc.transport.dumb._
+
   val someQueueName = "fooQueue"
   val someMessage = "fooMessage"
   val someMessage2 = "fooMessage2"

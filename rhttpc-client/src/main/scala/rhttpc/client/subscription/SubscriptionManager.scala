@@ -25,7 +25,7 @@ import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
-import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -127,21 +127,23 @@ case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
 
   private lazy val config = ConfigParser.parse(actorSystem)
   
-  def create(batchSize: Int = config.batchSize,
-             parallelConsumers: Int = config.parallelConsumers,
-             queuesPrefix: String = config.queuesPrefix)
-            (implicit transport: PubSubTransport):
+  def create[Msg](batchSize: Int = config.batchSize,
+                  parallelConsumers: Int = config.parallelConsumers,
+                  queuesPrefix: String = config.queuesPrefix)
+                 (implicit transport: PubSubTransport,
+                  deserializer: Deserializer[Correlated[Msg]]):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
     create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers))
   }
 
-  private[client] def create(queueData: InboundQueueData)
-                            (implicit transport: PubSubTransport):
+  private[client] def create[Msg](queueData: InboundQueueData)
+                                 (implicit transport: PubSubTransport,
+                                  deserializer: Deserializer[Correlated[Msg]]):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
     val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor])
-    val subscriber = transport.subscriber[Correlated[_]](queueData, dispatcherActor)
+    val subscriber = transport.subscriber[Correlated[Msg]](queueData, dispatcherActor)
     new SubscriptionManagerImpl(subscriber, dispatcherActor)
   }
 }

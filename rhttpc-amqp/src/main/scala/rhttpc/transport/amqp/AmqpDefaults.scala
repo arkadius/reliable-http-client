@@ -16,27 +16,26 @@
 package rhttpc.transport.amqp
 
 import com.rabbitmq.client.AMQP
-import rhttpc.transport.{OutboundQueueData, Message}
+import rhttpc.transport.SerializingPublisher.SerializedMessage
+import rhttpc.transport.{Message, OutboundQueueData}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 object AmqpDefaults extends AmqpDefaults
 
-trait AmqpDefaults extends AmqpQueuesNaming {
+trait AmqpDefaults
+  extends AmqpQueuesNaming
+  with AmqpExchangesNaming{
 
   import collection.convert.wrapAsJava._
-
-  private[rhttpc] final val instantExchangeName: String = ""
-  
-  private[rhttpc] final val delayedExchangeName: String = "delayed"
 
   private[rhttpc] final val consumeTimeout: FiniteDuration = 5 minutes
   
   private[rhttpc] final val nackDelay: FiniteDuration = 10 seconds
 
-  private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = {
-    case Message(_, additionalProps) =>
+  private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = {
+    case SerializedMessage(_, additionalProps) =>
       persistentPropertiesBuilder.headers(additionalProps.mapValues {
         case b: BigInt => b.toLong.underlying()
         case other => other.asInstanceOf[AnyRef]
@@ -61,7 +60,7 @@ trait AmqpDefaults extends AmqpQueuesNaming {
   }
 
   private[rhttpc] def declareDlqAndBindToExchange(data: AmqpDeclareOutboundQueueData) = {
-    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(AmqpQueuesNaming.prepareDlqName(data.queueData.name)), DLQ_EXCHANGE_NAME, data.channel)
+    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(prepareDlqQueueName(data.queueData.name)), dlqExchangeName, data.channel)
     declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
   }
 
@@ -87,10 +86,8 @@ trait AmqpDefaults extends AmqpQueuesNaming {
 
   private def prepareDlqArgs(queueName: String) =
     Map(
-      "x-dead-letter-exchange" -> DLQ_EXCHANGE_NAME,
-      "x-dead-letter-routing-key" -> AmqpQueuesNaming.prepareDlqName(queueName)
+      "x-dead-letter-exchange" -> dlqExchangeName,
+      "x-dead-letter-routing-key" -> prepareDlqQueueName(queueName)
     )
-
-  private final val DLQ_EXCHANGE_NAME = "dlq"
 
 }

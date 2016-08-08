@@ -37,12 +37,12 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
 
   implicit val materializer = ActorMaterializer()
 
-  implicit val serializer = new Serializer {
-    override def serialize[Msg <: AnyRef](obj: Msg): String = obj.toString
+  implicit def serializer[Msg] = new Serializer[Msg] {
+    override def serialize(obj: Msg): String = obj.toString
   }
 
-  implicit val deserializer = new Deserializer {
-    override def deserialize[Msg: Manifest](value: String): Try[Msg] = Try(value.asInstanceOf[Msg])
+  implicit def deserializer[Msg] = new Deserializer[Msg] {
+    override def deserialize(value: String): Try[Msg] = Try(value.asInstanceOf[Msg])
   }
 
   val queueName = "request"

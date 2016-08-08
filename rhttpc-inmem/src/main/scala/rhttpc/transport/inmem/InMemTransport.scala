@@ -31,22 +31,22 @@ private[inmem] class InMemTransport(transportActor: ActorRef) // TODO: stopping 
 
   import system.dispatcher
 
-  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] = {
+  override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] = {
     val queueActor = getOrCreateQueueActor(queueData.name)
     new InMemPublisher[PubMsg](queueActor)
   }
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+  override def subscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
     val queueActor = getOrCreateQueueActor(queueData.name)
     new InMemSubscriber[SubMsg](queueActor, consumer, fullMessage = false)(stopConsumingTimeout)
   }
 
-  override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+  override def fullMessageSubscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
     val queueActor = getOrCreateQueueActor(queueData.name)
     new InMemSubscriber[SubMsg](queueActor, consumer, fullMessage = true)(stopConsumingTimeout)
   }
 
-  private def getOrCreateQueueActor[SubMsg: Manifest](name: String): ActorRef = {
+  private def getOrCreateQueueActor(name: String): ActorRef = {
     implicit val timeout = Timeout(createTimeout)
     Await.result((transportActor ? GetOrCreateQueue(name)).mapTo[ActorRef], createTimeout)
   }

@@ -20,42 +20,36 @@ import java.io._
 import akka.agent.Agent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
-import rhttpc.transport.{Message, Publisher, Serializer}
+import rhttpc.transport.SerializingPublisher.SerializedMessage
+import rhttpc.transport.{Message, Publisher, Serializer, SerializingPublisher}
 import rhttpc.utils.Recovered._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.language.postfixOps
 
-private[amqp] class AmqpPublisher[PubMsg <: AnyRef](channel: Channel,
-                                                    queueName: String,
-                                                    exchangeName: String,
-                                                    serializer: Serializer,
-                                                    prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
-                                                   (implicit ec: ExecutionContext)
-  extends Publisher[PubMsg] with ConfirmListener {
+private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
+                                          queueName: String,
+                                          exchangeName: String,
+                                          protected val serializer: Serializer[PubMsg],
+                                          prepareProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties])
+                                         (implicit ec: ExecutionContext)
+  extends SerializingPublisher[PubMsg] with ConfirmListener {
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
   private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
-  override def publish(msg: Message[PubMsg]): Future[Unit] = {
-    val bos = new ByteArrayOutputStream()
-    val writer = new OutputStreamWriter(bos, "UTF-8")
-    try {
-      writer.write(serializer.serialize(msg.content))
-    } finally {
-      writer.close()
-    }
+  override private[rhttpc] def publishSerialized(msg: SerializedMessage): Future[Unit] = {
     val properties = prepareProperties.applyOrElse(
       msg,
-      (_: Message[Any]) => throw new IllegalArgumentException(s"Not supported message type: $msg")
+      (_: SerializedMessage) => throw new IllegalArgumentException(s"Not supported message type: $msg")
     )
     val ackPromise = Promise[Unit]()
     for {
       _ <- seqNoOnAckPromiseAgent.alter { curr =>
         val publishSeqNo = channel.getNextPublishSeqNo
         logger.debug(s"PUBLISH: $publishSeqNo")
-        channel.basicPublish(exchangeName, queueName, properties, bos.toByteArray)
+        channel.basicPublish(exchangeName, queueName, properties, msg.content)
         curr + (publishSeqNo -> ackPromise)
       }
       ack <- ackPromise.future

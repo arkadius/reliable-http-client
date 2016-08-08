@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport
+package db.migration
 
-import org.json4s.Formats
+import rhttpc.transport.amqpjdbc.slick.AddingPropertiesToScheduledMessagesMigration
+import slick.driver.{HsqldbDriver, JdbcDriver}
 
-package object json4s {
-
-  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer[Msg] = new Json4sSerializer()
-
-  implicit def deserializer[Msg](implicit formats: Formats): Deserializer[Msg] = new Json4sDeserializer()
-
+class V1_002__AddingPropertiesToScheduledMessagesMigration extends AddingPropertiesToScheduledMessagesMigration {
+  override protected val driver: JdbcDriver = HsqldbDriver
 }

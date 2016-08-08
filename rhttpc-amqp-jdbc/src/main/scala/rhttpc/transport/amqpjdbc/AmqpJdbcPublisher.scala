@@ -20,11 +20,11 @@ import rhttpc.transport.{DelayedMessage, Message, Publisher}
 import scala.concurrent.{ExecutionContext, Future}
 import rhttpc.utils.Recovered._
 
-private[amqpjdbc] class AmqpJdbcPublisher[PubMsg <: AnyRef](underlying: Publisher[PubMsg],
-                                                            queueName: String,
-                                                            scheduler: AmqpJdbcScheduler[PubMsg],
-                                                            additionalStopAction: => Future[Unit])
-                                                           (implicit ec: ExecutionContext) extends Publisher[PubMsg] {
+private[amqpjdbc] class AmqpJdbcPublisher[PubMsg](underlying: Publisher[PubMsg],
+                                                  queueName: String,
+                                                  scheduler: AmqpJdbcScheduler[PubMsg],
+                                                  additionalStopAction: => Future[Unit])
+                                                 (implicit ec: ExecutionContext) extends Publisher[PubMsg] {
 
   override def publish(msg: Message[PubMsg]): Future[Unit] = {
     msg match {

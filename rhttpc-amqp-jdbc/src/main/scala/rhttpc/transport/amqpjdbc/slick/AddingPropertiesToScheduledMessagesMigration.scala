@@ -17,19 +17,39 @@ package rhttpc.transport.amqpjdbc.slick
 
 import java.sql.Timestamp
 
-import rhttpc.transport.amqpjdbc.slick.CreatingScheduledMessagesTableMigration.ScheduledMessage
+import com.typesafe.config._
+import rhttpc.transport.amqpjdbc.ScheduledMessage
+import slick.driver.JdbcDriver
+import slick.jdbc.JdbcType
 import slick.profile.SqlProfile.ColumnOption.NotNull
 
 import scala.language.postfixOps
 
-trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
+trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
   import driver.api._
 
+  private lazy val sheduledMessagesWithoutPropsMigration = new CreatingScheduledMessagesTableMigration {
+    override protected val driver: JdbcDriver = AddingPropertiesToScheduledMessagesMigration.this.driver
+  }
+
   override def migrateActions = {
-    scheduledMessages.schema.create
+    sheduledMessagesWithoutPropsMigration.scheduledMessages.schema.drop andThen
+      scheduledMessages.schema.create
   }
 
   protected val messageMaxSize = 8192
+  protected val propertiesMaxSize = 256
+
+  import collection.convert.wrapAll._
+
+  protected implicit def propertiesMapper: JdbcType[Map[String, Any]] = MappedColumnType.base[Map[String, Any], String](
+    m => {
+      ConfigValueFactory.fromMap(m).render(ConfigRenderOptions.concise())
+    },
+    str => {
+      ConfigFactory.parseString(str).root().unwrapped().toMap
+    }
+  )
 
   val scheduledMessages = TableQuery[ScheduledMessageEntity]
 
@@ -37,21 +57,16 @@ trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
 
     def id = column[Long]("id", NotNull, O.PrimaryKey, O.AutoInc)
     def queueName = column[String]("queue_name", NotNull, O.Length(64))
-    def message = column[String]("message", NotNull, O.Length(messageMaxSize))
+    def content = column[String]("content", NotNull, O.Length(messageMaxSize))
+    def properties = column[Map[String, Any]]("properties", NotNull, O.Length(propertiesMaxSize))
     def plannedRun = column[Timestamp]("planned_run", NotNull)
 
-    def * = (id.?, queueName, message, plannedRun) <> (ScheduledMessage.apply _ tupled, ScheduledMessage.unapply)
+    def * = (id.?, queueName, content, properties, plannedRun) <> (ScheduledMessage.apply _ tupled, ScheduledMessage.unapply)
 
     def idxQueueName = index("queue_name_idx", queueName)
 
     def idxQueueNamePlannedRun = index("name_planned_run_idx", (queueName, plannedRun))
 
   }
-
-}
-
-object CreatingScheduledMessagesTableMigration {
-
-  case class ScheduledMessage(id: Option[Long], queueName: String, message: String, plannedRun: Timestamp)
 
 }

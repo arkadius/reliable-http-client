@@ -21,14 +21,14 @@ import rhttpc.transport.{Deserializer, Serializer}
 
 import scala.util.Try
 
-class Json4sSerializer(implicit formats: Formats) extends Serializer {
-  override def serialize[Msg <: AnyRef](msg: Msg): String = {
+class Json4sSerializer[Msg <: AnyRef](implicit formats: Formats) extends Serializer[Msg] {
+  override def serialize(msg: Msg): String = {
     Serialization.write(msg)(formats)
   }
 }
 
-class Json4sDeserializer(implicit formats: Formats) extends Deserializer {
-  override def deserialize[Msg: Manifest](value: String): Try[Msg] = {
+class Json4sDeserializer[Msg: Manifest](implicit formats: Formats) extends Deserializer[Msg] {
+  override def deserialize(value: String): Try[Msg] = {
     Try(Serialization.read[Msg](value))
   }
 }

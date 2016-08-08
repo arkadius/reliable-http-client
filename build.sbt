@@ -163,7 +163,8 @@ lazy val client = (project in file("rhttpc-client")).
       )
     }
   ).
-  dependsOn(transport)
+  dependsOn(transport).
+  dependsOn(inMemTransport % "test")
 
 lazy val akkaHttpClient = (project in file("rhttpc-akka-http")).
   settings(commonSettings).

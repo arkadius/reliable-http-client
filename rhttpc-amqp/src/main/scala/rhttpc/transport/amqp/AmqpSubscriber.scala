@@ -22,20 +22,20 @@ import akka.util.Timeout
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
-
-import scala.concurrent.{Promise, Future}
-import scala.concurrent.duration._
-import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
 import rhttpc.utils.Recovered._
 
-private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
-                                                           queueName: String,
-                                                           consumer: ActorRef,
-                                                           deserializer: Deserializer,
-                                                           consumeTimeout: FiniteDuration,
-                                                           nackDelay: FiniteDuration)
-                                                          (implicit system: ActorSystem)
+import scala.concurrent.duration._
+import scala.concurrent.{Future, Promise}
+import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
+
+private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
+                                                 queueName: String,
+                                                 consumer: ActorRef,
+                                                 deserializer: Deserializer[Sub],
+                                                 consumeTimeout: FiniteDuration,
+                                                 nackDelay: FiniteDuration)
+                                                (implicit system: ActorSystem)
   extends Subscriber[Sub] {
 
   import system.dispatcher
@@ -51,7 +51,7 @@ private[amqp] abstract class AmqpSubscriber[Sub: Manifest](channel: Channel,
       override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
         val deliveryTag = envelope.getDeliveryTag
         val stringMsg = new String(body, "UTF-8")
-        val tryDeserializedMessage = deserializer.deserialize[Sub](stringMsg)
+        val tryDeserializedMessage = deserializer.deserialize(stringMsg)
         tryDeserializedMessage match {
           case Success(deserializedMessage) =>
             val msgToSend = prepareMessage(deserializedMessage, properties: AMQP.BasicProperties)

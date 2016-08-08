@@ -19,6 +19,7 @@ import akka.actor._
 import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Channel, Connection}
+import rhttpc.transport.SerializingPublisher.SerializedMessage
 import rhttpc.transport._
 
 import scala.concurrent.Future
@@ -33,13 +34,11 @@ trait AmqpTransport extends PubSubTransport with WithInstantPublisher with WithD
 // TODO: actor-based, connection recovery
 private[rhttpc] class AmqpTransportImpl(connection: Connection,
                                         exchangeName: String,
-                                        serializer: Serializer,
-                                        deserializer: Deserializer,
                                         consumeTimeout: FiniteDuration,
                                         nackDelay: FiniteDuration,
                                         declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
                                         declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk,
-                                        prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties])
+                                        prepareProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties])
                                        (implicit actorSystem: ActorSystem) extends AmqpTransport {
 
   import actorSystem.dispatcher
@@ -48,7 +47,8 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
   
   private val queueNamesAgent = Agent[Set[String]](Set.empty)
   
-  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): AmqpPublisher[PubMsg] = {
+  override def publisher[PubMsg](queueData: OutboundQueueData)
+                                (implicit serializer: Serializer[PubMsg]): AmqpPublisher[PubMsg] = {
     val channel = connection.createChannel()
     declarePublisherQueue(AmqpDeclareOutboundQueueData(queueData, exchangeName, channel))
     queueNamesAgent.send(_ + queueData.name)
@@ -64,7 +64,8 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
     publisher
   }
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+  override def subscriber[SubMsg](queueData: InboundQueueData, consumer: ActorRef)
+                                 (implicit deserializer: Deserializer[SubMsg]): Subscriber[SubMsg] = {
     val subscribers = (1 to queueData.parallelConsumers).map { _ =>
       val channel = connection.createChannel()
       declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
@@ -81,7 +82,8 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
     new SubscriberAggregate[SubMsg](subscribers)
   }
 
-  override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] = {
+  override def fullMessageSubscriber[SubMsg](queueData: InboundQueueData, consumer: ActorRef)
+                                            (implicit deserializer: Deserializer[SubMsg]): Subscriber[SubMsg] = {
     val subscribers = (1 to queueData.parallelConsumers).map { _ =>
       val channel = connection.createChannel()
       declareSubscriberQueue(AmqpDeclareInboundQueueData(queueData, channel))
@@ -100,7 +102,7 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
   override def queuesStats: Future[Map[String, AmqpQueueStats]] = {
     queueNamesAgent.future().map { names =>
       names.map { queueName =>
-        val dlqQueueName = AmqpDefaults.prepareDlqName(queueName)
+        val dlqQueueName = AmqpDefaults.prepareDlqQueueName(queueName)
         val stats = AmqpQueueStats(
           messageCount = messageCount(queueName),
           consumerCount = consumerCount(queueName),
@@ -136,15 +138,11 @@ object AmqpTransport {
                                       nackDelay: FiniteDuration = AmqpDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpDefaults.declarePublisherQueueWithDelayedExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpDefaults.declareSubscriberQueue,
-                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpDefaults.preparePersistentMessageProperties)
-                                     (implicit actorSystem: ActorSystem,
-                                      serializer: Serializer,
-                                      deserializer: Deserializer): AmqpTransport = {
+                                      prepareProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = AmqpDefaults.preparePersistentMessageProperties)
+                                     (implicit actorSystem: ActorSystem): AmqpTransport = {
     new AmqpTransportImpl(
       connection = connection,
       exchangeName = exchangeName,
-      serializer = serializer,
-      deserializer = deserializer,
       consumeTimeout = consumeTimeout,
       nackDelay = nackDelay,
       declarePublisherQueue = declarePublisherQueue,

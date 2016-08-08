@@ -49,7 +49,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
     _ackOnReplySubscriptionFuture
   }
 
-  override def publisher[PubMsg <: AnyRef](data: OutboundQueueData): Publisher[PubMsg] =
+  override def publisher[PubMsg: Serializer](data: OutboundQueueData): Publisher[PubMsg] =
     new Publisher[PubMsg] {
       override def publish(request: Message[PubMsg]): Future[Unit] = {
         request.content match {
@@ -74,10 +74,10 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
-  override def fullMessageSubscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def fullMessageSubscriber[SubMsg: Deserializer](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(data, consumer)
 
-  override def subscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def subscriber[SubMsg: Deserializer](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     new Subscriber[SubMsg] {
       MockTransport.this.consumer = consumer
 
@@ -91,7 +91,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 }
 
 object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
-  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] =
+  override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] =
     new Publisher[PubMsg] {
       override def publish(msg: Message[PubMsg]): Future[Unit] = Future.successful(Unit)
 
@@ -100,10 +100,10 @@ object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
       override def stop(): Future[Unit] = Future.successful(Unit)
     }
 
-  override def fullMessageSubscriber[SubMsg: Manifest](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def fullMessageSubscriber[SubMsg: Deserializer](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(data, consumer)
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def subscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     new Subscriber[SubMsg] {
       override def start(): Unit = {}
 

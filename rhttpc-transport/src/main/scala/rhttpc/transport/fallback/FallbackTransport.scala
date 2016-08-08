@@ -15,7 +15,7 @@
  */
 package rhttpc.transport.fallback
 
-import akka.actor.{ActorRef, ActorSystem, Scheduler}
+import akka.actor.{ActorRef, ActorSystem}
 import rhttpc.transport._
 
 import scala.concurrent.Future
@@ -30,7 +30,7 @@ class FallbackTransport(main: PubSubTransport,
 
   import system.dispatcher
 
-  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] =
+  override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] =
     new FallbackPublisher[PubMsg](
       main = main.publisher(queueData),
       fallback = fallback.publisher(queueData))(
@@ -39,13 +39,13 @@ class FallbackTransport(main: PubSubTransport,
       resetTimeout = resetTimeout
     )
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def subscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     new SubscriberAggregate[SubMsg](Seq(
       main.subscriber(queueData, consumer),
       fallback.subscriber(queueData, consumer)
     ))
 
-  override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def fullMessageSubscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     new SubscriberAggregate[SubMsg](Seq(
       main.fullMessageSubscriber(queueData, consumer),
       fallback.fullMessageSubscriber(queueData, consumer)

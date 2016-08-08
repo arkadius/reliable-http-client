@@ -24,17 +24,13 @@ import slick.jdbc.JdbcBackend
 package object amqpjdbc {
 
   implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection,
-                                             serializer: Serializer,
-                                             deserializer: Deserializer): PubSubTransport with WithInstantPublisher =
+                                             connection: Connection): PubSubTransport with WithInstantPublisher =
     AmqpTransport(connection)
 
   implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
                                              connection: Connection,
                                              driver: JdbcDriver,
-                                             db: JdbcBackend.Database,
-                                             serializer: Serializer,
-                                             deserializer: Deserializer): PubSubTransport with WithDelayedPublisher =
+                                             db: JdbcBackend.Database): PubSubTransport with WithDelayedPublisher =
     AmqpJdbcTransport(
       connection = connection,
       driver = driver,

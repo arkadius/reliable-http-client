@@ -15,20 +15,10 @@
  */
 package rhttpc.transport
 
-import akka.actor.ActorSystem
-import com.rabbitmq.client.Connection
+package object dumb {
 
-package object amqp {
+  implicit def serializer[Msg]: Serializer[Msg] = DumbSerializer
 
-  implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection): PubSubTransport with WithInstantPublisher =
-    AmqpTransport(connection)
-
-  implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection): PubSubTransport with WithDelayedPublisher =
-    AmqpTransport(
-      connection = connection,
-      exchangeName = AmqpDefaults.delayedExchangeName
-    )
+  implicit def deserializer[Msg]: Deserializer[Msg] = DumbDeserializer
 
 }

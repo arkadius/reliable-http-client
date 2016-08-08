@@ -19,6 +19,6 @@ object AmqpQueuesNaming extends AmqpQueuesNaming
 
 trait AmqpQueuesNaming {
 
-  def prepareDlqName(queueName: String): String = queueName + ".dlq"
+  def prepareDlqQueueName(queueName: String): String = queueName + ".dlq"
 
 }

@@ -40,10 +40,10 @@ class ExceptionSerializerSpec extends FlatSpec with Matchers with TryValues {
     implicit val formats = new DefaultFormats {
       override val typeHints: TypeHints = AllTypeHints
     } + ExceptionSerializer
-    val serializer = new Json4sSerializer()
-    val deserializer = new Json4sDeserializer()
+    val serializer = new Json4sSerializer[Throwable]()
+    val deserializer = new Json4sDeserializer[Throwable]()
     val serialized = serializer.serialize(ex)
-    val deserialized = deserializer.deserialize[Throwable](serialized)
+    val deserialized = deserializer.deserialize(serialized)
     deserialized.success.value shouldEqual ex
   }
 

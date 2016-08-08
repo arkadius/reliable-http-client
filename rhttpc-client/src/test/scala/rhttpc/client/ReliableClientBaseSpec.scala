@@ -17,23 +17,28 @@ package rhttpc.client
 
 import akka.testkit.TestKit
 import org.scalatest._
+import rhttpc.transport.{PubSubTransport, WithDelayedPublisher}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
 
+  import rhttpc.transport.dumb._
+
   protected implicit def ec: ExecutionContext = system.dispatcher
 
   case class FixtureParam(client: InOutReliableClient[String], transport: MockTransport)
 
   override protected def withFixture(test: OneArgTest): Outcome = {
-    val transport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
+    val mockTransport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
+    implicit val reqRespTransport: PubSubTransport with WithDelayedPublisher = mockTransport
+    implicit val respReqTransport = MockProxyTransport
     val client = ReliableClientFactory().inOutWithSubscriptions[String, String](
       _ => Future.successful("not used")
-    )(transport, MockProxyTransport)
+    )
     try {
-      test(FixtureParam(client, transport))
+      test(FixtureParam(client, mockTransport))
     } finally {
       Await.result(client.stop(), 10 seconds)
     }

@@ -27,7 +27,7 @@ import scala.language.postfixOps
 private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver, db: JdbcBackend.Database)
                                                             (implicit ec: ExecutionContext) extends ScheduledMessagesRepository {
 
-  val messagesMigration = new CreatingScheduledMessagesTableMigration {
+  val messagesMigration = new AddingPropertiesToScheduledMessagesMigration {
     override protected val driver: JdbcDriver = SlickJdbcScheduledMessagesRepository.this.driver
   }
 
@@ -39,7 +39,7 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver,
     val action = for {
       currentTimestamp <- sql"select current_timestamp".as[Timestamp].head
       plannedRun = new Timestamp(currentTimestamp.getTime + msg.delay.toMillis)
-      messageToAdd = ScheduledMessage(None, queueName, message, plannedRun)
+      messageToAdd = ScheduledMessage(None, queueName, content, properties, plannedRun)
       insertResult <- scheduledMessages += messageToAdd
     } yield ()
     db.run(action.transactionally)

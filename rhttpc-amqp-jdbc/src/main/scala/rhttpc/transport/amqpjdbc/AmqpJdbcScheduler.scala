@@ -17,12 +17,13 @@ package rhttpc.transport.amqpjdbc
 
 import akka.actor.{Cancellable, Scheduler}
 import org.slf4j.LoggerFactory
-import rhttpc.transport.{Deserializer, Message, Publisher, Serializer}
+import rhttpc.transport.SerializingPublisher.SerializedMessage
+import rhttpc.transport._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Try, Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
@@ -34,15 +35,14 @@ private[amqpjdbc] trait AmqpJdbcScheduler[PubMsg] {
 
 }
 
-private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Scheduler,
-                                                                checkInterval: FiniteDuration,
-                                                                repo: ScheduledMessagesRepository,
-                                                                queueName: String,
-                                                                batchSize: Int,
-                                                                publisher: Publisher[PubMsg])
-                                                               (implicit ec: ExecutionContext,
-                                                                serializer: Serializer,
-                                                                deserializer: Deserializer) extends AmqpJdbcScheduler[PubMsg] {
+private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
+                                                      checkInterval: FiniteDuration,
+                                                      repo: ScheduledMessagesRepository,
+                                                      queueName: String,
+                                                      batchSize: Int,
+                                                      publisher: SerializingPublisher[PubMsg])
+                                                     (implicit ec: ExecutionContext,
+                                                      serializer: Serializer[PubMsg]) extends AmqpJdbcScheduler[PubMsg] {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private var ran: Boolean = false
@@ -50,8 +50,8 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Sched
   private var currentPublishedFetchedFuture: Future[Int] = Future.successful(0)
 
   override def schedule(msg: Message[PubMsg], delay: FiniteDuration): Future[Unit] = {
-    val serialized = serializer.serialize(msg)
-    repo.save(MessageToSchedule(queueName, serialized, delay))
+    val serialized = serializer.serialize(msg.content)
+    repo.save(MessageToSchedule(queueName, serialized, msg.properties, delay))
   }
 
   override def start(): Unit = {
@@ -78,14 +78,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg <: AnyRef](scheduler: Sched
       logger.debug(s"Fetched ${messages.size}, publishing")
     }
     val handlingFutures = messages.map { message =>
-      val tryDeserialized = deserializer.deserialize[Message[_]](message.message)
-      tryDeserialized match {
-        case Success(deseralized) =>
-          publisher.publish(deseralized.asInstanceOf[Message[PubMsg]])
-        case Failure(ex) =>
-          logger.error(s"Message ${message.message} skipped because of parse failure", ex)
-          Future.successful(())
-      }
+      publisher.publishSerialized(SerializedMessage(message.content.getBytes(), message.properties))
     }
     Future.sequence(handlingFutures)
   }

@@ -40,20 +40,44 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     val queueName = "fooQueue"
     fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
-    fixture.save(MessageToSchedule(queueName, "scheduled in future", 5 second))
+    fixture.save(MessageToSchedule(queueName, "scheduled in future", Map.empty, 5 second))
     fixture.fetchAndCheck(queueName)(_ shouldBe empty)
 
     val content = "scheduled for now"
-    fixture.save(MessageToSchedule(queueName, content, 0 second))
+    fixture.save(MessageToSchedule(queueName, content, Map.empty, 0 second))
 
     fixture.fetchAndCheck(queueName) { fetched =>
       fetched should have length 1
       val msg = fetched.head
       msg.queueName shouldEqual queueName
-      msg.message shouldEqual content
+      msg.content shouldEqual content
     }
   }
-  
+
+  it should "save message with properties" in { fixture =>
+    val queueName = "fooQueue"
+    fixture.fetchAndCheck(queueName)(_ shouldBe empty)
+
+    fixture.save(MessageToSchedule(queueName, "scheduled in future", Map.empty, 5 second))
+    fixture.fetchAndCheck(queueName)(_ shouldBe empty)
+
+    val content = "scheduled for now"
+    val properties = Map[String, Any](
+      "strKey" -> "strValue",
+      "intKey" -> 123,
+      "longKey" -> 234L
+    )
+    fixture.save(MessageToSchedule(queueName, content, properties, 0 second))
+
+    fixture.fetchAndCheck(queueName) { fetched =>
+      fetched should have length 1
+      val msg = fetched.head
+      msg.queueName shouldEqual queueName
+      msg.content shouldEqual content
+      msg.properties shouldEqual properties
+    }
+  }
+
   it should "provide stats" in { fixture =>
     val fooQueue = "fooQueue"
     val barQueue = "barQueue"
@@ -86,7 +110,7 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     }
 
     def save(queueName: String): Unit = {
-      whenReady(repo.save(MessageToSchedule(queueName, "some message", 5 second))){ _ => Unit }
+      whenReady(repo.save(MessageToSchedule(queueName, "some message", Map.empty, 5 second))){ _ => Unit }
     }
 
     def queuesStatsCheck(queueNames: Set[String])

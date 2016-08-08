@@ -21,6 +21,7 @@ import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
+import rhttpc.transport.SerializingPublisher.SerializedMessage
 import rhttpc.transport._
 import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpQueueStats, AmqpTransport}
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
@@ -38,9 +39,7 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
                                               repo: ScheduledMessagesRepository,
                                               schedulerCheckInterval: FiniteDuration,
                                               schedulerMessagesFetchBatchSize: Int)
-                                             (implicit actorSystem: ActorSystem,
-                                              serializer: Serializer,
-                                              deserializer: Deserializer)
+                                             (implicit actorSystem: ActorSystem)
   extends AmqpJdbcTransport {
 
   import actorSystem.dispatcher
@@ -49,8 +48,8 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
 
   private val publisherQueueNamesAgent = Agent[Set[String]](Set.empty)
 
-  override def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg] = {
-    val underlyingPublisher = underlying.publisher[PubMsg](queueData)
+  override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] = {
+    val underlyingPublisher = underlying.publisher[PubMsg](queueData).asInstanceOf[SerializingPublisher[PubMsg]]
     val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
     publisherQueueNamesAgent.send(_ + queueData.name)
     def removeFromCache(): Future[Unit] = {
@@ -60,7 +59,8 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
     new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler, removeFromCache())
   }
 
-  private def schedulerByQueueAndPublisher[PubMsg <: AnyRef](queueName: String, publisher: Publisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {
+  private def schedulerByQueueAndPublisher[PubMsg: Serializer](queueName: String,
+                                                               publisher: SerializingPublisher[PubMsg]): AmqpJdbcScheduler[PubMsg] = {
     def createScheduler =
       new AmqpJdbcSchedulerImpl[PubMsg](
         scheduler = actorSystem.scheduler,
@@ -73,10 +73,10 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
     schedulersCache.getOrElseUpdate(queueName, createScheduler).asInstanceOf[AmqpJdbcScheduler[PubMsg]]
   }
 
-  override def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def subscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.subscriber(queueData, consumer)
 
-  override def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
+  override def fullMessageSubscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
     underlying.fullMessageSubscriber(queueData, consumer)
 
   override def queuesStats: Future[Map[String, AmqpJdbcQueueStats]] = {
@@ -114,10 +114,8 @@ object AmqpJdbcTransport {
                                       nackDelay: FiniteDuration = AmqpJdbcDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpJdbcDefaults.declarePublisherQueueWithExchangeIfNeed,
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,
-                                      prepareProperties: PartialFunction[Message[Any], AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
-                                     (implicit actorSystem: ActorSystem,
-                                      serializer: Serializer,
-                                      deserializer: Deserializer): AmqpJdbcTransport = {
+                                      prepareProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
+                                     (implicit actorSystem: ActorSystem): AmqpJdbcTransport = {
     import actorSystem.dispatcher
     val underlying = AmqpTransport[PubMsg, SubMsg](
       connection = connection,

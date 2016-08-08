@@ -29,6 +29,6 @@ trait ScheduledMessagesRepository {
   def queuesStats(names: Set[String]): Future[Map[String, Int]]
 }
 
-case class MessageToSchedule(queueName: String, message: String, delay: FiniteDuration)
+case class MessageToSchedule(queueName: String, content: String, properties: Map[String, Any], delay: FiniteDuration)
 
-case class ScheduledMessage(id: Option[Long], queueName: String, message: String, plannedRun: Timestamp)
+case class ScheduledMessage(id: Option[Long], queueName: String, content: String, properties: Map[String, Any], plannedRun: Timestamp)

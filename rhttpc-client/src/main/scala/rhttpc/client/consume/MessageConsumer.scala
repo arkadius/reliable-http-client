@@ -22,7 +22,7 @@ import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
-import rhttpc.transport.{InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscriber}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -71,7 +71,8 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
                                 batchSize: Int = config.batchSize,
                                 parallelConsumers: Int = config.parallelConsumers,
                                 queuesPrefix: String = config.queuesPrefix)
-                               (implicit transport: PubSubTransport): MessageConsumer[Request, Response] = {
+                               (implicit transport: PubSubTransport,
+                                deserializer: Deserializer[Correlated[Exchange[Request, Response]]]): MessageConsumer[Request, Response] = {
     new MessageConsumer(prepareSubscriber(transport, batchSize, parallelConsumers, queuesPrefix), handleMessage)
   }
 
@@ -79,7 +80,8 @@ case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
                                                    batchSize: Int,
                                                    parallelConsumers: Int,
                                                    queuesPrefix: String)
-                                                  (implicit actorSystem: ActorSystem):
+                                                  (implicit actorSystem: ActorSystem,
+                                                   deserializer: Deserializer[Correlated[Exchange[Request, Response]]]):
   (ActorRef) => Subscriber[Correlated[Exchange[Request, Response]]] =
     transport.subscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers), _)
       .asInstanceOf[Subscriber[Correlated[Exchange[Request, Response]]]]

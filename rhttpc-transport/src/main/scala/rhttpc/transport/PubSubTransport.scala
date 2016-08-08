@@ -15,6 +15,8 @@
  */
 package rhttpc.transport
 
+import java.io.{ByteArrayOutputStream, OutputStreamWriter}
+
 import akka.actor.ActorRef
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,17 +24,17 @@ import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
 trait PubSubTransport {
-  def publisher[PubMsg <: AnyRef](queueName: String): Publisher[PubMsg] =
+  def publisher[PubMsg: Serializer](queueName: String): Publisher[PubMsg] =
     publisher(OutboundQueueData(queueName))
 
-  def subscriber[SubMsg: Manifest](queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
+  def subscriber[SubMsg: Deserializer](queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
     subscriber(InboundQueueData(queueName, batchSize = 10), consumer)
 
-  def publisher[PubMsg <: AnyRef](queueData: OutboundQueueData): Publisher[PubMsg]
+  def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg]
 
-  def subscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+  def subscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 
-  def fullMessageSubscriber[SubMsg: Manifest](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
+  def fullMessageSubscriber[SubMsg: Deserializer](queueData: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg]
 
   def stop(): Future[Unit]
 }
@@ -82,10 +84,10 @@ class SubscriberAggregate[SubMsg](subscribers: Seq[Subscriber[SubMsg]])
 trait RejectingMessage { self: Exception =>
 }
 
-trait Serializer {
-  def serialize[Msg <: AnyRef](obj: Msg): String
+trait Serializer[-Msg] {
+  def serialize(obj: Msg): String
 }
 
-trait Deserializer {
-  def deserialize[Msg: Manifest](value: String): Try[Msg]
+trait Deserializer[+Msg] {
+  def deserialize(value: String): Try[Msg]
 }

@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport
+package rhttpc.transport.dumb
 
-import org.json4s.Formats
+import rhttpc.transport.{Deserializer, Serializer}
 
-package object json4s {
+import scala.util.Try
 
-  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer[Msg] = new Json4sSerializer()
+object DumbSerializer extends Serializer[Any] {
+  override def serialize(obj: Any): String =
+    throw new IllegalAccessException("Dumb serialization shouldn't be invoked")
+}
 
-  implicit def deserializer[Msg](implicit formats: Formats): Deserializer[Msg] = new Json4sDeserializer()
-
+object DumbDeserializer extends Deserializer[Nothing] {
+  override def deserialize(value: String): Try[Nothing] =
+    throw new IllegalAccessException("Dumb deserialization shouldn't be invoked")
 }

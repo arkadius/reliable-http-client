@@ -13,14 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package rhttpc.transport
+package rhttpc.transport.amqp
 
-import org.json4s.Formats
+object AmqpExchangesNaming extends AmqpExchangesNaming
 
-package object json4s {
+trait AmqpExchangesNaming {
 
-  implicit def serializer[Msg <: AnyRef](implicit formats: Formats): Serializer[Msg] = new Json4sSerializer()
+  final val instantExchangeName: String = ""
 
-  implicit def deserializer[Msg](implicit formats: Formats): Deserializer[Msg] = new Json4sDeserializer()
+  final val delayedExchangeName: String = "delayed"
+
+  final val dlqExchangeName = "dlq"
 
 }
