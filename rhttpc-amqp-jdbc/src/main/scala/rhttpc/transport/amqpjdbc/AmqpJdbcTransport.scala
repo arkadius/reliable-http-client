@@ -23,7 +23,7 @@ import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
 import rhttpc.transport.SerializingPublisher.SerializedMessage
 import rhttpc.transport._
-import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpDefaults, AmqpQueueStats, AmqpTransport}
+import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpQueueStats, AmqpTransport}
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
@@ -120,7 +120,6 @@ object AmqpJdbcTransport {
                                       declareSubscriberQueue: AmqpDeclareInboundQueueData => DeclareOk = AmqpJdbcDefaults.declareSubscriberQueue,
                                       prepareProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = AmqpJdbcDefaults.preparePersistentMessageProperties)
                                      (implicit actorSystem: ActorSystem): AmqpJdbcTransport = {
-    import actorSystem.dispatcher
     val underlying = AmqpTransport[PubMsg, SubMsg](
       connection = connection,
       prepareExchangeName = prepareExchangeName,

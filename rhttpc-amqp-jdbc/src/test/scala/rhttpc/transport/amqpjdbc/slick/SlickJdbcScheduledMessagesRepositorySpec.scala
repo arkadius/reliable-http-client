@@ -15,11 +15,13 @@
  */
 package rhttpc.transport.amqpjdbc.slick
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import org.scalatest.Matchers
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{Seconds, Millis, Span}
+import org.scalatest.time.{Millis, Seconds, Span}
 import rhttpc.transport.amqpjdbc.slick.helpers.SlickJdbcSpec
-import rhttpc.transport.amqpjdbc.{ScheduledMessage, MessageToSchedule, ScheduledMessagesRepository}
+import rhttpc.transport.amqpjdbc.{MessageToSchedule, ScheduledMessage, ScheduledMessagesRepository}
 import slick.jdbc.JdbcBackend
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -33,8 +35,6 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     timeout = scaled(Span(3, Seconds)),
     interval = scaled(Span(100, Millis))
   )
-
-  private final val batchSize = 10
 
   it should "save message" in { fixture =>
     val queueName = "fooQueue"
@@ -91,12 +91,25 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
     }
   }
 
+  it should "drain messages" in { fixture =>
+    val queueName = "fooQueue"
+    val message = MessageToSchedule(queueName, "foo", Map.empty, 0 second)
+    fixture.save(message)
+    fixture.save(message)
+
+    val fetchedCount = new AtomicInteger(0)
+    fixture.fetchAndCheck(queueName, batchSize = 1) { fetched =>
+      fetchedCount.addAndGet(fetched.size)
+    }
+    fetchedCount.get() shouldEqual 2
+  }
+
   override protected def createFixture(db: JdbcBackend.Database) = {
     FixtureParam(new SlickJdbcScheduledMessagesRepository(driver, db))
   }
 
   case class FixtureParam(private val repo: ScheduledMessagesRepository) {
-    def fetchAndCheck(queueName: String)
+    def fetchAndCheck(queueName: String, batchSize: Int = 10)
                      (check: Seq[ScheduledMessage] => Unit): Unit = {
       val fetchResult = repo.fetchMessagesShouldByRun(queueName, batchSize) { msgs =>
         check(msgs)

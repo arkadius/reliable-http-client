@@ -47,38 +47,50 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver,
 
   override def fetchMessagesShouldByRun(queueName: String, batchSize: Int)
                                        (onMessages: (Seq[ScheduledMessage]) => Future[Any]): Future[Int] = {
-    val fetchAction = for {
-      currentTimestamp <- sql"select current_timestamp".as[Timestamp].head
-      fetched <- scheduledMessages.filter { msg =>
-        msg.queueName === queueName &&
-          msg.plannedRun <= currentTimestamp
-      }.sortBy(_.plannedRun desc).take(batchSize).result
-    } yield fetched
+    def drain(): Future[Int] = {
+      val fetchAction = for {
+        currentTimestamp <- sql"select current_timestamp".as[Timestamp].head
+        fetched <- scheduledMessages.filter { msg =>
+          msg.queueName === queueName &&
+            msg.plannedRun <= currentTimestamp
+        }.sortBy(_.plannedRun desc).take(batchSize).result
+      } yield fetched
 
-    def consumeAction(fetched: Seq[ScheduledMessage]) = {
-      val fetchedIds = fetched.flatMap(_.id)
-      for {
-        deleted <- scheduledMessages.filter(_.id inSet fetchedIds).delete
-        _ <- {
-          if (deleted != fetched.size) {
-            DBIO.failed(ConcurrentFetchException)
-          } else {
-            DBIO.successful(Unit)
+      def consumeAction(fetched: Seq[ScheduledMessage]) = {
+        val fetchedIds = fetched.flatMap(_.id)
+        for {
+          deleted <- scheduledMessages.filter(_.id inSet fetchedIds).delete
+          _ <- {
+            if (deleted != fetched.size) {
+              DBIO.failed(ConcurrentFetchException)
+            } else {
+              DBIO.successful(Unit)
+            }
           }
+          _ <- DBIO.from(onMessages(fetched))
+        } yield fetched.size
+      }
+
+      val consumedFuture = for {
+        fetched <- db.run(fetchAction.transactionally)
+        consumed <- db.run(consumeAction(fetched).transactionally)
+      } yield consumed
+
+      val consumedRecovered = consumedFuture.recover {
+        case ConcurrentFetchException => 0
+      }
+
+      for {
+        consumed <- consumedRecovered
+        consumedNext <- {
+          if (consumed == batchSize)
+            drain()
+          else
+            Future.successful(0)
         }
-        _ <- DBIO.from(onMessages(fetched))
-      } yield fetched.size
+      } yield consumed + consumedNext
     }
-
-    val consumedFuture = for {
-      fetched <- db.run(fetchAction.transactionally)
-      consumed <- db.run(consumeAction(fetched).transactionally)
-    } yield consumed
-
-    consumedFuture.recover {
-      case ConcurrentFetchException => 0
-    }
-    consumedFuture
+    drain()
   }
 
   override def queuesStats(names: Set[String]): Future[Map[String, Int]] = {
