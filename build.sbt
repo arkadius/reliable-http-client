@@ -54,6 +54,7 @@ val akkaV = "2.4.8"
 val ficusV = "1.2.3"
 val amqpcV = "3.6.5"
 val json4sV = "3.4.0"
+val argonaut62MinorV = "-M3"
 val logbackV = "1.1.7"
 val commonsIoV = "2.5"
 val slf4jV = "1.7.21"
@@ -143,6 +144,19 @@ lazy val json4sSerialization = (project in file("rhttpc-json4s")).
         "org.json4s"               %% "json4s-native"                 % json4sV,
         "org.scala-lang"            % "scala-reflect"                 % scalaV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
+      )
+    }
+  ).
+  dependsOn(transport)
+
+lazy val argonaut62Serialization = (project in file("rhttpc-argonaut_6.2")).
+  settings(commonSettings).
+  settings(publishSettings).
+  settings(
+    name := "rhttpc-argonaut_6.2",
+    libraryDependencies ++= {
+      Seq(
+        "io.argonaut"              %% "argonaut"                      % s"6.2$argonaut62MinorV"
       )
     }
   ).
