@@ -129,7 +129,7 @@ object AmqpJdbcTransport {
       declareSubscriberQueue = declareSubscriberQueue,
       prepareProperties = prepareProperties      
     )
-    val repo = new SlickJdbcScheduledMessagesRepository(driver, db)
+    val repo = new SlickJdbcScheduledMessagesRepository(driver, db)(actorSystem.dispatcher)
     new AmqpJdbcTransportImpl(
       underlying,
       repo,

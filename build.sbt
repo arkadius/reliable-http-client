@@ -4,7 +4,7 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import sbt.Keys._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 
-val scalaV = "2.11.7"
+val scalaV = "2.11.8"
 
 val commonSettings =
   filterSettings ++
@@ -50,18 +50,18 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.3"
+val akkaV = "2.4.8"
 val ficusV = "1.2.3"
-val amqpcV = "3.6.1"
+val amqpcV = "3.6.5"
 val json4sV = "3.4.0"
-val logbackV = "1.1.3"
-val commonsIoV = "2.4"
+val logbackV = "1.1.7"
+val commonsIoV = "2.5"
 val slf4jV = "1.7.21"
 val dispatchV = "0.11.3"
 val scalaTestV = "3.0.0-M15"
 val slickV = "3.1.1"
-val flywayV = "3.2.1"
-val hsqldbV = "2.3.3"
+val flywayV = "4.0.3"
+val hsqldbV = "2.3.4"
 val dockerJavaV = "1.4.0"
 
 lazy val transport = (project in file("rhttpc-transport")).
