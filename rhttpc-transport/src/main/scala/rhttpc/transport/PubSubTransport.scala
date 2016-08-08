@@ -39,12 +39,6 @@ trait PubSubTransport {
   def stop(): Future[Unit]
 }
 
-trait WithInstantPublisher { self: PubSubTransport =>
-}
-
-trait WithDelayedPublisher { self: PubSubTransport =>
-}
-
 case class InboundQueueData(name: String, batchSize: Int, parallelConsumers: Int = 1, durability: Boolean = true, autoDelete: Boolean = false)
 
 case class OutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false)

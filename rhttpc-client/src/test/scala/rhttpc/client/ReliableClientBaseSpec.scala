@@ -17,7 +17,6 @@ package rhttpc.client
 
 import akka.testkit.TestKit
 import org.scalatest._
-import rhttpc.transport.{PubSubTransport, WithDelayedPublisher}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -31,9 +30,7 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
   case class FixtureParam(client: InOutReliableClient[String], transport: MockTransport)
 
   override protected def withFixture(test: OneArgTest): Outcome = {
-    val mockTransport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
-    implicit val reqRespTransport: PubSubTransport with WithDelayedPublisher = mockTransport
-    implicit val respReqTransport = MockProxyTransport
+    implicit val mockTransport = new MockTransport((cond: () => Boolean) => awaitCond(cond()))
     val client = ReliableClientFactory().inOutWithSubscriptions[String, String](
       _ => Future.successful("not used")
     )

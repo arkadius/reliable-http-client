@@ -19,7 +19,7 @@ import akka.actor.ActorSystem
 
 package object inmem {
 
-  implicit def transport(implicit actorSystem: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher =
+  implicit def transport(implicit actorSystem: ActorSystem): PubSubTransport =
     InMemTransport()
 
 }

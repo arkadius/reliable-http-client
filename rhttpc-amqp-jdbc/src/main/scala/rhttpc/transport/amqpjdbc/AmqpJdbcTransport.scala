@@ -23,7 +23,7 @@ import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}
 import rhttpc.transport.SerializingPublisher.SerializedMessage
 import rhttpc.transport._
-import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpQueueStats, AmqpTransport}
+import rhttpc.transport.amqp.{AmqpDeclareInboundQueueData, AmqpDeclareOutboundQueueData, AmqpDefaults, AmqpQueueStats, AmqpTransport}
 import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 
 import scala.collection.concurrent.TrieMap
@@ -31,7 +31,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-trait AmqpJdbcTransport extends PubSubTransport with WithInstantPublisher with WithDelayedPublisher {
+trait AmqpJdbcTransport extends PubSubTransport {
   def queuesStats: Future[Map[String, AmqpJdbcQueueStats]]
 }
 
@@ -50,13 +50,17 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
 
   override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] = {
     val underlyingPublisher = underlying.publisher[PubMsg](queueData).asInstanceOf[SerializingPublisher[PubMsg]]
-    val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
     publisherQueueNamesAgent.send(_ + queueData.name)
-    def removeFromCache(): Future[Unit] = {
-      schedulersCache.remove(queueData.name)
-      Future.successful(Unit)
+    if (queueData.delayed) {
+      val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
+      def removeFromCache(): Future[Unit] = {
+        schedulersCache.remove(queueData.name)
+        Future.successful(Unit)
+      }
+      new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler, removeFromCache())
+    } else {
+      underlyingPublisher
     }
-    new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler, removeFromCache())
   }
 
   private def schedulerByQueueAndPublisher[PubMsg: Serializer](queueName: String,
@@ -109,7 +113,7 @@ object AmqpJdbcTransport {
                                       db: JdbcBackend.Database,
                                       schedulerCheckInterval: FiniteDuration = AmqpJdbcDefaults.schedulerCheckInterval,
                                       schedulerMessagesFetchBatchSize: Int = AmqpJdbcDefaults.schedulerMessagesFetchBatchSize,
-                                      exchangeName: String = AmqpJdbcDefaults.instantExchangeName,
+                                      prepareExchangeName: OutboundQueueData => String = _ => AmqpJdbcDefaults.instantExchangeName,
                                       consumeTimeout: FiniteDuration = AmqpJdbcDefaults.consumeTimeout,
                                       nackDelay: FiniteDuration = AmqpJdbcDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpJdbcDefaults.declarePublisherQueueWithExchangeIfNeed,
@@ -119,7 +123,7 @@ object AmqpJdbcTransport {
     import actorSystem.dispatcher
     val underlying = AmqpTransport[PubMsg, SubMsg](
       connection = connection,
-      exchangeName = exchangeName,
+      prepareExchangeName = prepareExchangeName,
       consumeTimeout = consumeTimeout,
       nackDelay = nackDelay,
       declarePublisherQueue = declarePublisherQueue,

@@ -26,7 +26,7 @@ class FallbackTransport(main: PubSubTransport,
                        (maxFailures: Int,
                         callTimeout: FiniteDuration,
                         resetTimeout: FiniteDuration)
-                       (implicit system: ActorSystem) extends PubSubTransport with WithInstantPublisher with WithDelayedPublisher {
+                       (implicit system: ActorSystem) extends PubSubTransport {
 
   import system.dispatcher
 

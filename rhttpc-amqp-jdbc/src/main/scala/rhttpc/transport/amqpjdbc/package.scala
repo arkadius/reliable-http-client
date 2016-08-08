@@ -17,20 +17,15 @@ package rhttpc.transport
 
 import akka.actor.ActorSystem
 import com.rabbitmq.client.Connection
-import rhttpc.transport.amqp.AmqpTransport
 import slick.driver.JdbcDriver
 import slick.jdbc.JdbcBackend
 
 package object amqpjdbc {
 
-  implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection): PubSubTransport with WithInstantPublisher =
-    AmqpTransport(connection)
-
-  implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection,
-                                             driver: JdbcDriver,
-                                             db: JdbcBackend.Database): PubSubTransport with WithDelayedPublisher =
+  implicit def transport(implicit actorSystem: ActorSystem,
+                         connection: Connection,
+                         driver: JdbcDriver,
+                         db: JdbcBackend.Database): PubSubTransport =
     AmqpJdbcTransport(
       connection = connection,
       driver = driver,

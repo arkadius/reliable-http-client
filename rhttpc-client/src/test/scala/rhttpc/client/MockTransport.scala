@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor.ActorRef
 import akka.pattern._
 import akka.util.Timeout
-import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
+import rhttpc.client.protocol.{Correlated, FailureExchange, SuccessExchange}
 import rhttpc.transport._
 
 import scala.concurrent.duration._
@@ -27,7 +27,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)
-  extends PubSubTransport with WithDelayedPublisher {
+  extends PubSubTransport {
 
   @volatile private var _publicationPromise: Promise[Unit] = _
   @volatile private var _replySubscriptionPromise: Promise[String] = _
@@ -90,7 +90,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
 }
 
-object MockProxyTransport extends PubSubTransport with WithInstantPublisher {
+object MockProxyTransport extends PubSubTransport {
   override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] =
     new Publisher[PubMsg] {
       override def publish(msg: Message[PubMsg]): Future[Unit] = Future.successful(Unit)

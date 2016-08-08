@@ -27,7 +27,7 @@ package object fallback {
                        maxFailures: Int = FallbackDefaults.maxFailures,
                        callTimeout: FiniteDuration = FallbackDefaults.callTimeout,
                        resetTimeout: FiniteDuration = FallbackDefaults.resetTimeout)
-                      (implicit system: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher =
+                      (implicit system: ActorSystem): PubSubTransport  =
       new FallbackTransport(transport, fallbackTransport)(maxFailures, callTimeout, resetTimeout)
   }
 

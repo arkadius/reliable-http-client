@@ -20,15 +20,8 @@ import com.rabbitmq.client.Connection
 
 package object amqp {
 
-  implicit def transportWithInstantPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection): PubSubTransport with WithInstantPublisher =
+  implicit def transport(implicit actorSystem: ActorSystem,
+                         connection: Connection): PubSubTransport =
     AmqpTransport(connection)
-
-  implicit def transportWithDelayedPublisher(implicit actorSystem: ActorSystem,
-                                             connection: Connection): PubSubTransport with WithDelayedPublisher =
-    AmqpTransport(
-      connection = connection,
-      exchangeName = AmqpDefaults.delayedExchangeName
-    )
 
 }

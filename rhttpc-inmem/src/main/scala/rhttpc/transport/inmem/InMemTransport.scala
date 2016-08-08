@@ -20,14 +20,14 @@ import akka.pattern._
 import akka.util.Timeout
 import rhttpc.transport.{InboundQueueData, Publisher, _}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Await, Future}
 
 private[inmem] class InMemTransport(transportActor: ActorRef) // TODO: stopping of transports / actors
                                    (createTimeout: FiniteDuration,
                                     stopConsumingTimeout: FiniteDuration,
                                     stopTimeout: FiniteDuration)
-                                   (implicit system: ActorSystem) extends PubSubTransport with WithInstantPublisher with WithDelayedPublisher {
+                                   (implicit system: ActorSystem) extends PubSubTransport {
 
   import system.dispatcher
 
@@ -60,7 +60,7 @@ object InMemTransport {
             retryDelay: FiniteDuration = InMemDefaults.retryDelay,
             stopConsumingTimeout: FiniteDuration = InMemDefaults.stopConsumingTimeout,
             stopTimeout: FiniteDuration = InMemDefaults.stopTimeout)
-           (implicit system: ActorSystem): PubSubTransport with WithInstantPublisher with WithDelayedPublisher = {
+           (implicit system: ActorSystem): PubSubTransport = {
     val actor = system.actorOf(TransportActor.props(
       QueueActor.props(
         consumeTimeout = consumeTimeout,

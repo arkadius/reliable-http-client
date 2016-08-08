@@ -26,13 +26,20 @@ object AmqpDefaults extends AmqpDefaults
 
 trait AmqpDefaults
   extends AmqpQueuesNaming
-  with AmqpExchangesNaming{
+  with AmqpExchangesNaming {
 
   import collection.convert.wrapAsJava._
 
   private[rhttpc] final val consumeTimeout: FiniteDuration = 5 minutes
   
   private[rhttpc] final val nackDelay: FiniteDuration = 10 seconds
+
+  private[rhttpc] def prepareExchangeName(data: OutboundQueueData): String = {
+    if (data.delayed)
+      delayedExchangeName
+    else
+      instantExchangeName
+  }
 
   private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = {
     case SerializedMessage(_, additionalProps) =>

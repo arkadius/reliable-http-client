@@ -27,13 +27,13 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.Try
 
-trait AmqpTransport extends PubSubTransport with WithInstantPublisher with WithDelayedPublisher {
+trait AmqpTransport extends PubSubTransport {
   def queuesStats: Future[Map[String, AmqpQueueStats]]
 }
 
 // TODO: actor-based, connection recovery
 private[rhttpc] class AmqpTransportImpl(connection: Connection,
-                                        exchangeName: String,
+                                        prepareExchangeName: OutboundQueueData => String,
                                         consumeTimeout: FiniteDuration,
                                         nackDelay: FiniteDuration,
                                         declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk,
@@ -50,6 +50,7 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
   override def publisher[PubMsg](queueData: OutboundQueueData)
                                 (implicit serializer: Serializer[PubMsg]): AmqpPublisher[PubMsg] = {
     val channel = connection.createChannel()
+    val exchangeName = prepareExchangeName(queueData)
     declarePublisherQueue(AmqpDeclareOutboundQueueData(queueData, exchangeName, channel))
     queueNamesAgent.send(_ + queueData.name)
     val publisher = new AmqpPublisher[PubMsg](
@@ -133,7 +134,7 @@ object AmqpQueueStats {
 object AmqpTransport {
 
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
-                                      exchangeName: String = AmqpDefaults.instantExchangeName,
+                                      prepareExchangeName: OutboundQueueData => String = AmqpDefaults.prepareExchangeName,
                                       consumeTimeout: FiniteDuration = AmqpDefaults.consumeTimeout,
                                       nackDelay: FiniteDuration = AmqpDefaults.nackDelay,
                                       declarePublisherQueue: AmqpDeclareOutboundQueueData => DeclareOk = AmqpDefaults.declarePublisherQueueWithDelayedExchangeIfNeed,
@@ -142,7 +143,7 @@ object AmqpTransport {
                                      (implicit actorSystem: ActorSystem): AmqpTransport = {
     new AmqpTransportImpl(
       connection = connection,
-      exchangeName = exchangeName,
+      prepareExchangeName = prepareExchangeName,
       consumeTimeout = consumeTimeout,
       nackDelay = nackDelay,
       declarePublisherQueue = declarePublisherQueue,

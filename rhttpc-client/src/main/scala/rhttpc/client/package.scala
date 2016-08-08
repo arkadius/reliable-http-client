@@ -27,6 +27,9 @@ package object client {
   type InOnlyReliableClient[Request] = ReliableClient[Request, Future[Unit]]
 
   private[rhttpc] def prepareRequestPublisherQueueData(queuesPrefix: String) =
+    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix))
+
+  private[rhttpc] def prepareDelayedRequestPublisherQueueData(queuesPrefix: String) =
     OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), delayed = true)
 
 
