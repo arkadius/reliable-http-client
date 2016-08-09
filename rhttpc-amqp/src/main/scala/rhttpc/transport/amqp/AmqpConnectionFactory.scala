@@ -24,6 +24,7 @@ import net.ceedubs.ficus.readers.ArbitraryTypeReader
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent._
 import scala.util._
 
 object AmqpConnectionFactory {
@@ -42,20 +43,22 @@ object AmqpConnectionFactory {
   def connect(config: AmqpConfig)
              (implicit executionContext: ExecutionContext): Future[Connection] =
     Future {
-      val factory = new ConnectionFactory()
-      config.virtualHost.foreach(factory.setVirtualHost)
-      config.userName.foreach(factory.setUsername)
-      config.password.foreach(factory.setPassword)
-      factory.setAutomaticRecoveryEnabled(true)
-      val retryConfig = config.retry.getOrElse(DEFAULT_RETRY_CONFIG)
-      retry(
-        n = retryConfig.count,
-        delay = retryConfig.delay.toMillis) {
+      blocking {
+        val factory = new ConnectionFactory()
+        config.virtualHost.foreach(factory.setVirtualHost)
+        config.userName.foreach(factory.setUsername)
+        config.password.foreach(factory.setPassword)
+        factory.setAutomaticRecoveryEnabled(true)
+        val retryConfig = config.retry.getOrElse(DEFAULT_RETRY_CONFIG)
+        retry(
+          n = retryConfig.count,
+          delay = retryConfig.delay.toMillis) {
 
-        Try {
-          // Could By IOException or TimeoutException
-          val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
-          factory.newConnection(addresses)
+          Try {
+            // Could By IOException or TimeoutException
+            val addresses = config.hosts.map(com.rabbitmq.client.Address.parseAddress).toArray
+            factory.newConnection(addresses)
+          }
         }
       }
     }
