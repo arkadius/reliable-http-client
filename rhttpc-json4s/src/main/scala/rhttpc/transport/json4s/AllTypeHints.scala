@@ -16,13 +16,12 @@
 package rhttpc.transport.json4s
 
 import org.json4s.TypeHints
-
-import scala.util.control.Exception._
+import org.json4s.reflect.Reflector
 
 object AllTypeHints extends TypeHints {
   override def containsHint(clazz: Class[_]): Boolean = true
 
-  override def classFor(hint: String): Option[Class[_]] = catching(classOf[ClassNotFoundException]) opt Class.forName(hint)
+  override def classFor(hint: String): Option[Class[_]] = Reflector.scalaTypeOf(hint).map(_.erasure)
 
   override def hintFor(clazz: Class[_]): String = clazz.getName
 

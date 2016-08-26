@@ -20,19 +20,21 @@ import org.json4s._
 
 import scala.reflect.ClassTag
 
-class CustomSerializerWithTypeHints[T: Manifest, JV <: JValue: ClassTag](ser: Formats => (JV => T, T => JV))
-  extends CustomSerializer[T](implicit formats => {
+class CustomSerializerWithTypeHints[T: Manifest, JV <: JValue: ClassTag](
+  ser: Formats => (PartialFunction[JV, T], PartialFunction[T, JV]))
+  extends CustomSubTypesSerializer[T, JObject](implicit formats => {
   val (deserialize, serialize) = ser(formats)
   (
     {
-      case JObject(_ :: ("value", jValue: JV) :: Nil) =>
+      case JObject(_ :: ("value", jValue: JV) :: Nil) if deserialize.isDefinedAt(jValue) =>
         deserialize(jValue)
     },
     {
-      case obj: T => JObject(
-        formats.typeHintFieldName -> JString(obj.getClass.getName),
-        "value" -> serialize(obj)
-      )
+      case obj: T if serialize.isDefinedAt(obj) =>
+        JObject(
+          formats.typeHintFieldName -> JString(obj.getClass.getName),
+          "value" -> serialize(obj)
+        )
     }
   )
 })

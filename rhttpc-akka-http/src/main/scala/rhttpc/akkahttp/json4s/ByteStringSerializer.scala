@@ -21,9 +21,9 @@ import rhttpc.transport.json4s.CustomSerializerWithTypeHints
 
 object ByteStringSerializer extends CustomSerializerWithTypeHints[ByteString, JString](formats => (
   {
-    js => ByteString(js.values)
+    case js => ByteString(js.values)
   },
   {
-    bs => JString(bs.utf8String)
+    case bs => JString(bs.utf8String)
   }
 ))

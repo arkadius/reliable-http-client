@@ -56,13 +56,13 @@ object ExceptionSerializer extends Serializer[Throwable] {
     case ExceptionInstanceHavingConstructorWithMessageAndCause(ex) =>
       JObject(
         formats.typeHintFieldName -> JString(ex.getClass.getName),
-        "message" -> Option(ex.getMessage).map(JString(_)).getOrElse(JNull),
+        "message" -> Option(ex.getMessage).map(JString).getOrElse(JNull),
         "cause" -> Extraction.decompose(ex.getCause)
       )
     case ExceptionInstanceHavingConstructorWithMessageOnly(ex) =>
       JObject(
         formats.typeHintFieldName -> JString(ex.getClass.getName),
-        "message" -> Option(ex.getMessage).map(JString(_)).getOrElse(JNull)
+        "message" -> Option(ex.getMessage).map(JString).getOrElse(JNull)
       )
   }
 }

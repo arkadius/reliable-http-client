@@ -17,13 +17,13 @@ package rhttpc.akkahttp.json4s
 
 import akka.http.scaladsl.model.Uri
 import org.json4s.JsonAST.JString
-import rhttpc.transport.json4s.CustomSerializerWithTypeHints
+import rhttpc.transport.json4s.CustomSubTypesSerializer
 
-object UriSerializer extends CustomSerializerWithTypeHints[Uri, JString](formats => (
+object UriSerializer extends CustomSubTypesSerializer[Uri, JString](formats => (
   {
-    js => Uri(js.values)
+    case js => Uri(js.values)
   },
   {
-    uri =>JString(uri.toString())
+    case uri => JString(uri.toString())
   }
 ))

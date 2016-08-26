@@ -23,6 +23,7 @@ object CommonFormats {
     new DefaultFormats {
       override def dateFormatter = DefaultFormats.losslessDate()
       override val typeHints: TypeHints = AllTypeHints
+      override val strictOptionParsing: Boolean = true
     } +
     ExceptionSerializer +
     ObjectSerializer +
