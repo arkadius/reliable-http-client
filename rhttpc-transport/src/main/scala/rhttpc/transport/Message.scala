@@ -32,8 +32,8 @@ object DelayedMessage {
   def unapply[T](message: Message[T]): Option[(T, FiniteDuration, Int)] = {
     Option(message).collect {
       case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
-        val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Long] millis
-        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Long].toInt).getOrElse(1)
+        val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
+        val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
         (content, delay, attempt)
     }
   }

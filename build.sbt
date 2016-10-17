@@ -73,7 +73,8 @@ lazy val transport = (project in file("rhttpc-transport")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-actor"                    % akkaV,
-        "org.slf4j"                 % "slf4j-api"                     % slf4jV
+        "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }
   )
