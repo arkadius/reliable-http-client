@@ -45,6 +45,7 @@ object AmqpConnectionFactory {
     Future {
       blocking {
         val factory = new ConnectionFactory()
+        config.port.foreach(factory.setPort)
         config.virtualHost.foreach(factory.setVirtualHost)
         config.userName.foreach(factory.setUsername)
         config.password.foreach(factory.setPassword)
@@ -75,6 +76,7 @@ object AmqpConnectionFactory {
 }
 
 case class AmqpConfig(hosts: Seq[String],
+                      port: Option[Int],
                       virtualHost: Option[String] = None,
                       userName: Option[String] = None,
                       password: Option[String] = None,
