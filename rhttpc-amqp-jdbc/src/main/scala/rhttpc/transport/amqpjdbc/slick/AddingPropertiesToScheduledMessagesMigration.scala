@@ -21,7 +21,7 @@ import com.typesafe.config._
 import rhttpc.transport.amqpjdbc.ScheduledMessage
 import slick.driver.JdbcDriver
 import slick.jdbc.JdbcType
-import slick.profile.SqlProfile.ColumnOption.NotNull
+import slick.sql.SqlProfile.ColumnOption.NotNull
 
 import scala.language.postfixOps
 
