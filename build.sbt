@@ -31,7 +31,7 @@ val commonSettings =
 val publishSettings = Seq(
   publishMavenStyle := true,
   publishTo := {
-    val nexus = "https://nexus.touk.pl/nexus/"
+    val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
       Some("snapshots" at nexus + "content/repositories/snapshots")
     else
