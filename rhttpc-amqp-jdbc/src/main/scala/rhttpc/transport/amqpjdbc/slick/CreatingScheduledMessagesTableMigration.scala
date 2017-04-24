@@ -18,7 +18,9 @@ package rhttpc.transport.amqpjdbc.slick
 import java.sql.Timestamp
 
 import rhttpc.transport.amqpjdbc.slick.CreatingScheduledMessagesTableMigration.ScheduledMessage
-import slick.profile.SqlProfile.ColumnOption.NotNull
+import slick.sql.SqlProfile.ColumnOption.NotNull
+import slick.sql.SqlProfile.ColumnOption.NotNull
+
 
 import scala.language.postfixOps
 

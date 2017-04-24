@@ -37,7 +37,7 @@ trait SlickJdbcMigration extends JdbcMigration {
   def migrateActions: DBIOAction[Any, NoStream, _ <: Effect]
 
   override final def migrate(conn: Connection) = {
-    val database = Database.forDataSource(new AlwaysUsingSameConnectionDataSource(conn))
+    val database = Database.forDataSource(new AlwaysUsingSameConnectionDataSource(conn), None)
     Await.result(database.run(migrateActions), 10 minute)
   }
 
