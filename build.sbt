@@ -107,7 +107,6 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     name := "rhttpc-amqp",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
@@ -117,7 +116,8 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
 
         "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV     % "test",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
-        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test",
+        "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV     % "test"
       )
     }
   ).
