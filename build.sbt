@@ -116,7 +116,8 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
 
         "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV     % "test",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
-        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test"
+        "ch.qos.logback"            % "logback-classic"               % logbackV      % "test",
+        "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV     % "test"
       )
     }
   ).
