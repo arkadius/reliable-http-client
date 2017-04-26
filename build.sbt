@@ -107,6 +107,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     name := "rhttpc-amqp",
     libraryDependencies ++= {
       Seq(
+        "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
