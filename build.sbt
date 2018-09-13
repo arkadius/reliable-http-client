@@ -5,8 +5,8 @@ import sbt.Keys._
 import sbt.dsl.enablePlugins
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 
-val defaultScalaVersion = "2.12.1"
-val scalaVersions = Seq("2.11.8", defaultScalaVersion)
+val defaultScalaVersion = "2.12.8"
+val scalaVersions = Seq("2.11.12", defaultScalaVersion)
 
 
 val commonSettings =
@@ -16,7 +16,13 @@ val commonSettings =
     organization  := "org.rhttpc",
     scalaVersion  := defaultScalaVersion,
     crossScalaVersions := scalaVersions,
-    scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8"),
+    scalacOptions := Seq(
+      "-unchecked",
+      "-deprecation", 
+      "-encoding", "utf8", 
+      "-feature", 
+      "-Xfatal-warnings",
+      "-language:postfixOps"),
     license := apache2("Copyright 2015 the original author or authors."),
     licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
@@ -54,20 +60,20 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.17"
-val akkaHttpV = "10.0.5"
-val ficusV = "1.4.0"
-val amqpcV = "3.6.5"
+val akkaV = "2.4.20"
+val akkaHttpV = "10.0.15"
+val ficusV = "1.4.6"
+val amqpcV = "3.6.6"
 val json4sV = "3.4.2"
-val argonaut62MinorV = "-RC2"
-val logbackV = "1.1.7"
+val argonaut62MinorV = ".3"
+val logbackV = "1.1.11"
 val commonsIoV = "2.5"
-val slf4jV = "1.7.21"
-val dispatchV = "0.12.0"
-val scalaTestV = "3.0.1"
-val slickV = "3.2.0"
+val slf4jV = "1.7.26"
+val dispatchV = "0.12.3"
+val scalaTestV = "3.0.7"
+val slickV = "3.2.3"
 val flywayV = "4.0.3"
-val hsqldbV = "2.3.4"
+val hsqldbV = "2.3.6"
 val dockerJavaV = "1.4.0"
 
 lazy val transport = (project in file("rhttpc-transport")).
@@ -270,7 +276,7 @@ lazy val testProj = (project in file("sample/test")).
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
-    Keys.test in Test <<= (Keys.test in Test).dependsOn(
+    Keys.test in Test := (Keys.test in Test).dependsOn(
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
     ),
@@ -279,14 +285,17 @@ lazy val testProj = (project in file("sample/test")).
 
 publishArtifact := false
 
+releaseCrossBuild := true
+
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
+  runClean,
   runTest,
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
-  ReleaseStep(action = Command.process("publishSigned", _)),
+  ReleaseStep(action = Command.process("+publishSigned", _)),
   setNextVersion,
   commitNextVersion,
   ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),

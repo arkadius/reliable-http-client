@@ -26,7 +26,6 @@ import rhttpc.utils.Recovered._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
-import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
@@ -80,7 +79,7 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
       _ <- pendingConsumePromises.alter(_ + consumePromise)
       _ <- consumer ? msgObj
     } yield Unit
-    replyFuture onComplete handleConsumerResponse(deliveryTag, complete)
+    replyFuture onComplete handleConsumerResponse(deliveryTag, () => complete())
   }
 
   private def handleConsumerResponse[U](deliveryTag: Long, complete: () => Unit): Try[Any] => Unit = {
@@ -128,8 +127,8 @@ trait SendingSimpleMessage[Sub] { self: AmqpSubscriber[Sub] =>
 trait SendingFullMessage[Sub] { self: AmqpSubscriber[Sub] =>
 
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
-    import collection.convert.wrapAsScala._
-    Message(deserializedMessage, Option(properties.getHeaders).map(_.asInstanceOf[java.util.Map[String, Any]].toMap).getOrElse(Map.empty))
+    import collection.JavaConverters._
+    Message(deserializedMessage, Option(properties.getHeaders).map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap).getOrElse(Map.empty))
   }
 
 }

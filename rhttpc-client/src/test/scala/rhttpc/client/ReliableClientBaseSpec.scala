@@ -37,7 +37,7 @@ trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
     try {
       test(FixtureParam(client, mockTransport))
     } finally {
-      Await.result(client.stop(), 10 seconds)
+      Await.result(client.stop(), 10.seconds)
     }
   }
 

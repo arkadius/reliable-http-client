@@ -18,7 +18,6 @@ package rhttpc.transport.amqpjdbc
 import rhttpc.transport.amqp.{AmqpDeclareOutboundQueueData, AmqpDefaults}
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 object AmqpJdbcDefaults extends AmqpJdbcDefaults
 

@@ -23,7 +23,6 @@ import rhttpc.transport._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionContext)

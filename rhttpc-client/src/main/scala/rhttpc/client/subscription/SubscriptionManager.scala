@@ -29,7 +29,6 @@ import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscr
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.language.postfixOps
 import scala.util.Failure
 import scala.util.control.NonFatal
 
@@ -122,7 +121,7 @@ private[subscription] class ReplyFutureImpl(subscription: SubscriptionOnResponse
   }
 }
 
-case class SubscriptionManagerFactory(implicit actorSystem: ActorSystem) {
+case class SubscriptionManagerFactory()(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
 
   private lazy val config = ConfigParser.parse(actorSystem)

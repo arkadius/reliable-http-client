@@ -21,11 +21,8 @@ import rhttpc.transport.amqpjdbc.slick.CreatingScheduledMessagesTableMigration.S
 import slick.sql.SqlProfile.ColumnOption.NotNull
 import slick.sql.SqlProfile.ColumnOption.NotNull
 
-
-import scala.language.postfixOps
-
 trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
-  import driver.api._
+  import profile.api._
 
   override def migrateActions = {
     scheduledMessages.schema.create

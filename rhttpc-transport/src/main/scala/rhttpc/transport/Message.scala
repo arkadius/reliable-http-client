@@ -16,7 +16,6 @@
 package rhttpc.transport
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
 

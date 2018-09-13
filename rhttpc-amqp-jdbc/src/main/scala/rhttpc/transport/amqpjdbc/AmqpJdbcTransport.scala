@@ -15,8 +15,7 @@
  */
 package rhttpc.transport.amqpjdbc
 
-import _root_.slick.driver.JdbcDriver
-import _root_.slick.jdbc.JdbcBackend
+import _root_.slick.jdbc.{JdbcBackend, JdbcProfile}
 import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
@@ -29,7 +28,6 @@ import rhttpc.transport.amqpjdbc.slick.SlickJdbcScheduledMessagesRepository
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 trait AmqpJdbcTransport extends PubSubTransport {
   def queuesStats: Future[Map[String, AmqpJdbcQueueStats]]
@@ -109,7 +107,7 @@ case class AmqpJdbcQueueStats(amqpStats: AmqpQueueStats, scheduledMessageCount: 
 object AmqpJdbcTransport {
 
   def apply[PubMsg <: AnyRef, SubMsg](connection: Connection,
-                                      driver: JdbcDriver,
+                                      profile: JdbcProfile,
                                       db: JdbcBackend.Database,
                                       schedulerCheckInterval: FiniteDuration = AmqpJdbcDefaults.schedulerCheckInterval,
                                       schedulerMessagesFetchBatchSize: Int = AmqpJdbcDefaults.schedulerMessagesFetchBatchSize,
@@ -129,7 +127,7 @@ object AmqpJdbcTransport {
       declareSubscriberQueue = declareSubscriberQueue,
       prepareProperties = prepareProperties      
     )
-    val repo = new SlickJdbcScheduledMessagesRepository(driver, db)(actorSystem.dispatcher)
+    val repo = new SlickJdbcScheduledMessagesRepository(profile, db)(actorSystem.dispatcher)
     new AmqpJdbcTransportImpl(
       underlying,
       repo,

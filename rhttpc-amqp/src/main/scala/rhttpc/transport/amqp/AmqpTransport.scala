@@ -24,7 +24,6 @@ import rhttpc.transport._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.Try
 
 trait AmqpTransport extends PubSubTransport {

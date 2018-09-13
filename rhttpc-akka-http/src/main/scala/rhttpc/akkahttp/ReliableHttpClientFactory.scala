@@ -30,7 +30,7 @@ import rhttpc.transport.inmem.InMemTransport
 
 import scala.concurrent._
 
-case class ReliableHttpClientFactory(implicit actorSystem: ActorSystem, materialize: Materializer) {
+case class ReliableHttpClientFactory()(implicit actorSystem: ActorSystem, materialize: Materializer) {
   import actorSystem.dispatcher
   import rhttpc.transport.fallback._
   import rhttpc.transport.json4s._

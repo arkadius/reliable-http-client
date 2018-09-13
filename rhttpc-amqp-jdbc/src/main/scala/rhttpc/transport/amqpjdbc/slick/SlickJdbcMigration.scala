@@ -19,20 +19,19 @@ import java.io.PrintWriter
 import java.lang.reflect.{InvocationHandler, Method, Proxy}
 import java.sql.Connection
 import java.util.logging.Logger
-import javax.sql.DataSource
 
+import javax.sql.DataSource
 import org.flywaydb.core.api.migration.jdbc.JdbcMigration
-import slick.driver.JdbcDriver
+import slick.jdbc.JdbcProfile
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 trait SlickJdbcMigration extends JdbcMigration {
 
-  protected val driver: JdbcDriver
+  protected val profile: JdbcProfile
 
-  import driver.api._
+  import profile.api._
 
   def migrateActions: DBIOAction[Any, NoStream, _ <: Effect]
 

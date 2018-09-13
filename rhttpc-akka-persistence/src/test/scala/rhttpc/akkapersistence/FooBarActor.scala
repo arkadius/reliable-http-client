@@ -20,7 +20,6 @@ import rhttpc.client.InOutReliableClient
 import rhttpc.client.subscription.SubscriptionManager
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class FooBarActor(protected val id: String, client: InOutReliableClient[String]) extends MockReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher

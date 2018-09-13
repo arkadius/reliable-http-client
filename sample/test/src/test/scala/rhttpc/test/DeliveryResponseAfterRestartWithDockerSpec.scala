@@ -19,7 +19,7 @@ import java.util.Properties
 
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.model._
-import com.github.dockerjava.core.DockerClientBuilder
+import com.github.dockerjava.core.{DockerClientBuilder, DockerClientConfig}
 import com.github.dockerjava.core.DockerClientConfig.DockerClientConfigBuilder
 import org.scalatest._
 import org.slf4j.LoggerFactory
@@ -28,7 +28,6 @@ import rhttpc.test.DockerEnrichments._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.Random
 import scala.util.control.NonFatal
 
@@ -117,11 +116,9 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config =
-      new DockerClientConfigBuilder()
-        .withUri("unix:///var/run/docker.sock")
+      DockerClientConfig.createDefaultConfigBuilder()
         .withMaxTotalConnections(200)
         .withMaxPerRouteConnections(200)
-        .withVersion("1.20")
     implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
 
     val rabbitmqContainerId = startRabbitMq()

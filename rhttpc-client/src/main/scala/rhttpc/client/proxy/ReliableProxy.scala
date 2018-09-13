@@ -26,7 +26,6 @@ import rhttpc.utils.Recovered._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -117,7 +116,7 @@ object ExhaustedRetry {
   def apply(cause: Throwable): ExhaustedRetry = ExhaustedRetry(s"Exhausted retry. Message will be moved to DLQ. Cause: ${cause.getMessage}")
 }
 
-case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
+case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
 
   import actorSystem.dispatcher
 

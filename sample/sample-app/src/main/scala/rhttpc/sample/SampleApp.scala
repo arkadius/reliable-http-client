@@ -26,9 +26,9 @@ import rhttpc.akkahttp.ReliableHttpClientFactory
 import rhttpc.akkapersistence.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
 import rhttpc.client.subscription.ReplyFuture
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
-import scala.language.postfixOps
+import scala.language.reflectiveCalls
 
 object SampleApp extends App with Directives {
   implicit val system = ActorSystem("rhttpc-sample")

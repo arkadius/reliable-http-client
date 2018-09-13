@@ -24,7 +24,6 @@ import rhttpc.client.ReliableClientBaseSpec
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class ReliableFSMSpec
   extends TestKit(ActorSystem("ReliableFSMSpec"))

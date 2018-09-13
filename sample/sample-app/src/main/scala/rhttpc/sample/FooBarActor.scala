@@ -21,7 +21,6 @@ import rhttpc.akkapersistence.ReliableFSM
 import rhttpc.client.subscription.SubscriptionManager
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 private class FooBarActor(protected val id: String, protected val subscriptionManager: SubscriptionManager, client: DelayedEchoClient) extends ReliableFSM[FooBarState, FooBarData] {
   import context.dispatcher

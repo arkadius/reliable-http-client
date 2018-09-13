@@ -17,15 +17,14 @@ package rhttpc.transport.amqpjdbc.slick.helpers
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest._
-import slick.driver.{HsqldbDriver, JdbcDriver}
-import slick.jdbc.JdbcBackend
+import slick.jdbc.{HsqldbProfile, JdbcBackend, JdbcProfile}
 
 trait SlickJdbcSpec extends fixture.FlatSpec {
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  private val _driver = HsqldbDriver
+  private val _profile = HsqldbProfile
 
-  protected def driver: JdbcDriver = _driver
+  protected def profile: JdbcProfile = _profile
 
   override protected def withFixture(test: OneArgTest): Outcome = {
     val config = ConfigFactory.load()

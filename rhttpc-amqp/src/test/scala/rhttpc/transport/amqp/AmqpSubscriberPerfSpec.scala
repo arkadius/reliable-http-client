@@ -28,7 +28,6 @@ import rhttpc.transport.{Deserializer, InboundQueueData, OutboundQueueData, Seri
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.language.postfixOps
 import scala.util.{Random, Try}
 
 @Ignore
@@ -91,7 +90,7 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
       measureMeanThroughput(count) {
         (1 to count).foreach { _ => publisher.publish("x") }
 
-        probe.receiveWhile(10 minutes, messages = count)(PartialFunction(identity))
+        probe.receiveWhile(10 minutes, messages = count) { case a => a }
       }
     } finally {
       Await.result(subscriber.stop(), 5.seconds)

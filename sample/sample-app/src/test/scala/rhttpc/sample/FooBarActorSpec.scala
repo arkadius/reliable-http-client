@@ -23,7 +23,6 @@ import org.scalatest._
 import rhttpc.akkapersistence._
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.reflect.io.Directory
 
 class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with FlatSpecLike with BeforeAndAfterAll {

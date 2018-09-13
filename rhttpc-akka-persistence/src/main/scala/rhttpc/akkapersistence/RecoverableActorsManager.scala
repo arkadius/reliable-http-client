@@ -22,7 +22,6 @@ import rhttpc.akkapersistence.impl._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 private class RecoverableActorsManager(persistenceCategory: String, childPropsCreate: String => Props) extends Actor with ActorLogging {
 
