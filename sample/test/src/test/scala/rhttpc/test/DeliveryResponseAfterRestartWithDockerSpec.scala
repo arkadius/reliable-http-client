@@ -121,6 +121,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
         .withUri("unix:///var/run/docker.sock")
         .withMaxTotalConnections(200)
         .withMaxPerRouteConnections(200)
+        .withVersion("1.20")
     implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
 
     val rabbitmqContainerId = startRabbitMq()
