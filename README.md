@@ -1,9 +1,6 @@
 # reliable-http-client
 
 [![circle-ci](https://circleci.com/gh/arkadius/reliable-http-client/tree/master.svg?style=shield&circle-token=1287932dad2962d954d6eac289d36cb4f5a05e2b)](https://circleci.com/gh/arkadius/reliable-http-client/tree/master)
-[![Sputnik](https://sputnik.ci/conf/badge)](https://sputnik.ci/app#/builds/arkadius/reliable-http-client)
-[![Codacy Badge](https://api.codacy.com/project/badge/grade/46b882f05c87468a849b8805fb9aeb68)](https://www.codacy.com/app/arek-burdach/reliable-http-client)
-[![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 *Reliable Http Client* is a set of tools making HTTP communication more reliable. It supports: *at least one delivery guarantee* as well as *retry strategies* including *durable exponential backoff* and *dead letter queue*.
@@ -23,8 +20,8 @@ For the third scenario there exists a provided module with *persistent Akka FSM 
 
 If You only want to use *Akka* wrapper for *amqp-client* with *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.2"
 ```
 
 Then:
@@ -56,9 +53,9 @@ AmqpConnectionFactory.connect(actorSystem).map { connection =>
 
 For clients with *AMQP* transport and *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.8.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.8.2"
 ```
 
 ### In-only scenario
@@ -198,6 +195,7 @@ Proxy can also be run as a separate process.
 *rhttpc* uses
 - [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication through *AMQP*
 - [json4s](https://github.com/json4s/json4s) for serialization
+- [argonaut](https://github.com/argonaut-io/argonaut) for serialization
 - [akka-http](https://github.com/akka/akka) for HTTP communication
 - [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states
 
