@@ -3,11 +3,10 @@ import com.banno.license.Plugin.LicenseKeys._
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import sbt.Keys._
 import sbt.dsl.enablePlugins
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import ReleaseTransformations._
 
 val defaultScalaVersion = "2.12.8"
 val scalaVersions = Seq("2.11.12", defaultScalaVersion)
-
 
 val commonSettings =
   filterSettings ++
@@ -116,7 +115,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
-        "org.scala-lang"            % "scala-reflect"                 % defaultScalaVersion,
+        "org.scala-lang"            % "scala-reflect"                 % scalaVersion.value,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
 
@@ -155,7 +154,7 @@ lazy val json4sSerialization = (project in file("rhttpc-json4s")).
     libraryDependencies ++= {
       Seq(
         "org.json4s"               %% "json4s-native"                 % json4sV,
-        "org.scala-lang"            % "scala-reflect"                 % defaultScalaVersion,
+        "org.scala-lang"            % "scala-reflect"                 % scalaVersion.value,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }
@@ -239,7 +238,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
       )
     },
     dockerExposedPorts := Seq(8082),
-    publishArtifact := false
+    skip in publish := true
   )
 
 lazy val sampleApp = (project in file("sample/sample-app")).
@@ -259,7 +258,7 @@ lazy val sampleApp = (project in file("sample/sample-app")).
       )
     },
     dockerExposedPorts := Seq(8081),
-    publishArtifact := false
+    skip in publish := true
   ).
   dependsOn(akkaHttpClient).
   dependsOn(akkaPersistence)
@@ -280,26 +279,36 @@ lazy val testProj = (project in file("sample/test")).
       publishLocal in Docker in sampleEcho,
       publishLocal in Docker in sampleApp
     ),
-    publishArtifact := false
+    skip in publish := true
   )
 
-publishArtifact := false
-
-releaseCrossBuild := true
-
-releaseProcess := Seq[ReleaseStep](
-  checkSnapshotDependencies,
-  inquireVersions,
-  runClean,
-  runTest,
-  setReleaseVersion,
-  commitReleaseVersion,
-  tagRelease,
-  ReleaseStep(action = Command.process("+publishSigned", _)),
-  setNextVersion,
-  commitNextVersion,
-  ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
-  pushChanges
-)
+lazy val root = (project in file("."))
+  .aggregate(
+    transport, inMemTransport, amqpTransport, amqpJdbcTransport,
+    json4sSerialization, argonaut62Serialization,
+    client, akkaHttpClient,
+    akkaPersistence,
+    sampleEcho, sampleApp, testProj)
+  .settings(commonSettings)
+  .settings(publishSettings)
+  .settings(
+    // crossScalaVersions must be set to Nil on the aggregating project
+    releaseCrossBuild := true,
+    skip in publish := true,
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      releaseStepCommandAndRemaining("+test"),
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      releaseStepCommandAndRemaining("+publishSigned"),
+      setNextVersion,
+      commitNextVersion,
+      ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
+      pushChanges
+    )
+  )
 
 enablePlugins(CrossPerProjectPlugin)
