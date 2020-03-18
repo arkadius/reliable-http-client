@@ -38,8 +38,7 @@ object SkipAll extends FailureResponseHandleStrategyChooser {
 
 case class BackoffRetry(initialDelay: FiniteDuration, multiplier: BigDecimal, maxRetries: Int) extends FailureResponseHandleStrategyChooser {
   override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = {
-    val retriesSoFar = attemptsSoFar - 1
-    if (retriesSoFar + 1 > maxRetries) {
+    if (attemptsSoFar > maxRetries) {
       SendToDLQ
     } else if (attemptsSoFar == 1) {
       Retry(initialDelay)
