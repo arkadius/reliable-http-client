@@ -27,7 +27,7 @@ private[inmem] class InMemPublisher[Msg](queueActor: ActorRef)
 
   override def publish(msg: Message[Msg]): Future[Unit] = {
     msg match {
-      case delayed@DelayedMessage(_, delay, _) =>
+      case delayed@DelayedMessage(_, delay, _, _) =>
         system.scheduler.scheduleOnce(delay, queueActor, delayed)
       case _ =>
         queueActor ! msg

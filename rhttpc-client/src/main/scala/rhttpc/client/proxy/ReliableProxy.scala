@@ -45,8 +45,8 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     import context.dispatcher
 
     override def receive: Receive = {
-      case DelayedMessage(content, delay, attempt) =>
-        handleRequest(Request(content.asInstanceOf[Correlated[Req]], attempt, delay))
+      case DelayedMessage(content, delay, attempt, date) =>
+        handleRequest(Request(content.asInstanceOf[Correlated[Req]], attempt, delay, date))
       case message: Message[_] =>
         handleRequest(Request.firstAttempt(message.content.asInstanceOf[Correlated[Req]]))
 
@@ -71,11 +71,11 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     }
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
-      val strategy = failureHandleStrategyChooser.choose(request.attempt, request.lastPlannedDelay)
+      val strategy = failureHandleStrategyChooser.choose(request.attempt, request.lastPlannedDelay, request.receiveDate)
       strategy match {
         case Retry(delay) =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will retry in $delay")
-          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.nextAttempt.attempt))
+          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.nextAttempt.attempt, request.receiveDate))
         case SendToDLQ =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)

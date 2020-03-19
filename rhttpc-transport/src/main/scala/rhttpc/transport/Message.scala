@@ -15,26 +15,30 @@
  */
 package rhttpc.transport
 
+import java.time.LocalDateTime
+
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
 
 object DelayedMessage {
-  def apply[T](content: T, delay: FiniteDuration, attempt: Int): Message[T] = {
+  def apply[T](content: T, delay: FiniteDuration, attempt: Int, receiveDate: LocalDateTime): Message[T] = {
     val props = Map(
       MessagePropertiesNaming.delayProperty -> delay.toMillis,
-      MessagePropertiesNaming.attemptProperty -> attempt.toLong
+      MessagePropertiesNaming.attemptProperty -> attempt.toLong,
+      MessagePropertiesNaming.receiveDateProperty -> receiveDate.toString
     )
     Message(content, properties = props)
   }
 
-  def unapply[T](message: Message[T]): Option[(T, FiniteDuration, Int)] = {
+  def unapply[T](message: Message[T]): Option[(T, FiniteDuration, Int, LocalDateTime)] = {
     Option(message).collect {
       case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
         val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
-        (content, delay, attempt)
+        val date = props.get(MessagePropertiesNaming.receiveDateProperty).map(_.asInstanceOf[String]).map(LocalDateTime.parse).getOrElse(LocalDateTime.now())
+        (content, delay, attempt, date)
     }
   }
 }

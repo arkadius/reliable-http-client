@@ -31,12 +31,12 @@ case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay
 }
 
 object Request {
-  def apply[T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: FiniteDuration): Request[T] = {
+  def apply[T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: FiniteDuration, receiveDate: LocalDateTime): Request[T] = {
     Request(
       correlated = correlated,
       attempt = attempt,
       lastPlannedDelay = Some(lastPlannedDelay),
-      receiveDate = LocalDateTime.now
+      receiveDate = receiveDate
     )
   }
 
