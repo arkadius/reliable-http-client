@@ -18,7 +18,7 @@ package rhttpc.client.proxy
 import scala.concurrent.duration._
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy
+  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], ): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
@@ -52,5 +52,14 @@ case class BackoffRetry(initialDelay: FiniteDuration, multiplier: BigDecimal, ma
       }
       Retry(nextDelay)
     }
+  }
+}
+
+case class BackoffRetryWithDeadline(override val initialDelay: FiniteDuration,
+                                    override val multiplier: BigDecimal,
+                                    override val maxRetries: Int,
+                                    deadline: FiniteDuration) extends BackoffRetry(initialDelay, multiplier, maxRetries) {
+  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration]): ResponseHandleStrategy = {
+    if ()
   }
 }
