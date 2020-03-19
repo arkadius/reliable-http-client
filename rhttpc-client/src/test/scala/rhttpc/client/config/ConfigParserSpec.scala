@@ -17,7 +17,7 @@ package rhttpc.client.config
 
 import com._
 import org.scalatest.{FlatSpec, Matchers}
-import rhttpc.client.proxy.{BackoffRetry, BackoffRetryWithDeadline, HandleAll}
+import rhttpc.client.proxy.{BackoffRetry, HandleAll}
 
 import scala.concurrent.duration._
 
@@ -37,7 +37,7 @@ class ConfigParserSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3, None))
   }
 
   it should "parse config with publish all strategy" in {
@@ -68,6 +68,6 @@ class ConfigParserSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetryWithDeadline(5 seconds, 1.2, 3, 5 seconds))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3, Some(5 seconds)))
   }
 }

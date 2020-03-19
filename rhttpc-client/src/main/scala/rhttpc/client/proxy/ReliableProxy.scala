@@ -15,6 +15,8 @@
  */
 package rhttpc.client.proxy
 
+import java.time.Instant
+
 import akka.actor._
 import akka.pattern._
 import org.slf4j.LoggerFactory
@@ -35,7 +37,8 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
                                failureHandleStrategyChooser: FailureResponseHandleStrategyChooser,
                                handleResponse: Correlated[Exchange[Req, Resp]] => Future[Unit],
                                additionalStartAction: => Unit,
-                               additionalStopAction: => Future[Unit])
+                               additionalStopAction: => Future[Unit],
+                               timeProvider: => Instant)
                               (implicit actorSystem: ActorSystem) {
   
   private lazy val logger = LoggerFactory.getLogger(getClass)
@@ -44,10 +47,10 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     import context.dispatcher
 
     override def receive: Receive = {
-      case DelayedMessage(content, delay, attempt, date) =>
-        handleRequest(Request(content.asInstanceOf[Correlated[Req]], attempt, delay, date))
+      case DelayedMessage(content, delay, attempt, firstAttemptTimestamp) =>
+        handleRequest(Request(content.asInstanceOf[Correlated[Req]], attempt, delay, firstAttemptTimestamp))
       case message: Message[_] =>
-        handleRequest(Request.firstAttempt(message.content.asInstanceOf[Correlated[Req]]))
+        handleRequest(Request.firstAttempt(message.content.asInstanceOf[Correlated[Req]], timeProvider))
 
     }
 
@@ -71,11 +74,11 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
       val retryAttemptNumber = request.attempt // 0 indexed attempts, first attempt is naturally ordered first retry attempt
-      val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.receiveDate)
+      val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.firstAttemptTimestamp)
       strategy match {
         case Retry(delay) =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will retry in $delay")
-          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.nextAttempt.attempt, request.receiveDate))
+          requestPublisher.publish(DelayedMessage(request.correlated, delay, request.nextAttempt.attempt, request.firstAttemptTimestamp))
         case SendToDLQ =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will move to DLQ")
           val exhaustedRetryError = ExhaustedRetry(failure)
@@ -117,7 +120,7 @@ object ExhaustedRetry {
   def apply(cause: Throwable): ExhaustedRetry = ExhaustedRetry(s"Exhausted retry. Message will be moved to DLQ. Cause: ${cause.getMessage}")
 }
 
-case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
+case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
 
   import actorSystem.dispatcher
 
@@ -203,7 +206,8 @@ case class ReliableProxyFactory(implicit actorSystem: ActorSystem) {
       failureHandleStrategyChooser = retryStrategy,
       handleResponse = handleResponse,
       additionalStartAction = additionalStartAction,
-      additionalStopAction = additionalStopAction
+      additionalStopAction = additionalStopAction,
+      Instant.now()
     )
   }
 

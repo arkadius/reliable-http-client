@@ -15,11 +15,11 @@
  */
 package rhttpc.client.protocol
 
-import java.time.LocalDateTime
+import java.time.{Instant, LocalDateTime}
 
 import scala.concurrent.duration.FiniteDuration
 
-case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: Option[FiniteDuration], receiveDate: LocalDateTime) {
+case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptTimestamp: Instant) {
   def msg = correlated.msg
 
   def correlationId = correlated.correlationId
@@ -31,21 +31,21 @@ case class Request[+T](correlated: Correlated[T], attempt: Int, lastPlannedDelay
 }
 
 object Request {
-  def apply[T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: FiniteDuration, receiveDate: LocalDateTime): Request[T] = {
+  def apply[T](correlated: Correlated[T], attempt: Int, lastPlannedDelay: FiniteDuration, firstAttemptTimestamp: Instant): Request[T] = {
     Request(
       correlated = correlated,
       attempt = attempt,
       lastPlannedDelay = Some(lastPlannedDelay),
-      receiveDate = receiveDate
+      firstAttemptTimestamp = firstAttemptTimestamp
     )
   }
 
-  def firstAttempt[T](correlated: Correlated[T]): Request[T] = {
+  def firstAttempt[T](correlated: Correlated[T], firstAttemptTime: Instant): Request[T] = {
     Request(
       correlated = correlated,
       attempt = 1,
       lastPlannedDelay = None,
-      receiveDate = LocalDateTime.now
+      firstAttemptTimestamp = firstAttemptTime
     )
   }
 }
