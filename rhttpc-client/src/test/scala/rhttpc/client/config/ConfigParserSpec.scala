@@ -17,7 +17,7 @@ package rhttpc.client.config
 
 import com._
 import org.scalatest.{FlatSpec, Matchers}
-import rhttpc.client.proxy.{BackoffRetry, HandleAll}
+import rhttpc.client.proxy.{BackoffRetry, BackoffRetryWithDeadline, HandleAll}
 
 import scala.concurrent.duration._
 
@@ -53,4 +53,21 @@ class ConfigParserSpec extends FlatSpec with Matchers {
     ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll)
   }
 
+  it should "parse config with backoff with deadline strategy" in {
+    val config = typesafe.config.ConfigFactory.parseString(
+      """x {
+        |  queuesPrefix = "rhttpc"
+        |  batchSize = 10
+        |  parallelConsumers = 1
+        |  retryStrategy {
+        |    initialDelay = 5 seconds
+        |    multiplier = 1.2
+        |    maxRetries = 3
+        |    deadline = 5 seconds
+        |  }
+        |}
+      """.stripMargin)
+
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetryWithDeadline(5 seconds, 1.2, 3, 5 seconds))
+  }
 }
