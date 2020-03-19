@@ -25,9 +25,11 @@ import scala.concurrent.{ExecutionContext, Future}
 private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(profile: JdbcProfile, db: JdbcBackend.Database)
                                                             (implicit ec: ExecutionContext) extends ScheduledMessagesRepository {
 
-  val messagesMigration = new AddingPropertiesToScheduledMessagesMigration {
+  class V1_001__AddingPropertiesToScheduledMessagesMigration extends AddingPropertiesToScheduledMessagesMigration {
     override protected val profile: JdbcProfile = SlickJdbcScheduledMessagesRepository.this.profile
   }
+
+  val messagesMigration = new V1_001__AddingPropertiesToScheduledMessagesMigration
 
   import messagesMigration._
   import profile.api._

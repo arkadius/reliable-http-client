@@ -33,10 +33,11 @@ class DatabaseInitializer(db: JdbcBackend.Database) {
   }
 
   private def migrateIfNeeded(db: JdbcBackend.Database) = {
-    val flyway = new Flyway()
-    flyway.setDataSource(new DatabaseDataSource(db))
-    flyway.setBaselineOnMigrate(true)
-    flyway.migrate()
+    Flyway.configure
+      .dataSource(new DatabaseDataSource(db))
+      .baselineOnMigrate(true)
+      .load
+      .migrate
   }
 }
 

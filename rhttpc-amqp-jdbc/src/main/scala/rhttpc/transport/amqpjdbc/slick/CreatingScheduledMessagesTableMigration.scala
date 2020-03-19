@@ -19,7 +19,6 @@ import java.sql.Timestamp
 
 import rhttpc.transport.amqpjdbc.slick.CreatingScheduledMessagesTableMigration.ScheduledMessage
 import slick.sql.SqlProfile.ColumnOption.NotNull
-import slick.sql.SqlProfile.ColumnOption.NotNull
 
 trait CreatingScheduledMessagesTableMigration extends SlickJdbcMigration {
   import profile.api._

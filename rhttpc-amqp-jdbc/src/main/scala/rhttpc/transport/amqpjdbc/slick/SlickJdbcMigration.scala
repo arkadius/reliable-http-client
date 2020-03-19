@@ -21,13 +21,13 @@ import java.sql.Connection
 import java.util.logging.Logger
 
 import javax.sql.DataSource
-import org.flywaydb.core.api.migration.jdbc.JdbcMigration
+import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import slick.jdbc.JdbcProfile
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-trait SlickJdbcMigration extends JdbcMigration {
+trait SlickJdbcMigration extends BaseJavaMigration {
 
   protected val profile: JdbcProfile
 
@@ -35,8 +35,8 @@ trait SlickJdbcMigration extends JdbcMigration {
 
   def migrateActions: DBIOAction[Any, NoStream, _ <: Effect]
 
-  override final def migrate(conn: Connection) = {
-    val database = Database.forDataSource(new AlwaysUsingSameConnectionDataSource(conn), None)
+  override final def migrate(context: Context): Unit = {
+    val database = Database.forDataSource(new AlwaysUsingSameConnectionDataSource(context.getConnection), None)
     Await.result(database.run(migrateActions), 10 minute)
   }
 
