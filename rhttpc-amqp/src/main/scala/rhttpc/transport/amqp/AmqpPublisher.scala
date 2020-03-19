@@ -25,7 +25,6 @@ import rhttpc.transport.{Message, Publisher, Serializer, SerializingPublisher}
 import rhttpc.utils.Recovered._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.language.postfixOps
 
 private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
                                           queueName: String,

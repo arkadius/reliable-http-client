@@ -26,7 +26,6 @@ import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscr
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.control.NonFatal
 
 class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subscriber[Correlated[Exchange[Request, Response]]],
@@ -63,7 +62,7 @@ class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subs
 
 }
 
-case class MessageConsumerFactory(implicit actorSystem: ActorSystem) {
+case class MessageConsumerFactory()(implicit actorSystem: ActorSystem) {
   
   private lazy val config = ConfigParser.parse(actorSystem)
   

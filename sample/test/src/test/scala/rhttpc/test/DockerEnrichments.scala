@@ -24,7 +24,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.StringEscapeUtils
 import org.slf4j.LoggerFactory
 
-import scala.collection.convert.wrapAsScala._
+import scala.collection.JavaConverters._
 
 object DockerEnrichments {
   lazy val logger = LoggerFactory.getLogger(getClass)
@@ -33,7 +33,7 @@ object DockerEnrichments {
     def containerStartFromScratch(containerName: String, repo: String, tag: String)
                                  (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
       val image = s"$repo:$tag"
-      val images = docker.listImagesCmd().exec().toList
+      val images = docker.listImagesCmd().exec().asScala.toList
       if (!images.exists(_.getRepoTags.contains(image))) {
         logger.info(s"Not found image: $image. Pulling ...")
         UnescapingWriter.copyToSysOut(docker.pullImageCmd(repo).withTag(tag).exec())
@@ -62,7 +62,7 @@ object DockerEnrichments {
     }
 
     private def filterContainerByName(containerName: String) = {
-      docker.listContainersCmd.withShowAll(true).exec().filter { container =>
+      docker.listContainersCmd.withShowAll(true).exec().asScala.toList.filter { container =>
         Option(container.getNames).toSeq.flatten.exists(_.contains(containerName))
       }
     }

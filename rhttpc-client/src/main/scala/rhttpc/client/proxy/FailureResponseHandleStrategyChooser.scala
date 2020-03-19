@@ -16,11 +16,10 @@
 package rhttpc.client.proxy
 
 import java.time.LocalDateTime
-
 import scala.concurrent.duration._
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy
+  def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
@@ -31,15 +30,15 @@ case object Handle extends ResponseHandleStrategy
 case object Skip extends ResponseHandleStrategy
 
 object HandleAll extends FailureResponseHandleStrategyChooser {
-  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = Handle
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = Handle
 }
 
 object SkipAll extends FailureResponseHandleStrategyChooser {
-  override def choose(attempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = Skip
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = Skip
 }
 
 case class BackoffRetry(initialDelay: FiniteDuration, multiplier: BigDecimal, maxRetries: Int) extends FailureResponseHandleStrategyChooser {
-  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = {
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = {
     BackoffRetries.chooseBasedOnRetries(attemptsSoFar, lastPlannedDelay, initialDelay, maxRetries, multiplier)
   }
 }
@@ -48,7 +47,7 @@ case class BackoffRetryWithDeadline(initialDelay: FiniteDuration,
                                     multiplier: BigDecimal,
                                     maxRetries: Int,
                                     deadline: FiniteDuration) extends FailureResponseHandleStrategyChooser {
-  override def choose(attemptsSoFar: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = {
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateReceived: LocalDateTime): ResponseHandleStrategy = {
     val jDuration = java.time.Duration.ofMillis(deadline.toMillis)
     val deadlineDate = dateReceived.plus(jDuration)
 
@@ -61,15 +60,14 @@ case class BackoffRetryWithDeadline(initialDelay: FiniteDuration,
 }
 
 object BackoffRetries {
-  def chooseBasedOnRetries(attemptsSoFar: Int,
+  def chooseBasedOnRetries(currentRetryAttempt: Int,
                            lastPlannedDelay: Option[FiniteDuration],
                            initialDelay: FiniteDuration,
                            maxRetries: Int,
                            multiplier: BigDecimal) = {
-    val retriesSoFar = attemptsSoFar - 1
-    if (retriesSoFar + 1 > maxRetries) {
+    if (currentRetryAttempt >= maxRetries) {
       SendToDLQ
-    } else if (attemptsSoFar == 1) {
+    } else if (currentRetryAttempt == 1) {
       Retry(initialDelay)
     } else {
       val nextDelay = lastPlannedDelay match {

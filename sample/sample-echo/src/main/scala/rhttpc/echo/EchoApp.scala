@@ -24,7 +24,6 @@ import akka.stream.ActorMaterializer
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 object EchoApp extends App with Directives {
 

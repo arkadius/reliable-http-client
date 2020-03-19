@@ -27,12 +27,11 @@ import slick.jdbc.JdbcBackend
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaFutures with Matchers {
 
   override implicit def patienceConfig: PatienceConfig = PatienceConfig(
-    timeout = scaled(Span(3, Seconds)),
+    timeout = scaled(Span(10, Seconds)),
     interval = scaled(Span(100, Millis))
   )
 
@@ -105,7 +104,7 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
   }
 
   override protected def createFixture(db: JdbcBackend.Database) = {
-    FixtureParam(new SlickJdbcScheduledMessagesRepository(driver, db))
+    FixtureParam(new SlickJdbcScheduledMessagesRepository(profile, db))
   }
 
   case class FixtureParam(private val repo: ScheduledMessagesRepository) {

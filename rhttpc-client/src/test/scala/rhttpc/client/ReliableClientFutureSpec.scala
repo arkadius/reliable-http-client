@@ -22,7 +22,6 @@ import org.scalatest._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.language.postfixOps
 
 class ReliableClientFutureSpec extends TestKit(ActorSystem("ReliableClientFutureSpec")) with ReliableClientBaseSpec with Matchers {
 

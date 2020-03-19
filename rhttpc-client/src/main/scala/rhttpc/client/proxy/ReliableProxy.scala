@@ -26,7 +26,6 @@ import rhttpc.utils.Recovered._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -71,7 +70,8 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     }
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
-      val strategy = failureHandleStrategyChooser.choose(request.attempt, request.lastPlannedDelay, request.receiveDate)
+      val retryAttemptNumber = request.attempt // 0 indexed attempts, first attempt is naturally ordered first retry attempt
+      val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.receiveDate)
       strategy match {
         case Retry(delay) =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will retry in $delay")

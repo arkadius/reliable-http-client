@@ -27,7 +27,6 @@ import rhttpc.client.proxy._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
@@ -61,18 +60,19 @@ object ReliableHttpProxyFactory {
   private def send(httpFlow: Flow[(HttpRequest, String), HttpResponse, Any], successRecognizer: SuccessHttpResponseRecognizer)
                   (corr: Correlated[HttpRequest])
                   (implicit ec: ExecutionContext, materialize: Materializer): Future[HttpResponse] = {
-    import collection.convert.wrapAsScala._
+    import collection.JavaConverters._
     logger.debug(
       s"""Sending request for ${corr.correlationId} to ${corr.msg.getUri()}. Headers:
-         |${corr.msg.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+         |${corr.msg.getHeaders().asScala.toSeq.map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
          |Body:
          |${corr.msg.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
     )
     val logResp = logResponse(corr) _
     val responseFuture = Source.single((corr.msg, corr.correlationId)).via(httpFlow).runWith(Sink.head)
-    responseFuture.onFailure {
-      case NonFatal(ex) =>
+    responseFuture.onComplete {
+      case Failure(ex) =>
         logger.error(s"Got failure for ${corr.correlationId} to ${corr.msg.getUri()}", ex)
+      case Success(_) =>
     }
     for {
       response <- responseFuture
@@ -90,10 +90,10 @@ object ReliableHttpProxyFactory {
 
   private def logResponse(corr: Correlated[HttpRequest])
                          (response: HttpResponse, additionalInfo: String): Unit = {
-    import collection.convert.wrapAsScala._
+    import collection.JavaConverters._
     logger.debug(
       s"""Got $additionalInfo for ${corr.correlationId} to ${corr.msg.getUri()}. Status: ${response.status.value}. Headers:
-         |${response.getHeaders().map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
+         |${response.getHeaders().asScala.toSeq.map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
          |Body:
          |${response.entity.asInstanceOf[HttpEntity.Strict].data.utf8String}""".stripMargin
     )

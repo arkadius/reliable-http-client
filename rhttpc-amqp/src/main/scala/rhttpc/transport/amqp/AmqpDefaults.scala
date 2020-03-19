@@ -20,7 +20,6 @@ import rhttpc.transport.SerializingPublisher.SerializedMessage
 import rhttpc.transport.{Message, OutboundQueueData}
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 object AmqpDefaults extends AmqpDefaults
 
@@ -28,7 +27,7 @@ trait AmqpDefaults
   extends AmqpQueuesNaming
   with AmqpExchangesNaming {
 
-  import collection.convert.wrapAsJava._
+  import collection.JavaConverters._
 
   private[rhttpc] final val consumeTimeout: FiniteDuration = 5 minutes
   
@@ -46,7 +45,7 @@ trait AmqpDefaults
       persistentPropertiesBuilder.headers(additionalProps.mapValues {
         case b: BigInt => b.toLong.underlying()
         case other => other.asInstanceOf[AnyRef]
-      }).build()
+      }.asJava).build()
   }
 
   private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()
@@ -74,7 +73,7 @@ trait AmqpDefaults
 
   private[rhttpc] def declareQueueAndBindToExchange(data: AmqpDeclareOutboundQueueData, exchangeType: String, args: Map[String, AnyRef]) = {
     import data._
-    channel.exchangeDeclare(exchangeName, exchangeType, queueData.durability, queueData.autoDelete, args)
+    channel.exchangeDeclare(exchangeName, exchangeType, queueData.durability, queueData.autoDelete, args.asJava)
     val queueDeclareResult = declarePublisherQueue(data)
     channel.queueBind(queueData.name, exchangeName, queueData.name)
     queueDeclareResult
@@ -82,17 +81,17 @@ trait AmqpDefaults
 
   private[rhttpc] def declarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name).asJava)
   }
 
   private[rhttpc] def declareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
     import data._
     channel.basicQos(queueData.batchSize)
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name))
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name).asJava)
   }
 
   private def prepareDlqArgs(queueName: String) =
-    Map(
+    Map[String, AnyRef](
       "x-dead-letter-exchange" -> dlqExchangeName,
       "x-dead-letter-routing-key" -> prepareDlqQueueName(queueName)
     )

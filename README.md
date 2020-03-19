@@ -1,33 +1,30 @@
 # reliable-http-client
 
 [![circle-ci](https://circleci.com/gh/arkadius/reliable-http-client/tree/master.svg?style=shield&circle-token=1287932dad2962d954d6eac289d36cb4f5a05e2b)](https://circleci.com/gh/arkadius/reliable-http-client/tree/master)
-[![Sputnik](https://sputnik.ci/conf/badge)](https://sputnik.ci/app#/builds/arkadius/reliable-http-client)
-[![Codacy Badge](https://api.codacy.com/project/badge/grade/46b882f05c87468a849b8805fb9aeb68)](https://www.codacy.com/app/arek-burdach/reliable-http-client)
-[![Stories in Ready](https://badge.waffle.io/arkadius/reliable-http-client.svg?label=ready&title=Ready)](http://waffle.io/arkadius/reliable-http-client)
 [![Join the chat at https://gitter.im/arkadius/reliable-http-client](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/arkadius/reliable-http-client?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-*Reliable Http Client* is a set of tools making HTTP communication more reliable. It supports: *at least one delivery guaranty* and *retry strategies* including *durable exponential backoff* and *dead letter queue*.
+*Reliable Http Client* is a set of tools making HTTP communication more reliable. It supports: *at least one delivery guarantee* as well as *retry strategies* including *durable exponential backoff* and *dead letter queue*.
 
-It abstracting from publisher/subscriber transport. Currently there are implemented [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol) transport and [Json4s](https://github.com/json4s/json4s) serialization modules.
+It provides an abstraction layer over publisher/subscriber transport. Currently [AMQP](https://en.wikipedia.org/wiki/Advanced_Message_Queuing_Protocol) transport and [Json4s](https://github.com/json4s/json4s) serialization modules are implemented.
 
-It can be used with any HTTP client. It includes wrapper for *Akka HTTP* in separate module, but You can use it with your own. In fact, it can be used with any request/response client, not necessarily HTTP.
+It can be used with any HTTP client. It includes a wrapper for *Akka HTTP* in a separate module, but it can be used with your own. In fact, it can be used even with any request/response client - not necessarily HTTP.
     
 There are 3 basic usage scenarios:
-- in-only: when You are not interested in response, You only want to make sure that request was delivered  
+- in-only: when responses are irrelevant -> You only care about requests being delivered. 
 - in-out: when You are interested in response but your response consumer is stateless
-- in-out with subscriptions for response: when You are interested in response and your response consumer is stateful
+- in-out with subscriptions for responses: when You are interested in responses and your response consumer is stateful
 
-For the third scenario there is also provided module with *persistent Akka FSM Actors* (using *akka-persistence*) for easy recovery of subscriptions for responses.
+For the third scenario there exists a provided module with *persistent Akka FSM Actors* (using *akka-persistence*) for easy recovery of subscriptions for responses.
 
 ## AMQP transport
 
 If You only want to use *Akka* wrapper for *amqp-client* with *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.2"
 ```
 
-Than:
+Then:
 ```scala
 import akka.actor._
 import rhttpc.transport.amqp._
@@ -54,11 +51,11 @@ AmqpConnectionFactory.connect(actorSystem).map { connection =>
 
 ## Client
 
-For using of client with *AMQP* transport and *Json4s* serialization
+For clients with *AMQP* transport and *Json4s* serialization
 ```sbt
-libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.0"
-libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.8.0"
+libraryDependencies += "org.rhttpc" %% "rhttpc-amqp" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-json4s" % "0.8.2"
+libraryDependencies += "org.rhttpc" %% "rhttpc-client" % "0.8.2"
 ```
 
 ### In-only scenario
@@ -100,7 +97,7 @@ AmqpConnectionFactory.connect(actorSystem).map { implicit connection =>
 
 ### In-out with stateful consumer
 
-Consinder situation:
+Consider the following situation:
 
 ```scala
 system.actorOf(Props(new Actor {
@@ -113,9 +110,9 @@ system.actorOf(Props(new Actor {
 }))
 ```
 
-When given actor will be shutdowned e.g. because of a system failure, the response message will never been delivered.
+When given actor is shutdown e.g. because of a system failure, the response message will never been delivered.
 
-Thanks to *rhttpc* the same execution cause that actor after restart will got the response message.
+Thanks to *rhttpc* the same execution guarantees that after restart actor will receive the response message.
 
 ```scala
 val rhttpc = ReliableHttpClientFactory().inOutWithSubscriptions(amqpConnection)
@@ -131,9 +128,9 @@ system.actorOf(Props(new Actor {
 }))
 ```
 
-The example above cause that request/response will be send through *AMQP* durable queues. If http service idle for a while and during this we need to restart our app, response message will be delivered to response *AMQP* durable queue.
-But after restart our application won't know what to do with response - in which state was sending actor. So we need to also persist state of our actor including acknowledged published requests.
-It can be achived by *ReliableFSM* delivered by this project.
+The example above causes requests/responses to be sent through *AMQP* durable queues. If http service is idle for a while and You need to restart your application - response messages will be delivered to response *AMQP* durable queue.
+But after restart your application won't know what to do with the response - in what state the sending actor was. So You also need to  persist the state of your actor which includes acknowledged published requests.
+It can be achieved with *ReliableFSM* delivered by this project.
 
 ```scala
 val rhttpc = ReliableHttpClientFactory().inOutWithSubscriptions(amqpConnection)
@@ -180,14 +177,14 @@ class FooBarActor(rhttpc: InOutReliableHttpClient) extends ReliableFSM[FooBarSta
 }
 ```
 
-Slightly difference is that instead of `rhttpc.send(request).toFuture pipeTo self` we are doing `rhttpc.send(request) pipeTo this`. Also our actor extends *ReliableFSM* which handles messages from queues and persist actor's state. If our application was shutdowned in *WaitingForResponseState*, after restart actor will recover their state and handle response. Full example you can check out [here](https://github.com/arkadius/reliable-http-client/blob/master/sample/sample-app/src/main/scala/rhttpc/sample/SampleApp.scala). There are also [*Docker* tests](https://github.com/arkadius/reliable-http-client/blob/master/sample/test/src/test/scala/rhttpc/test/DeliveryResponseAfterRestartWithDockerSpec.scala) that reproduce this situation. All you need to run them is installed *Docker*. If you have one, just run `sbt testProj/test 2>&1 | tee test.log`
+A slight difference is that instead of `rhttpc.send(request).toFuture pipeTo self` we are doing `rhttpc.send(request) pipeTo this`. Also our actor extends *ReliableFSM* which handles messages from queues and persists actor's state. If our application was shutdown in *WaitingForResponseState*, after restart actor will recover their state and handle responses. You can check out the full example [here](https://github.com/arkadius/reliable-http-client/blob/master/sample/sample-app/src/main/scala/rhttpc/sample/SampleApp.scala). There are also [*Docker* tests](https://github.com/arkadius/reliable-http-client/blob/master/sample/test/src/test/scala/rhttpc/test/DeliveryResponseAfterRestartWithDockerSpec.scala) that reproduce this situation. All you need to run them is installed *Docker*. If you have one, just run `sbt testProj/test 2>&1 | tee test.log`
 
 ## Architecture
 
 ### Big picture
 ![Bit picture](https://raw.githubusercontent.com/arkadius/reliable-http-client/images/images/rhttpc-arch2.png)
 
-Proxy can be also run as separate process.
+Proxy can also be run as a separate process.
 
 ### Request-response sequence
 
@@ -198,6 +195,7 @@ Proxy can be also run as separate process.
 *rhttpc* uses
 - [rabbitmq-client](https://github.com/rabbitmq/rabbitmq-java-client) for communication through *AMQP*
 - [json4s](https://github.com/json4s/json4s) for serialization
+- [argonaut](https://github.com/argonaut-io/argonaut) for serialization
 - [akka-http](https://github.com/akka/akka) for HTTP communication
 - [akka-persistence](https://github.com/akka/akka) for storing snapshots of FSM states
 

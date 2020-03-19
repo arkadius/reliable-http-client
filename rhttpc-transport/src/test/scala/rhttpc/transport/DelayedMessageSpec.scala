@@ -18,7 +18,6 @@ package rhttpc.transport
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class DelayedMessageSpec extends FlatSpec with Matchers {
 

@@ -18,21 +18,21 @@ package rhttpc.transport.amqpjdbc.slick
 import java.sql.Timestamp
 
 import rhttpc.transport.amqpjdbc.{MessageToSchedule, ScheduledMessage, ScheduledMessagesRepository}
-import slick.driver.JdbcDriver
-import slick.jdbc.JdbcBackend
+import slick.jdbc.{JdbcBackend, JdbcProfile}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.postfixOps
 
-private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(driver: JdbcDriver, db: JdbcBackend.Database)
+private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(profile: JdbcProfile, db: JdbcBackend.Database)
                                                             (implicit ec: ExecutionContext) extends ScheduledMessagesRepository {
 
-  val messagesMigration = new AddingPropertiesToScheduledMessagesMigration {
-    override protected val driver: JdbcDriver = SlickJdbcScheduledMessagesRepository.this.driver
+  class V1_001__AddingPropertiesToScheduledMessagesMigration extends AddingPropertiesToScheduledMessagesMigration {
+    override protected val profile: JdbcProfile = SlickJdbcScheduledMessagesRepository.this.profile
   }
 
+  val messagesMigration = new V1_001__AddingPropertiesToScheduledMessagesMigration
+
   import messagesMigration._
-  import driver.api._
+  import profile.api._
 
   override def save(msg: MessageToSchedule): Future[Unit] = {
     import msg._

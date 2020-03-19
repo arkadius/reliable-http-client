@@ -28,7 +28,6 @@ import rhttpc.transport._
 import rhttpc.utils.Recovered._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.postfixOps
 import scala.util.control.NonFatal
 
 class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Request]],
@@ -65,7 +64,7 @@ class ReliableClient[Request, SendResult](publisher: Publisher[Correlated[Reques
 
 case class NoAckException(request: Any, cause: Throwable) extends Exception(s"No acknowledge for request: $request", cause)
 
-case class ReliableClientFactory(implicit actorSystem: ActorSystem) {
+case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
   import actorSystem.dispatcher
 
   private lazy val config = ConfigParser.parse(actorSystem)

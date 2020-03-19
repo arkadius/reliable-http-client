@@ -19,21 +19,22 @@ import dispatch.{Future => DispatchFuture, _}
 
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.language.postfixOps
 
 class FooBarClient(baseUrl: Req) {
   implicit val successPredicate = new retry.Success[Unit.type](_ => true)
 
+  private val httpClient = Http.default
+
   def foo(id: String)(implicit ec: ExecutionContext): Future[Any] =
-    Http(baseUrl / id << "foo")
+    httpClient(baseUrl / id << "foo")
 
   def bar(id: String)(implicit ec: ExecutionContext): Future[Any] =
-    Http(baseUrl / id << "bar")
+    httpClient(baseUrl / id << "bar")
 
   def currentState(id: String)(implicit ec: ExecutionContext): Future[String] =
-    Http(baseUrl / id OK as.String)
+    httpClient(baseUrl / id OK as.String)
 
   def retriedFoo(id: String, failCount: Int)(implicit ec: ExecutionContext): Future[Any] =
-    Http(baseUrl / id << s"fail-$failCount-times-than-reply-with-foo")
+    httpClient(baseUrl / id << s"fail-$failCount-times-than-reply-with-foo")
 
 }

@@ -15,12 +15,9 @@
  */
 package rhttpc.transport
 
-import java.io.{ByteArrayOutputStream, OutputStreamWriter}
-
 import akka.actor.ActorRef
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.{higherKinds, postfixOps}
 import scala.util.Try
 
 trait PubSubTransport {

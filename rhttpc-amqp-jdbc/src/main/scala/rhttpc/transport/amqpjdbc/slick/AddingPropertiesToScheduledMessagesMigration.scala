@@ -19,18 +19,17 @@ import java.sql.Timestamp
 
 import com.typesafe.config._
 import rhttpc.transport.amqpjdbc.ScheduledMessage
-import slick.driver.JdbcDriver
-import slick.jdbc.JdbcType
+import slick.jdbc.{JdbcProfile, JdbcType}
 import slick.sql.SqlProfile.ColumnOption.NotNull
 
-import scala.language.postfixOps
-
 trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
-  import driver.api._
+  import profile.api._
 
-  private lazy val sheduledMessagesWithoutPropsMigration = new CreatingScheduledMessagesTableMigration {
-    override protected val driver: JdbcDriver = AddingPropertiesToScheduledMessagesMigration.this.driver
+  class V1_001__CreatingScheduledMessagesTableMigration extends CreatingScheduledMessagesTableMigration {
+    override protected val profile: JdbcProfile = AddingPropertiesToScheduledMessagesMigration.this.profile
   }
+
+  private lazy val sheduledMessagesWithoutPropsMigration = new V1_001__CreatingScheduledMessagesTableMigration
 
   override def migrateActions = {
     sheduledMessagesWithoutPropsMigration.scheduledMessages.schema.drop andThen
@@ -40,14 +39,14 @@ trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
   protected val messageMaxSize = 8192
   protected val propertiesMaxSize = 256
 
-  import collection.convert.wrapAll._
+  import collection.JavaConverters._
 
   protected implicit def propertiesMapper: JdbcType[Map[String, Any]] = MappedColumnType.base[Map[String, Any], String](
     m => {
-      ConfigValueFactory.fromMap(m).render(ConfigRenderOptions.concise())
+      ConfigValueFactory.fromMap(m.asJava).render(ConfigRenderOptions.concise())
     },
     str => {
-      ConfigFactory.parseString(str).root().unwrapped().toMap
+      ConfigFactory.parseString(str).root().unwrapped().asScala.toMap
     }
   )
 

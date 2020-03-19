@@ -37,7 +37,7 @@ class ConfigParserSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3))
   }
 
   it should "parse config with publish all strategy" in {
