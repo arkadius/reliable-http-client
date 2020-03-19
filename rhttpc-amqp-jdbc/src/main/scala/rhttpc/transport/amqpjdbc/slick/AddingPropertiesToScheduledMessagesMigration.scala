@@ -25,9 +25,11 @@ import slick.sql.SqlProfile.ColumnOption.NotNull
 trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
   import profile.api._
 
-  private lazy val sheduledMessagesWithoutPropsMigration = new CreatingScheduledMessagesTableMigration {
+  class V1_001__CreatingScheduledMessagesTableMigration extends CreatingScheduledMessagesTableMigration {
     override protected val profile: JdbcProfile = AddingPropertiesToScheduledMessagesMigration.this.profile
   }
+
+  private lazy val sheduledMessagesWithoutPropsMigration = new V1_001__CreatingScheduledMessagesTableMigration
 
   override def migrateActions = {
     sheduledMessagesWithoutPropsMigration.scheduledMessages.schema.drop andThen
