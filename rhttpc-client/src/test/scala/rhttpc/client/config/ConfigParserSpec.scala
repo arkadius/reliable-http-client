@@ -37,7 +37,7 @@ class ConfigParserSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3, None))
   }
 
   it should "parse config with publish all strategy" in {
@@ -53,4 +53,21 @@ class ConfigParserSpec extends FlatSpec with Matchers {
     ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll)
   }
 
+  it should "parse config with backoff with deadline strategy" in {
+    val config = typesafe.config.ConfigFactory.parseString(
+      """x {
+        |  queuesPrefix = "rhttpc"
+        |  batchSize = 10
+        |  parallelConsumers = 1
+        |  retryStrategy {
+        |    initialDelay = 5 seconds
+        |    multiplier = 1.2
+        |    maxRetries = 3
+        |    deadline = 5 seconds
+        |  }
+        |}
+      """.stripMargin)
+
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3, Some(5 seconds)))
+  }
 }

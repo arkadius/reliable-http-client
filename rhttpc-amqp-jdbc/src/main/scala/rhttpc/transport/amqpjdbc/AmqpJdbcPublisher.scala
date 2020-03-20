@@ -28,7 +28,7 @@ private[amqpjdbc] class AmqpJdbcPublisher[PubMsg](underlying: Publisher[PubMsg],
 
   override def publish(msg: Message[PubMsg]): Future[Unit] = {
     msg match {
-      case delayed@DelayedMessage(content, delay, attempt) =>
+      case delayed@DelayedMessage(content, delay, attempt, date) =>
         scheduler.schedule(delayed, delay)
       case otherMessage =>
         underlying.publish(msg)
