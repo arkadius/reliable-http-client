@@ -45,18 +45,25 @@ case class BackoffRetry(initialDelay: FiniteDuration,
   override def choose(currentRetryAttempt: Int,
                       lastPlannedDelay: Option[FiniteDuration],
                       dateOfFirstAttempt: Instant): ResponseHandleStrategy = {
+    val nextDelay = lastPlannedDelay match {
+      case Some(lastDelay) =>
+        (lastDelay.toMillis * multiplier).toLong
+      case None =>
+        initialDelay.toMillis
+    }
+
     deadline match {
       case Some(duration) =>
         val jDuration = java.time.Duration.ofMillis(duration.toMillis)
         val deadlineDate = dateOfFirstAttempt.plus(jDuration)
 
-        if (Instant.now().isBefore(deadlineDate)) {
-          BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, multiplier)
+        if (Instant.now().plusMillis(nextDelay).isBefore(deadlineDate)) {
+          BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
         } else {
           SendToDLQ
         }
       case None =>
-        BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, multiplier)
+        BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
     }
   }
 }
@@ -66,19 +73,13 @@ object BackoffRetries {
                            lastPlannedDelay: Option[FiniteDuration],
                            initialDelay: FiniteDuration,
                            maxRetries: Int,
-                           multiplier: BigDecimal) = {
+                           nextDelay: Long) = {
     if (currentRetryAttempt >= maxRetries) {
       SendToDLQ
     } else if (currentRetryAttempt == 1) {
       Retry(initialDelay)
     } else {
-      val nextDelay = lastPlannedDelay match {
-        case Some(lastDelay) =>
-          (lastDelay.toMillis * multiplier).toLong.millis
-        case None =>
-          initialDelay.toMillis.millis
-      }
-      Retry(nextDelay)
+      Retry(nextDelay.millis)
     }
   }
 }
