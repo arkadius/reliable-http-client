@@ -15,7 +15,7 @@
  */
 package rhttpc.transport
 
-import java.time.{Instant, LocalDateTime}
+import java.time.Instant
 
 import scala.concurrent.duration._
 
@@ -36,7 +36,8 @@ object DelayedMessage {
       case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
         val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
-        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptDate).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now()) // It might fail without getOrElse for messages of older formats without that field
+        // It might fail without getOrElse for messages of older formats without that field
+        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptDate).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now())
         (content, delay, attempt, firstAttemptTimestamp)
     }
   }
