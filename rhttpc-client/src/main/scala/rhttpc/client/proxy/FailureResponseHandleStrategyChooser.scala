@@ -20,7 +20,7 @@ import java.time.Instant
 import scala.concurrent.duration._
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateOfFirstAttempt: Instant): ResponseHandleStrategy
+  def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
@@ -31,11 +31,11 @@ case object Handle extends ResponseHandleStrategy
 case object Skip extends ResponseHandleStrategy
 
 object HandleAll extends FailureResponseHandleStrategyChooser {
-  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateOfFirstAttempt: Instant): ResponseHandleStrategy = Handle
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Handle
 }
 
 object SkipAll extends FailureResponseHandleStrategyChooser {
-  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], dateOfFirstAttempt: Instant): ResponseHandleStrategy = Skip
+  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Skip
 }
 
 case class BackoffRetry(initialDelay: FiniteDuration,
@@ -44,7 +44,8 @@ case class BackoffRetry(initialDelay: FiniteDuration,
                         deadline: Option[FiniteDuration]) extends FailureResponseHandleStrategyChooser {
   override def choose(currentRetryAttempt: Int,
                       lastPlannedDelay: Option[FiniteDuration],
-                      dateOfFirstAttempt: Instant): ResponseHandleStrategy = {
+                      firstAttemptDate: Instant,
+                      now: Instant): ResponseHandleStrategy = {
     val nextDelay = lastPlannedDelay match {
       case Some(lastDelay) =>
         (lastDelay.toMillis * multiplier).toLong
@@ -55,9 +56,9 @@ case class BackoffRetry(initialDelay: FiniteDuration,
     deadline match {
       case Some(duration) =>
         val jDuration = java.time.Duration.ofMillis(duration.toMillis)
-        val deadlineDate = dateOfFirstAttempt.plus(jDuration)
+        val deadlineDate = firstAttemptDate.plus(jDuration)
 
-        if (Instant.now().plusMillis(nextDelay).isBefore(deadlineDate)) {
+        if (now.plusMillis(nextDelay).isBefore(deadlineDate)) {
           BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
         } else {
           SendToDLQ

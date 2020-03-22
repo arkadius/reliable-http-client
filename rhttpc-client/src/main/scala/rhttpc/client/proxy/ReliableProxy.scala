@@ -38,9 +38,10 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
                                handleResponse: Correlated[Exchange[Req, Resp]] => Future[Unit],
                                additionalStartAction: => Unit,
                                additionalStopAction: => Future[Unit],
-                               timeProvider: => Instant)
+                               firstAttemptTimeProvider: => Instant,
+                               nowProvider: => Instant)
                               (implicit actorSystem: ActorSystem) {
-  
+
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
   private val consumingActor = actorSystem.actorOf(Props(new Actor {
@@ -50,7 +51,7 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
       case DelayedMessage(content, delay, attempt, firstAttemptTimestamp) =>
         handleRequest(Request(content.asInstanceOf[Correlated[Req]], attempt, delay, firstAttemptTimestamp))
       case message: Message[_] =>
-        handleRequest(Request.firstAttempt(message.content.asInstanceOf[Correlated[Req]], timeProvider))
+        handleRequest(Request.firstAttempt(message.content.asInstanceOf[Correlated[Req]], firstAttemptTimeProvider))
 
     }
 
@@ -74,7 +75,7 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
       val retryAttemptNumber = request.attempt // 0 indexed attempts, first attempt is naturally ordered first retry attempt
-      val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.firstAttemptTimestamp)
+      val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.firstAttemptTimestamp, nowProvider)
       strategy match {
         case Retry(delay) =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will retry in $delay")
@@ -207,6 +208,7 @@ case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
       handleResponse = handleResponse,
       additionalStartAction = additionalStartAction,
       additionalStopAction = additionalStopAction,
+      Instant.now(),
       Instant.now()
     )
   }

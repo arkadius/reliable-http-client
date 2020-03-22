@@ -26,7 +26,7 @@ object DelayedMessage {
     val props = Map(
       MessagePropertiesNaming.delayProperty -> delay.toMillis,
       MessagePropertiesNaming.attemptProperty -> attempt.toLong,
-      MessagePropertiesNaming.dateOfFirstAttemptProperty -> firstAttemptTimestamp.toString
+      MessagePropertiesNaming.firstAttemptDate -> firstAttemptTimestamp.toString
     )
     Message(content, properties = props)
   }
@@ -36,7 +36,7 @@ object DelayedMessage {
       case Message(content, props) if props.contains(MessagePropertiesNaming.delayProperty) =>
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
         val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
-        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.dateOfFirstAttemptProperty).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now()) // It might fail without getOrElse for messages of older formats without that field
+        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptDate).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now()) // It might fail without getOrElse for messages of older formats without that field
         (content, delay, attempt, firstAttemptTimestamp)
     }
   }
