@@ -21,12 +21,14 @@ import scala.concurrent.duration._
 
 case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
 
+// Warning
+// If you ever want to add a String property please look at the warning in SendingFullMessage trait
 object DelayedMessage {
   def apply[T](content: T, delay: FiniteDuration, attempt: Int, firstAttemptTimestamp: Instant): Message[T] = {
     val props = Map(
       MessagePropertiesNaming.delayProperty -> delay.toMillis,
       MessagePropertiesNaming.attemptProperty -> attempt.toLong,
-      MessagePropertiesNaming.firstAttemptDate -> firstAttemptTimestamp.toString
+      MessagePropertiesNaming.firstAttemptTimestamp -> firstAttemptTimestamp.toEpochMilli
     )
     Message(content, properties = props)
   }
@@ -37,7 +39,11 @@ object DelayedMessage {
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
         val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
         // It might fail without getOrElse for messages of older formats without that field
-        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptDate).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now())
+        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptTimestamp)
+          .map(_.asInstanceOf[Number].longValue())
+          .map(Instant.ofEpochMilli)
+          .getOrElse(Instant.now())
+
         (content, delay, attempt, firstAttemptTimestamp)
     }
   }

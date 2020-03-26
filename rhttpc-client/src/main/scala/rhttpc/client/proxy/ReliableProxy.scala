@@ -74,7 +74,7 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
     }
 
     private def handleFailure(request: Request[Req], failure: Throwable): Future[Unit] = {
-      val retryAttemptNumber = request.attempt // 0 indexed attempts, first attempt is naturally ordered first retry attempt
+      val retryAttemptNumber = request.attempt - 1 // for first sent message request.attempt = 1 which gives retryAttempt = 0
       val strategy = failureHandleStrategyChooser.choose(retryAttemptNumber, request.lastPlannedDelay, request.firstAttemptTimestamp, nowProvider)
       strategy match {
         case Retry(delay) =>
