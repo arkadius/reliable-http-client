@@ -75,7 +75,7 @@ object BackoffRetries {
                            initialDelay: FiniteDuration,
                            maxRetries: Int,
                            nextDelay: Long) = {
-    if (currentRetryAttempt >= maxRetries) {
+    if (currentRetryAttempt > maxRetries) {
       SendToDLQ
     } else if (currentRetryAttempt == 1) {
       Retry(initialDelay)
