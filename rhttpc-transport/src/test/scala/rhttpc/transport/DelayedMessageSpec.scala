@@ -15,6 +15,8 @@
  */
 package rhttpc.transport
 
+import java.time.Instant
+
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.concurrent.duration._
@@ -28,4 +30,10 @@ class DelayedMessageSpec extends FlatSpec with Matchers {
     fromIntDuration shouldEqual (100 millis)
   }
 
+  it should "extract delay message from properties with right timestamp" in {
+    val now = Instant.parse("2018-11-30T18:35:24.00Z")
+    val DelayedMessage(_, fromLongDuration, _, _now) = Message("fooMsg", Map(MessagePropertiesNaming.delayProperty -> 100L, MessagePropertiesNaming.firstAttemptDate -> now.toString))
+    fromLongDuration shouldEqual (100 millis)
+    _now shouldEqual(now)
+  }
 }

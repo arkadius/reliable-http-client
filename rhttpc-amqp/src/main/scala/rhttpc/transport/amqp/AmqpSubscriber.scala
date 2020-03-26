@@ -69,12 +69,14 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
   private def handleDeserializedMessage(msgObj: Any, deliveryTag: Long) = {
     implicit val timeout = Timeout(consumeTimeout)
     val consumePromise = Promise[Unit]()
+
     def complete() = {
       pendingConsumePromises.send { current =>
         consumePromise.success(Unit)
         current - consumePromise
       }
     }
+
     val replyFuture = for {
       _ <- pendingConsumePromises.alter(_ + consumePromise)
       _ <- consumer ? msgObj
@@ -116,7 +118,8 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
       .map(_ => Unit)
 }
 
-trait SendingSimpleMessage[Sub] { self: AmqpSubscriber[Sub] =>
+trait SendingSimpleMessage[Sub] {
+  self: AmqpSubscriber[Sub] =>
 
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
     deserializedMessage
@@ -124,11 +127,24 @@ trait SendingSimpleMessage[Sub] { self: AmqpSubscriber[Sub] =>
 
 }
 
-trait SendingFullMessage[Sub] { self: AmqpSubscriber[Sub] =>
+trait SendingFullMessage[Sub] {
+  self: AmqpSubscriber[Sub] =>
 
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
     import collection.JavaConverters._
-    Message(deserializedMessage, Option(properties.getHeaders).map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap).getOrElse(Map.empty))
+    Message(deserializedMessage, Option(properties.getHeaders)
+      .map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap)
+      .map(underlyingMap => underlyingMap.mapValues(mapLongStringToString))
+      .getOrElse(Map.empty))
   }
 
+  // RabbitMq for some reason serializes and deserializes String as a LongString (see ValueReader and ValueWriter)
+  // That means that if you originally put String in message properties you might find that you are unable to take it out
+  // because of a ClassCastException (LongString does not inherit from String or CharSequence etc. its a separate Interface)
+  private def mapLongStringToString(value: Any) = {
+    if (value.isInstanceOf[LongString])
+      value.toString
+    else
+      value
+  }
 }
