@@ -20,7 +20,7 @@ import java.time.Instant
 import scala.concurrent.duration._
 
 trait FailureResponseHandleStrategyChooser {
-  def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy
+  def choose(plannedRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy
 }
 
 sealed trait ResponseHandleStrategy
@@ -31,18 +31,18 @@ case object Handle extends ResponseHandleStrategy
 case object Skip extends ResponseHandleStrategy
 
 object HandleAll extends FailureResponseHandleStrategyChooser {
-  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Handle
+  override def choose(plannedRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Handle
 }
 
 object SkipAll extends FailureResponseHandleStrategyChooser {
-  override def choose(currentRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Skip
+  override def choose(plannedRetryAttempt: Int, lastPlannedDelay: Option[FiniteDuration], firstAttemptDate: Instant, now: Instant): ResponseHandleStrategy = Skip
 }
 
 case class BackoffRetry(initialDelay: FiniteDuration,
                         multiplier: BigDecimal,
                         maxRetries: Int,
                         deadline: Option[FiniteDuration]) extends FailureResponseHandleStrategyChooser {
-  override def choose(currentRetryAttempt: Int,
+  override def choose(plannedRetryAttempt: Int,
                       lastPlannedDelay: Option[FiniteDuration],
                       firstAttemptDate: Instant,
                       now: Instant): ResponseHandleStrategy = {
@@ -59,25 +59,25 @@ case class BackoffRetry(initialDelay: FiniteDuration,
         val deadlineDate = firstAttemptDate.plus(jDuration)
 
         if (now.plusMillis(nextDelay).isBefore(deadlineDate)) {
-          BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
+          BackoffRetries.chooseBasedOnRetries(plannedRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
         } else {
           SendToDLQ
         }
       case None =>
-        BackoffRetries.chooseBasedOnRetries(currentRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
+        BackoffRetries.chooseBasedOnRetries(plannedRetryAttempt, lastPlannedDelay, initialDelay, maxRetries, nextDelay)
     }
   }
 }
 
 object BackoffRetries {
-  def chooseBasedOnRetries(currentRetryAttempt: Int,
+  def chooseBasedOnRetries(plannedRetryAttempt: Int,
                            lastPlannedDelay: Option[FiniteDuration],
                            initialDelay: FiniteDuration,
                            maxRetries: Int,
                            nextDelay: Long) = {
-    if (currentRetryAttempt > maxRetries) {
+    if (plannedRetryAttempt > maxRetries) {
       SendToDLQ
-    } else if (currentRetryAttempt == 1) {
+    } else if (plannedRetryAttempt == 1) {
       Retry(initialDelay)
     } else {
       Retry(nextDelay.millis)
