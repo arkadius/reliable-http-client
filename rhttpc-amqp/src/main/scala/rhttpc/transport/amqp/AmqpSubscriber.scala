@@ -132,19 +132,6 @@ trait SendingFullMessage[Sub] {
 
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
     import collection.JavaConverters._
-    Message(deserializedMessage, Option(properties.getHeaders)
-      .map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap)
-      .map(underlyingMap => underlyingMap.mapValues(mapLongStringToString))
-      .getOrElse(Map.empty))
-  }
-
-  // RabbitMq for some reason serializes and deserializes String as a LongString (see ValueReader and ValueWriter)
-  // That means that if you originally put String in message properties you might find that you are unable to take it out
-  // because of a ClassCastException (LongString does not inherit from String or CharSequence etc. its a separate Interface)
-  private def mapLongStringToString(value: Any) = {
-    if (value.isInstanceOf[LongString])
-      value.toString
-    else
-      value
+    Message(deserializedMessage, Option(properties.getHeaders).map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap).getOrElse(Map.empty))
   }
 }

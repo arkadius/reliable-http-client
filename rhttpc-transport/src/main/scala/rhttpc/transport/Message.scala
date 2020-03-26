@@ -26,7 +26,7 @@ object DelayedMessage {
     val props = Map(
       MessagePropertiesNaming.delayProperty -> delay.toMillis,
       MessagePropertiesNaming.attemptProperty -> attempt.toLong,
-      MessagePropertiesNaming.firstAttemptDate -> firstAttemptTimestamp.toString
+      MessagePropertiesNaming.firstAttemptTimestamp -> firstAttemptTimestamp.toString
     )
     Message(content, properties = props)
   }
@@ -37,7 +37,15 @@ object DelayedMessage {
         val delay = props(MessagePropertiesNaming.delayProperty).asInstanceOf[Number].longValue() millis
         val attempt = props.get(MessagePropertiesNaming.attemptProperty).map(_.asInstanceOf[Number].intValue()).getOrElse(1)
         // It might fail without getOrElse for messages of older formats without that field
-        val firstAttemptTimestamp = props.get(MessagePropertiesNaming.firstAttemptDate).map(_.asInstanceOf[String]).map(Instant.parse).getOrElse(Instant.now())
+
+        // RabbitMq for some reason serializes and deserializes String as a LongString (see ValueReader and ValueWriter)
+        // That means that if you originally put String in message properties you might find that you are unable to take it out
+        // because of a ClassCastException (LongString does not inherit from String or CharSequence etc. its a separate Interface)
+        // that is why we are doing a simple _.toString here instead of casting (we do not Cast to LongString to avoid weird dependencies
+        // between modules, and casting to String would result in ClassCastException)
+        val firstAttemptTimestamp = props
+          .get(MessagePropertiesNaming.firstAttemptTimestamp)
+          .map(_.toString).map(Instant.parse).getOrElse(Instant.now())
         (content, delay, attempt, firstAttemptTimestamp)
     }
   }

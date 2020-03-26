@@ -21,7 +21,7 @@ object MessagePropertiesNaming {
 
   def attemptProperty = transportProperty("attempt")
 
-  def firstAttemptDate = transportProperty("first-attempt-date")
+  def firstAttemptTimestamp = transportProperty("first-attempt-date")
 
   def transportProperty(name: String): String = "x-" + name
 

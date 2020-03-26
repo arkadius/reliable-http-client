@@ -32,7 +32,7 @@ class DelayedMessageSpec extends FlatSpec with Matchers {
 
   it should "extract delay message from properties with right timestamp" in {
     val now = Instant.parse("2018-11-30T18:35:24.00Z")
-    val DelayedMessage(_, fromLongDuration, _, _now) = Message("fooMsg", Map(MessagePropertiesNaming.delayProperty -> 100L, MessagePropertiesNaming.firstAttemptDate -> now.toString))
+    val DelayedMessage(_, fromLongDuration, _, _now) = Message("fooMsg", Map(MessagePropertiesNaming.delayProperty -> 100L, MessagePropertiesNaming.firstAttemptTimestamp -> now.toString))
     fromLongDuration shouldEqual (100 millis)
     _now shouldEqual(now)
   }
