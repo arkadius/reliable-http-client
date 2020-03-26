@@ -40,12 +40,12 @@ object Request {
     )
   }
 
-  def firstAttempt[T](correlated: Correlated[T], firstAttemptTime: Instant): Request[T] = {
+  def firstAttempt[T](correlated: Correlated[T], firstAttemptTimestamp: Instant): Request[T] = {
     Request(
       correlated = correlated,
       attempt = 1,
       lastPlannedDelay = None,
-      firstAttemptTimestamp = firstAttemptTime
+      firstAttemptTimestamp = firstAttemptTimestamp
     )
   }
 }
