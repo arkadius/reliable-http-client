@@ -21,6 +21,8 @@ import scala.concurrent.duration._
 
 case class Message[+T](content: T, properties: Map[String, Any] = Map.empty)
 
+// Warning
+// If you ever want to add a String property please look at the warning in SendingFullMessage trait
 object DelayedMessage {
   def apply[T](content: T, delay: FiniteDuration, attempt: Int, firstAttemptTimestamp: Instant): Message[T] = {
     val props = Map(
@@ -41,12 +43,6 @@ object DelayedMessage {
           .map(_.asInstanceOf[Number].longValue())
           .map(Instant.ofEpochMilli)
           .getOrElse(Instant.now())
-
-        // RabbitMq for some reason serializes and deserializes String as a LongString (see ValueReader and ValueWriter)
-        // That means that if you originally put String in message properties you might find that you are unable to take it out
-        // because of a ClassCastException (LongString does not inherit from String or CharSequence etc. its a separate Interface)
-        // that is why if you ever add a new string property here use _.toString instead of casting (we do not Cast to LongString to avoid weird dependencies
-        // between modules, and casting to String would result in ClassCastException)
 
         (content, delay, attempt, firstAttemptTimestamp)
     }
