@@ -17,9 +17,10 @@ package rhttpc.test
 
 import java.io._
 import java.nio.ByteBuffer
-
 import com.github.dockerjava.api._
-import com.github.dockerjava.api.command.CreateContainerCmd
+import com.github.dockerjava.api.async.ResultCallback
+import com.github.dockerjava.api.command.{CreateContainerCmd, PullImageResultCallback}
+import com.github.dockerjava.api.model.Frame
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.StringEscapeUtils
 import org.slf4j.LoggerFactory
@@ -34,9 +35,9 @@ object DockerEnrichments {
                                  (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
       val image = s"$repo:$tag"
       val images = docker.listImagesCmd().exec().asScala.toList
-      if (!images.exists(_.getRepoTags.contains(image))) {
+      if (!images.exists(imageInList => Option(imageInList.getRepoTags).exists(_.contains(image)))) {
         logger.info(s"Not found image: $image. Pulling ...")
-        UnescapingWriter.copyToSysOut(docker.pullImageCmd(repo).withTag(tag).exec())
+        docker.pullImageCmd(repo).withTag(tag).exec(new PullImageResultCallback)
       }
       val containerId = containerCleanCreateByName(containerName, image)(prepareCreateCommand)
       docker.startContainerCmd(containerId).exec()
@@ -48,7 +49,7 @@ object DockerEnrichments {
                                           (prepareCreateCommand: CreateContainerCmd => CreateContainerCmd): String = {
       filterContainerByName(containerName).foreach { container =>
         logger.warn(s"Found container for name: $containerName: $container. Removing ...")
-        docker.removeContainerCmd(container.getId).withForce().exec()
+        docker.removeContainerCmd(container.getId).withForce(true).exec()
         filterContainerByName(containerName).foreach { container =>
           throw new IllegalStateException(s"Container still exists after remove: $container")
         }
@@ -70,8 +71,7 @@ object DockerEnrichments {
     def attachLogging(containerId: String) = {
       val loggingThread = new Thread {
         override def run(): Unit = {
-          val input = docker.logContainerCmd(containerId).withStdOut().withStdErr().withFollowStream().withTail(0).exec()
-          DockerLogStreamReader.copyToSysOut(input)
+          docker.logContainerCmd(containerId).withStdOut(true).withStdErr(true).withFollowStream(true).withTail(0).exec(new ResultCallback.Adapter[Frame])
         }
       }
       loggingThread.setDaemon(true)
@@ -82,7 +82,7 @@ object DockerEnrichments {
       logger.info(s"Graceful stopping container: $containerId ...")
       docker.stopContainerCmd(containerId).exec()
       logger.info(s"Container shutdown successful: $containerId. Removing ...")
-      docker.removeContainerCmd(containerId).withForce().exec()
+      docker.removeContainerCmd(containerId).withForce(true).exec()
       logger.info(s"Container remove successful: $containerId")
     }
   }

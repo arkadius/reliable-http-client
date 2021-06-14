@@ -16,11 +16,10 @@
 package rhttpc.test
 
 import java.util.Properties
-
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.api.model._
-import com.github.dockerjava.core.{DockerClientBuilder, DockerClientConfig}
-import com.github.dockerjava.core.DockerClientConfig.DockerClientConfigBuilder
+import com.github.dockerjava.core.{DefaultDockerClientConfig, DockerClientBuilder}
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 import org.scalatest._
 import org.slf4j.LoggerFactory
 import rhttpc.test.DockerEnrichments._
@@ -48,7 +47,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val foos = await((0 to max).map { id =>
       val sendFoo = random.nextBoolean()
       for {
-      _ <-if (sendFoo)
+        _ <- if (sendFoo)
           fixture.fooBarClient.foo(id.toString)
         else
           fixture.fooBarClient.bar(id.toString)
@@ -72,7 +71,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val id = "123"
     await(fixture.fooBarClient.retriedFoo(id, failCount = 3))
     await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitAfterStart = 3*5 + 2)
+    fixture.restartApp(waitAfterStart = 3 * 5 + 2)
     await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
@@ -98,6 +97,7 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
       docker.startContainerCmd(appContainerId).exec()
       docker.attachLogging(appContainerId)
       HttpProbe(appHealthCheckUrl).await()
+
       Thread.sleep(waitAfterStart * 1000)
       logger.info("App restarted")
     }
@@ -115,11 +115,14 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   val appHealthCheckUrl = s"http://localhost:$appPort/healthcheck"
 
   override protected def withFixture(test: OneArgTest): Outcome = {
-    val config =
-      DockerClientConfig.createDefaultConfigBuilder()
-        .withMaxTotalConnections(200)
-        .withMaxPerRouteConnections(200)
-    implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
+    val config = DefaultDockerClientConfig.createDefaultConfigBuilder().build()
+    val httpClient = new ApacheDockerHttpClient.Builder()
+      .dockerHost(config.getDockerHost)
+      .sslConfig(config.getSSLConfig)
+      .maxConnections(200)
+      .build()
+
+    implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).withDockerHttpClient(httpClient).build()
 
     val rabbitmqContainerId = startRabbitMq()
 
@@ -136,10 +139,11 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     // rabbitmq with rabbitmq_delayed_message_exchange
     val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "glopart/rabbitmq", "latest") { cmd =>
       val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(15672), Ports.Binding(mgmtPort)) // management
-      cmd.withPortBindings(portBindings)
+      portBindings.bind(ExposedPort.tcp(15672), Ports.Binding.bindPort(mgmtPort)) // management
+      cmd.getHostConfig.withPortBindings(portBindings)
+      cmd
     }
-    HttpProbe(s"http://localhost:$mgmtPort").await()
+    HttpProbe(s"http://localhost:$mgmtPort").await(60)
     logger.info("RabbitMQ started")
     rabbitmqContainerId
   }
@@ -148,13 +152,14 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
     val echoContainerId = docker.containerStartFromScratch(echoName, s"$repo/sampleecho", appVersion)(identity)
     val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", s"$repo/sampleapp", appVersion) { cmd =>
       val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(appPort), Ports.Binding(appPort))
-      cmd.withPortBindings(portBindings).withLinks(
+      portBindings.bind(ExposedPort.tcp(appPort), Ports.Binding.bindPort(appPort))
+      cmd.getHostConfig.withPortBindings(portBindings).withLinks(
         new Link(echoName, "sampleecho"),
         new Link(rabbitMqName, "rabbitmq")
       )
+      cmd
     }
-    HttpProbe(appHealthCheckUrl).await()
+    HttpProbe(appHealthCheckUrl).await(60)
     logger.info("App started")
     (echoContainerId, appContainerId)
   }

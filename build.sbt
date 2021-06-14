@@ -1,16 +1,11 @@
-import com.banno.license.Licenses._
-import com.banno.license.Plugin.LicenseKeys._
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import sbt.Keys._
-import sbt.dsl.enablePlugins
 import ReleaseTransformations._
 
 val defaultScalaVersion = "2.12.8"
 val scalaVersions = Seq("2.11.12", defaultScalaVersion)
 
 val commonSettings =
-  filterSettings ++
-  licenseSettings ++
   Seq(
     organization  := "org.rhttpc",
     scalaVersion  := defaultScalaVersion,
@@ -22,10 +17,24 @@ val commonSettings =
       "-feature", 
       "-Xfatal-warnings",
       "-language:postfixOps"),
-    license := apache2("Copyright 2015 the original author or authors."),
-    licenses :=  Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
+    headerLicense := Some(HeaderLicense.Custom(
+      """|Copyright 2015 the original author or authors.
+         |
+         |Licensed under the Apache License, Version 2.0 (the "License");
+         |you may not use this file except in compliance with the License.
+         |You may obtain a copy of the License at
+         |
+         |    http://www.apache.org/licenses/LICENSE-2.0
+         |
+         |Unless required by applicable law or agreed to in writing, software
+         |distributed under the License is distributed on an "AS IS" BASIS,
+         |WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+         |See the License for the specific language governing permissions and
+         |limitations under the License.
+         |""".stripMargin
+    )),
+    headerEmptyLine := false,
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
-    removeExistingHeaderBlock := true,
     dockerRepository := Some("arkadius"),
     resolvers ++= Seq(
       "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
@@ -42,8 +51,8 @@ val publishSettings = Seq(
     else
       Some("releases"  at nexus + "service/local/staging/deploy/maven2")
   },
-  publishArtifact in Test := false,
-  pomExtra in Global := {
+  Test / publishArtifact := false,
+  Global / pomExtra := {
     <scm>
       <connection>scm:git:github.com/arkadius/reliable-http-client.git</connection>
       <developerConnection>scm:git:git@github.com:arkadius/reliable-http-client.git</developerConnection>
@@ -64,6 +73,7 @@ val akkaHttpV = "10.0.15"
 val ficusV = "1.4.6"
 val amqpcV = "3.6.6"
 val json4sV = "3.4.2"
+val jaxbV = "2.3.1"
 val argonaut62MinorV = ".3"
 val logbackV = "1.1.11"
 val commonsIoV = "2.5"
@@ -73,7 +83,7 @@ val scalaTestV = "3.0.7"
 val slickV = "3.3.2"
 val flywayV = "6.2.4"
 val hsqldbV = "2.3.6"
-val dockerJavaV = "1.4.0"
+val dockerJavaV = "3.2.8"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
@@ -238,7 +248,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
       )
     },
     dockerExposedPorts := Seq(8082),
-    skip in publish := true
+    publish / skip := true
   )
 
 lazy val sampleApp = (project in file("sample/sample-app")).
@@ -258,7 +268,7 @@ lazy val sampleApp = (project in file("sample/sample-app")).
       )
     },
     dockerExposedPorts := Seq(8081),
-    skip in publish := true
+    publish / skip := true
   ).
   dependsOn(akkaHttpClient).
   dependsOn(akkaPersistence)
@@ -269,17 +279,19 @@ lazy val testProj = (project in file("sample/test")).
     libraryDependencies ++= {
       Seq(
         "com.github.docker-java"    % "docker-java"                   % dockerJavaV exclude("commons-logging", "commons-logging"),
+        "com.github.docker-java"    % "docker-java-transport-httpclient5" % dockerJavaV, // fixme
         "commons-io"                % "commons-io"                    % commonsIoV,
         "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV,
+        "javax.xml.bind"            % "jaxb-api"                      % jaxbV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
-    Keys.test in Test := (Keys.test in Test).dependsOn(
-      publishLocal in Docker in sampleEcho,
-      publishLocal in Docker in sampleApp
-    ),
-    skip in publish := true
+    Test / Keys.test  := (Test / Keys.test).dependsOn(
+      sampleEcho / Docker / publishLocal,
+      sampleApp / Docker / publishLocal
+    ).value,
+    publish / skip := true
   )
 
 lazy val root = (project in file("."))
@@ -294,7 +306,7 @@ lazy val root = (project in file("."))
   .settings(
     // crossScalaVersions must be set to Nil on the aggregating project
     releaseCrossBuild := true,
-    skip in publish := true,
+    publish / skip := true,
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,
       inquireVersions,
@@ -310,5 +322,3 @@ lazy val root = (project in file("."))
       pushChanges
     )
   )
-
-enablePlugins(CrossPerProjectPlugin)
