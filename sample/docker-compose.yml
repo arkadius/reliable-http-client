@@ -2,10 +2,10 @@ rabbitmq:
   image: glopart/rabbitmq:latest
 
 sampleecho:
-  image: arkadius/sampleecho:0.4.0
+  image: arkadius/sampleecho:0.8.5-SNAPSHOT
 
 sampleapp:
-  image: arkadius/sampleapp:0.4.0
+  image: arkadius/sampleapp:0.8.5-SNAPSHOT
   links:
     - rabbitmq
     - sampleecho

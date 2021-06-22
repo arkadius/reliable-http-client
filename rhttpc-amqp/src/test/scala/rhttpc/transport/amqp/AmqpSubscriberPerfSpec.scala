@@ -64,7 +64,7 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
       ),
       5.seconds
     )
-    val http = dispatch.Http()
+    val http = dispatch.Http.default
 //      .configure(_.setMaxConnections(count)
 //        .setExecutorService(Executors.newFixedThreadPool(count)))
 

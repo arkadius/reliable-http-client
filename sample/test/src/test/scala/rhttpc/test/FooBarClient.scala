@@ -18,12 +18,15 @@ package rhttpc.test
 import dispatch.{Future => DispatchFuture, _}
 
 import scala.concurrent._
-import scala.concurrent.duration._
 
-class FooBarClient(baseUrl: Req) {
+class FooBarClient(baseUrl: => Req) {
   implicit val successPredicate = new retry.Success[Unit.type](_ => true)
 
   private val httpClient = Http.default
+    .closeAndConfigure(
+    _.setMaxConnections(200)
+      .setMaxConnectionsPerHost(200)
+  )
 
   def foo(id: String)(implicit ec: ExecutionContext): Future[Any] =
     httpClient(baseUrl / id << "foo")
@@ -36,5 +39,9 @@ class FooBarClient(baseUrl: Req) {
 
   def retriedFoo(id: String, failCount: Int)(implicit ec: ExecutionContext): Future[Any] =
     httpClient(baseUrl / id << s"fail-$failCount-times-than-reply-with-foo")
+
+  def shutdown(): Unit = {
+    httpClient.shutdown()
+  }
 
 }

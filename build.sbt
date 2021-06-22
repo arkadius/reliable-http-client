@@ -36,6 +36,7 @@ val commonSettings =
     headerEmptyLine := false,
     homepage := Some(url("https://github.com/arkadius/reliable-http-client")),
     dockerRepository := Some("arkadius"),
+    dockerBaseImage := "openjdk:8",
     resolvers ++= Seq(
       "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
       Resolver.jcenterRepo
@@ -68,22 +69,23 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV = "2.4.20"
-val akkaHttpV = "10.0.15"
-val ficusV = "1.4.6"
-val amqpcV = "3.6.6"
-val json4sV = "3.4.2"
-val jaxbV = "2.3.1"
-val argonaut62MinorV = ".3"
-val logbackV = "1.1.11"
-val commonsIoV = "2.5"
-val slf4jV = "1.7.26"
-val dispatchV = "0.12.3"
-val scalaTestV = "3.0.7"
-val slickV = "3.3.2"
-val flywayV = "6.2.4"
-val hsqldbV = "2.3.6"
-val dockerJavaV = "3.2.8"
+val akkaV             = "2.4.20"
+val akkaHttpV         = "10.0.15"
+val amqpcV            = "3.6.6"
+val argonaut62MinorV  = ".3"
+val betterFilesV      = "3.9.1"
+val commonsIoV        = "2.5"
+val dispatchV         = "1.2.0"
+val ficusV            = "1.4.6"
+val flywayV           = "6.2.4"
+val hsqldbV           = "2.3.6"
+val json4sV           = "3.4.2"
+val jaxbV             = "2.3.1"
+val logbackV          = "1.1.11"
+val scalaTestV        = "3.0.7"
+val slf4jV            = "1.7.26"
+val slickV            = "3.3.2"
+val testContainersV   = "0.39.5"
 
 lazy val transport = (project in file("rhttpc-transport")).
   settings(commonSettings).
@@ -129,7 +131,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
 
-        "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV     % "test",
+        "org.dispatchhttp"         %% "dispatch-core"                 % dispatchV     % "test",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV         % "test",
         "ch.qos.logback"            % "logback-classic"               % logbackV      % "test",
         "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV     % "test"
@@ -253,13 +255,16 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
 
 lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
+  settings(Seq(
+    bashScriptExtraDefines += s"""addJava "-Dlogback.configurationFile=/etc/${name.value}/logback.xml""""
+  )).
   enablePlugins(DockerPlugin).
   enablePlugins(JavaAppPackaging).
   settings(
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
-        "org.iq80.leveldb"          % "leveldb"                       % "0.7",
+        "org.iq80.leveldb"          % "leveldb"                       % "0.12",
         "org.fusesource.leveldbjni" % "leveldbjni-all"                % "1.8",
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
@@ -278,12 +283,13 @@ lazy val testProj = (project in file("sample/test")).
   settings(
     libraryDependencies ++= {
       Seq(
-        "com.github.docker-java"    % "docker-java"                   % dockerJavaV exclude("commons-logging", "commons-logging"),
-        "com.github.docker-java"    % "docker-java-transport-httpclient5" % dockerJavaV, // fixme
+        "com.github.pathikrit"     %% "better-files"                  % betterFilesV,
         "commons-io"                % "commons-io"                    % commonsIoV,
-        "net.databinder.dispatch"  %% "dispatch-core"                 % dispatchV,
+        "org.dispatchhttp"         %% "dispatch-core"                 % dispatchV,
         "javax.xml.bind"            % "jaxb-api"                      % jaxbV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
+        "com.dimafeng"             %% "testcontainers-scala-scalatest" % testContainersV % "test",
+        "com.dimafeng"             %% "testcontainers-scala-rabbitmq" % testContainersV % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     },
