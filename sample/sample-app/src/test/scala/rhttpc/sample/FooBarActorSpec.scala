@@ -16,12 +16,11 @@
 package rhttpc.sample
 
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.actor._
 import akka.testkit._
 import org.scalatest._
 import org.scalatest.flatspec.AnyFlatSpecLike
-import rhttpc.akkapersistence._
+import rhttpc.akkapersistence.{ActorsRecovered, RecoverAllActors, RecoverableActorsManager, SendMsgToChild, StateSaved}
 
 import scala.concurrent.duration._
 import scala.reflect.io.Directory
@@ -106,7 +105,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with An
     gracefulStop(fooBarACtor)
   }
 
-  def gracefulStop(fooBarActor: ActorRef) {
+  def gracefulStop(fooBarActor: ActorRef): Unit = {
     watch(fooBarActor)
     fooBarActor ! StopYourself
     expectTerminated(fooBarActor)
