@@ -4,6 +4,7 @@ target/
 *.ipr
 *.iws
 .idea/
+.bsp/
 out
 tags
 .*.swp
