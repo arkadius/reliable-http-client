@@ -20,12 +20,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.actor._
 import akka.testkit._
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpecLike
 import rhttpc.akkapersistence._
 
 import scala.concurrent.duration._
 import scala.reflect.io.Directory
 
-class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with FlatSpecLike with BeforeAndAfterAll {
+class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with AnyFlatSpecLike with BeforeAndAfterAll {
   import system.dispatcher
 
   // FIXME: tests doesn't pass on circle-ci

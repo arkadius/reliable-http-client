@@ -19,6 +19,7 @@ import akka.actor._
 import akka.agent.Agent
 import akka.pattern._
 import akka.util.Timeout
+import com.github.ghik.silencer.silent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport._
@@ -41,7 +42,7 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  private val pendingConsumePromises = Agent[Set[Promise[Unit]]](Set.empty)
+  @silent private val pendingConsumePromises = Agent[Set[Promise[Unit]]](Set.empty)
 
   @volatile private var consumerTag: Option[String] = None
 

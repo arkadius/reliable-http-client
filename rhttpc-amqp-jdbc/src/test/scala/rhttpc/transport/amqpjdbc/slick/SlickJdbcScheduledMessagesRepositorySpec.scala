@@ -17,7 +17,7 @@ package rhttpc.transport.amqpjdbc.slick
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
 import rhttpc.transport.amqpjdbc.slick.helpers.SlickJdbcSpec

@@ -19,13 +19,14 @@ import java.util.UUID
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpecLike
 import rhttpc.client.protocol.{Correlated, SuccessExchange}
 
 class MessageDispatcherActorSpec
   extends TestKit(ActorSystem("MessageDispatcherActorSpec"))
   with ImplicitSender
-  with FlatSpecLike
+  with AnyFlatSpecLike
   with Matchers {
 
   it should "ack after promise -> confirm -> reply -> consumed" in {
@@ -41,7 +42,7 @@ class MessageDispatcherActorSpec
     ackProbe.send(actor, Correlated(SuccessExchange("fooReq", "foo"), sub.correlationId))
     replyMock.expectMsg(MessageFromSubscription("foo", sub))
 
-    ackProbe.expectNoMsg()
+    ackProbe.expectNoMessage()
     replyMock.reply("ok")
 
     ackProbe.expectMsg("ok")
@@ -61,7 +62,7 @@ class MessageDispatcherActorSpec
     actor ! ConfirmOrRegisterSubscription(sub, replyMock.ref)
     replyMock.expectMsg(MessageFromSubscription("foo", sub))
 
-    ackProbe.expectNoMsg()
+    ackProbe.expectNoMessage()
     replyMock.reply("ok")
 
     ackProbe.expectMsg("ok")

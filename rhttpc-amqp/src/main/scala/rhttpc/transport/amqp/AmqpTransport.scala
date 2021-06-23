@@ -17,6 +17,7 @@ package rhttpc.transport.amqp
 
 import akka.actor._
 import akka.agent.Agent
+import com.github.ghik.silencer.silent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Channel, Connection}
 import rhttpc.transport.SerializingPublisher.SerializedMessage
@@ -43,8 +44,8 @@ private[rhttpc] class AmqpTransportImpl(connection: Connection,
   import actorSystem.dispatcher
 
   private lazy val statsChannel = connection.createChannel()
-  
-  private val queueNamesAgent = Agent[Set[String]](Set.empty)
+
+  @silent private val queueNamesAgent = Agent[Set[String]](Set.empty)
   
   override def publisher[PubMsg](queueData: OutboundQueueData)
                                 (implicit serializer: Serializer[PubMsg]): AmqpPublisher[PubMsg] = {

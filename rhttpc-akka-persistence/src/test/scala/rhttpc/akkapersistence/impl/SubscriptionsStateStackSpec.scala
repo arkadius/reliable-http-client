@@ -15,10 +15,11 @@
  */
 package rhttpc.akkapersistence.impl
 
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import rhttpc.client.subscription.SubscriptionOnResponse
 
-class SubscriptionsStateStackSpec extends FlatSpec with Matchers {
+class SubscriptionsStateStackSpec extends AnyFlatSpec with Matchers {
 
   it should "notify about sub after register -> publish" in {
     var published: Set[SubscriptionOnResponse] = null

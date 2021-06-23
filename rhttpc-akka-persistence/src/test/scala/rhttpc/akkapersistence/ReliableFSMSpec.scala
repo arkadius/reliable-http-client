@@ -18,7 +18,7 @@ package rhttpc.akkapersistence
 import akka.actor.{ActorSystem, FSM, PoisonPill}
 import akka.persistence._
 import akka.testkit._
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
 import rhttpc.akkapersistence.impl._
 import rhttpc.client.ReliableClientBaseSpec
 

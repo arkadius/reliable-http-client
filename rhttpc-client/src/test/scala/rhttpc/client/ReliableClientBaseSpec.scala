@@ -17,11 +17,12 @@ package rhttpc.client
 
 import akka.testkit.TestKit
 import org.scalatest._
+import org.scalatest.flatspec.FixtureAnyFlatSpecLike
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-trait ReliableClientBaseSpec extends fixture.FlatSpecLike { self: TestKit =>
+trait ReliableClientBaseSpec extends FixtureAnyFlatSpecLike { self: TestKit =>
 
   import rhttpc.transport.dumb._
 

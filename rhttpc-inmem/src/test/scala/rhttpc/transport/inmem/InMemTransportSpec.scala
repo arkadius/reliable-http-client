@@ -18,13 +18,14 @@ package rhttpc.transport.inmem
 import akka.actor.{ActorSystem, Status}
 import akka.testkit.{TestKit, TestProbe}
 import org.scalatest._
+import org.scalatest.flatspec.FixtureAnyFlatSpecLike
 import rhttpc.transport.PubSubTransport
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
-  with fixture.FlatSpecLike
+  with FixtureAnyFlatSpecLike
   with BeforeAndAfterAll {
 
   import rhttpc.transport.dumb._

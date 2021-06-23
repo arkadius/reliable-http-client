@@ -16,12 +16,13 @@
 package rhttpc.client.config
 
 import com._
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import rhttpc.client.proxy.{BackoffRetry, HandleAll}
 
 import scala.concurrent.duration._
 
-class ConfigParserSpec extends FlatSpec with Matchers {
+class ConfigParserSpec extends AnyFlatSpec with Matchers {
 
   it should "parse config with backoff strategy" in {
     val config = typesafe.config.ConfigFactory.parseString(

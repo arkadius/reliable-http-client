@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import akka.util.Timeout
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

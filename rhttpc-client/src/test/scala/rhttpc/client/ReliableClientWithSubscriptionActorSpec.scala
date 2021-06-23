@@ -17,7 +17,7 @@ package rhttpc.client
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit._
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 import rhttpc.client.subscription._
 
 import scala.concurrent.ExecutionContext

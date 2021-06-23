@@ -12,9 +12,9 @@ val commonSettings =
     crossScalaVersions := scalaVersions,
     scalacOptions := Seq(
       "-unchecked",
-      "-deprecation", 
-      "-encoding", "utf8", 
-      "-feature", 
+      "-deprecation",
+      "-encoding", "utf8",
+      "-feature",
       "-Xfatal-warnings",
       "-language:postfixOps"),
     headerLicense := Some(HeaderLicense.Custom(
@@ -40,6 +40,10 @@ val commonSettings =
     resolvers ++= Seq(
       "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
       Resolver.jcenterRepo
+    ),
+    ThisBuild / libraryDependencies ++= Seq(
+      compilerPlugin("com.github.ghik" % "silencer-plugin" % "1.4.4" cross CrossVersion.full),
+      "com.github.ghik" % "silencer-lib" % "1.4.4" % Provided cross CrossVersion.full
     )
   )
 
@@ -69,20 +73,20 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV             = "2.4.20"
-val akkaHttpV         = "10.0.15"
+val akkaV             = "2.5.32"
+val akkaHttpV         = "10.1.13"
 val amqpcV            = "3.6.6"
 val argonaut62MinorV  = ".3"
 val betterFilesV      = "3.9.1"
 val commonsIoV        = "2.5"
 val dispatchV         = "1.2.0"
-val ficusV            = "1.4.6"
+val ficusV            = "1.4.7"
 val flywayV           = "6.2.4"
 val hsqldbV           = "2.3.6"
 val json4sV           = "3.4.2"
 val jaxbV             = "2.3.1"
 val logbackV          = "1.1.11"
-val scalaTestV        = "3.0.7"
+val scalaTestV        = "3.2.9"
 val slf4jV            = "1.7.26"
 val slickV            = "3.3.2"
 val testContainersV   = "0.39.5"
@@ -125,6 +129,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
+        "com.typesafe.akka"        %% "akka-stream"                   % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
         "org.scala-lang"            % "scala-reflect"                 % scalaVersion.value,
@@ -245,6 +250,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
         "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
         "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
+        "com.typesafe.akka"        %% "akka-stream"                   % akkaV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )

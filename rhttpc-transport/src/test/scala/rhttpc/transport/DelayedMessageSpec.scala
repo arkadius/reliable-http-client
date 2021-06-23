@@ -15,11 +15,12 @@
  */
 package rhttpc.transport
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.concurrent.duration._
 
-class DelayedMessageSpec extends FlatSpec with Matchers {
+class DelayedMessageSpec extends AnyFlatSpec with Matchers {
 
   it should "extract delayed message from properties in various numeric formats" in {
     val DelayedMessage(_, fromLongDuration, _, _) = Message("fooMsg", Map(MessagePropertiesNaming.delayProperty -> 100L))
