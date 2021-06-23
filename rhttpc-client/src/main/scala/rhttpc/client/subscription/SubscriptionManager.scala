@@ -82,7 +82,7 @@ private[subscription] class SubscriptionManagerImpl(transportSub: Subscriber[_],
 
   override def stop(): Future[Unit] = {
     recoveredFuture("stopping subscriber", transportSub.stop())
-      .flatMap(_ => recoveredFuture("stopping dispatcher actor", gracefulStop(dispatcher, 30 seconds).map(_ => Unit)))
+      .flatMap(_ => recoveredFuture("stopping dispatcher actor", gracefulStop(dispatcher, 30 seconds).map(_ => ())))
   }
 
 }
@@ -141,7 +141,7 @@ case class SubscriptionManagerFactory()(implicit actorSystem: ActorSystem) {
                                   deserializer: Deserializer[Correlated[Msg]]):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
-    val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor])
+    val dispatcherActor = actorSystem.actorOf(Props[MessageDispatcherActor]())
     val subscriber = transport.subscriber[Correlated[Msg]](queueData, dispatcherActor)
     new SubscriptionManagerImpl(subscriber, dispatcherActor)
   }

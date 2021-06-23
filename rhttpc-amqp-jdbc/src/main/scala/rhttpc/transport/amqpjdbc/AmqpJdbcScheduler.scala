@@ -102,7 +102,7 @@ private[amqpjdbc] class AmqpJdbcSchedulerImpl[PubMsg](scheduler: Scheduler,
     synchronized {
       scheduledCheck.foreach(_.cancel())
       ran = false
-      currentPublishedFetchedFuture.map(_ => Unit)
+      currentPublishedFetchedFuture.map(_ => ())
     }
   }
 

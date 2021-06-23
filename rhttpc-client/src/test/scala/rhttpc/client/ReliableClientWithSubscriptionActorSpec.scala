@@ -17,7 +17,7 @@ package rhttpc.client
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit._
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 import rhttpc.client.subscription._
 
 import scala.concurrent.ExecutionContext
@@ -32,8 +32,8 @@ class ReliableClientWithSubscriptionActorSpec
     val replyMock = TestProbe()
     val actor = system.actorOf(MockSubscriptionActor.props(fixture.client, replyMock.ref))
     actor ! SendRequest
-    fixture.transport.publicationPromise.success(Unit)
-    expectMsg(Unit)
+    fixture.transport.publicationPromise.success(())
+    expectMsg(())
 
     fixture.transport.replySubscriptionPromise.success("bar")
     replyMock.expectMsg("bar")
@@ -63,7 +63,7 @@ private class MockSubscriptionActor(client: InOutReliableClient[String], replyMo
   private def waitingOnSubscriptionCommand(originalSender: ActorRef): Receive = {
     case RequestPublished(sub) =>
       client.subscriptionManager.confirmOrRegister(sub, self) // FIXME
-      originalSender ! Unit
+      originalSender.!(())
       context.become(waitingOnReply)
     case a: RequestAborted =>
       originalSender ! a

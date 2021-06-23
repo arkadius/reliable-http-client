@@ -17,7 +17,7 @@ package rhttpc.transport.amqp
 
 import com.rabbitmq.client.AMQP
 import rhttpc.transport.SerializingPublisher.SerializedMessage
-import rhttpc.transport.{Message, OutboundQueueData}
+import rhttpc.transport.OutboundQueueData
 
 import scala.concurrent.duration._
 
@@ -25,12 +25,13 @@ object AmqpDefaults extends AmqpDefaults
 
 trait AmqpDefaults
   extends AmqpQueuesNaming
-  with AmqpExchangesNaming {
+    with AmqpExchangesNaming {
 
-  import collection.JavaConverters._
+  import scala.collection.compat._
+  import scala.jdk.CollectionConverters._
 
   private[rhttpc] final val consumeTimeout: FiniteDuration = 5 minutes
-  
+
   private[rhttpc] final val nackDelay: FiniteDuration = 10 seconds
 
   private[rhttpc] def prepareExchangeName(data: OutboundQueueData): String = {
@@ -42,10 +43,10 @@ trait AmqpDefaults
 
   private[rhttpc] final val preparePersistentMessageProperties: PartialFunction[SerializedMessage, AMQP.BasicProperties] = {
     case SerializedMessage(_, additionalProps) =>
-      persistentPropertiesBuilder.headers(additionalProps.mapValues {
-        case b: BigInt => b.toLong.underlying()
+      persistentPropertiesBuilder.headers(additionalProps.view.mapValues {
+        case b: BigInt => b.bigInteger
         case other => other.asInstanceOf[AnyRef]
-      }.asJava).build()
+      }.toMap.asJava).build()
   }
 
   private def persistentPropertiesBuilder = new AMQP.BasicProperties.Builder()

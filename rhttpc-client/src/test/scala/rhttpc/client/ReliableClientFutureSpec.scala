@@ -18,7 +18,7 @@ package rhttpc.client
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import akka.util.Timeout
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -30,7 +30,7 @@ class ReliableClientFutureSpec extends TestKit(ActorSystem("ReliableClientFuture
 
   it should "send request and reply after subscription registration" in { fixture =>
     val sendFuture = fixture.client.send("foo").toFuture
-    fixture.transport.publicationPromise.success(Unit)
+    fixture.transport.publicationPromise.success(())
     fixture.transport.replySubscriptionPromise.completeWith(Future {
       Thread.sleep(1000) // wait for registration of promise of subscription
       "bar"

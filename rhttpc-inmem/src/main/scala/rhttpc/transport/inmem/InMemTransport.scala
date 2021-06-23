@@ -51,7 +51,7 @@ private[inmem] class InMemTransport(transportActor: ActorRef) // TODO: stopping 
     Await.result((transportActor ? GetOrCreateQueue(name)).mapTo[ActorRef], createTimeout)
   }
 
-  override def stop(): Future[Unit] = gracefulStop(transportActor, stopTimeout).map(_ => Unit)
+  override def stop(): Future[Unit] = gracefulStop(transportActor, stopTimeout).map(_ => ())
 }
 
 object InMemTransport {

@@ -90,14 +90,14 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
           handleResponse(Correlated(FailureExchange(request.msg, failure), request.correlationId))
         case Skip =>
           logger.debug(s"Attempts so far: ${request.attempt} for ${request.correlationId}, will skip")
-          Future.successful(Unit)
+          Future.unit
       }
     }
   }))
 
   private val subscriber = subscriberForConsumer(consumingActor)
 
-  def start() {
+  def start(): Unit = {
     additionalStartAction
     requestPublisher.start()
     subscriber.start()
@@ -106,7 +106,7 @@ class ReliableProxy[Req, Resp](subscriberForConsumer: ActorRef => Subscriber[Cor
   def stop(): Future[Unit] = {
     import actorSystem.dispatcher
     recoveredFuture("stopping request subscriber", subscriber.stop())
-      .flatMap(_ => recoveredFuture("stopping request consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit)))
+      .flatMap(_ => recoveredFuture("stopping request consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => ())))
       .flatMap(_ => recoveredFuture("stopping request publisher", requestPublisher.stop()))
       .flatMap(_ => recoveredFuture("additional stop action", additionalStopAction))
   }
@@ -133,7 +133,7 @@ case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
                                      queuesPrefix: String = config.queuesPrefix,
                                      retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                      additionalStartAction: => Unit = {},
-                                     additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                     additionalStopAction: => Future[Unit] = Future.unit)
                                     (implicit transport: PubSubTransport,
                                      reqSerializer: Serializer[Correlated[Req]],
                                      reqDeserializer: Deserializer[Correlated[Req]],
@@ -169,7 +169,7 @@ case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
                                    queuesPrefix: String = config.queuesPrefix,
                                    retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                    additionalStartAction: => Unit = {},
-                                   additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                   additionalStopAction: => Future[Unit] = Future.unit)
                                   (implicit transport: PubSubTransport,
                                    serializer: Serializer[Correlated[Req]],
                                    deserializer: Deserializer[Correlated[Req]]):
@@ -194,7 +194,7 @@ case class ReliableProxyFactory()(implicit actorSystem: ActorSystem) {
                         queuesPrefix: String = config.queuesPrefix,
                         retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                         additionalStartAction: => Unit = {},
-                        additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                        additionalStopAction: => Future[Unit] = Future.unit)
                        (implicit transport: PubSubTransport,
                         serializer: Serializer[Correlated[Req]],
                         deserializer: Deserializer[Correlated[Req]]):

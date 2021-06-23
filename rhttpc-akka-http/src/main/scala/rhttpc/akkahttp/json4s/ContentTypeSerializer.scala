@@ -23,7 +23,7 @@ import rhttpc.transport.json4s.CustomSerializerWithTypeHints
 
 object ContentTypeSerializer extends CustomSerializerWithTypeHints[ContentType, JString](formats => (
   {
-    case js => ContentType.parse(js.values).right.getOrElse(throw new ParseException("Illegal content-type: " + js.values, -1))
+    case js => ContentType.parse(js.values).getOrElse(throw new ParseException("Illegal content-type: " + js.values, -1))
   },
   {
     case ct => JString(ct.toString())

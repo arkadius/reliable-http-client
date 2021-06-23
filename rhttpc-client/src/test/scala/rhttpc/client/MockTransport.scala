@@ -70,7 +70,7 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
       override def start(): Unit = {}
 
-      override def stop(): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.unit
     }
 
   override def fullMessageSubscriber[SubMsg: Deserializer](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
@@ -82,21 +82,21 @@ class MockTransport(awaitCond: (() => Boolean) => Unit)(implicit ec: ExecutionCo
 
       override def start(): Unit = {}
 
-      override def stop(): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.unit
     }
 
-  override def stop(): Future[Unit] = Future.successful(Unit)
+  override def stop(): Future[Unit] = Future.unit
 
 }
 
 object MockProxyTransport extends PubSubTransport {
   override def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg] =
     new Publisher[PubMsg] {
-      override def publish(msg: Message[PubMsg]): Future[Unit] = Future.successful(Unit)
+      override def publish(msg: Message[PubMsg]): Future[Unit] = Future.unit
 
       override def start(): Unit = {}
 
-      override def stop(): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.unit
     }
 
   override def fullMessageSubscriber[SubMsg: Deserializer](data: InboundQueueData, consumer: ActorRef): Subscriber[SubMsg] =
@@ -106,8 +106,8 @@ object MockProxyTransport extends PubSubTransport {
     new Subscriber[SubMsg] {
       override def start(): Unit = {}
 
-      override def stop(): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.unit
     }
 
-  override def stop(): Future[Unit] = Future.successful(Unit)
+  override def stop(): Future[Unit] = Future.unit
 }

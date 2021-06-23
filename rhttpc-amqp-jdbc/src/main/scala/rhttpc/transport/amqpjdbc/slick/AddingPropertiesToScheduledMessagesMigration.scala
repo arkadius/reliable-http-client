@@ -23,6 +23,7 @@ import slick.jdbc.{JdbcProfile, JdbcType}
 import slick.sql.SqlProfile.ColumnOption.NotNull
 
 trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
+
   import profile.api._
 
   class V1_001__CreatingScheduledMessagesTableMigration extends CreatingScheduledMessagesTableMigration {
@@ -39,7 +40,8 @@ trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
   protected val messageMaxSize = 8192
   protected val propertiesMaxSize = 256
 
-  import collection.JavaConverters._
+  import scala.collection.compat._
+  import scala.jdk.CollectionConverters._
 
   protected implicit def propertiesMapper: JdbcType[Map[String, Any]] = MappedColumnType.base[Map[String, Any], String](
     m => {
@@ -55,9 +57,13 @@ trait AddingPropertiesToScheduledMessagesMigration extends SlickJdbcMigration {
   class ScheduledMessageEntity(tag: Tag) extends Table[ScheduledMessage](tag, "scheduled_messages") {
 
     def id = column[Long]("id", NotNull, O.PrimaryKey, O.AutoInc)
+
     def queueName = column[String]("queue_name", NotNull, O.Length(64))
+
     def content = column[String]("content", NotNull, O.Length(messageMaxSize))
+
     def properties = column[Map[String, Any]]("properties", NotNull, O.Length(propertiesMaxSize))
+
     def plannedRun = column[Timestamp]("planned_run", NotNull)
 
     def * = (id.?, queueName, content, properties, plannedRun) <> (ScheduledMessage.apply _ tupled, ScheduledMessage.unapply)

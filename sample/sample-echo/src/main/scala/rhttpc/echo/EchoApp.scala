@@ -21,6 +21,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
 import akka.pattern._
 import akka.stream.ActorMaterializer
+import com.github.ghik.silencer.silent
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -31,7 +32,7 @@ object EchoApp extends App with Directives {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  val retryAgent = Agent(Map.empty[String, Int])
+  @silent val retryAgent = Agent(Map.empty[String, Int])
 
   val route = (post & entity(as[String])) {
     case request@FailNTimesThanReplyWithMessage(failsCount, eventualMessage) =>

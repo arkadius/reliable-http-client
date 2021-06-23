@@ -64,7 +64,7 @@ private[amqpjdbc] class SlickJdbcScheduledMessagesRepository(profile: JdbcProfil
             if (deleted != fetched.size) {
               DBIO.failed(ConcurrentFetchException)
             } else {
-              DBIO.successful(Unit)
+              DBIO.successful(())
             }
           }
           _ <- DBIO.from(onMessages(fetched))

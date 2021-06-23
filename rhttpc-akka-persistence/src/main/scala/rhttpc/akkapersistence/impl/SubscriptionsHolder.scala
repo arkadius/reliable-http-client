@@ -28,7 +28,7 @@ private[akkapersistence] trait SubscriptionsHolder[S, D] extends PublicationList
     val withRegistered = subscriptionsOffered.foldLeft(SubscriptionsStateStack())(_.withRegisteredPromise(_))
     subscriptionsOffered.foreach(subscriptionManager.confirmOrRegister(_, self))
     // _ => Unit is because for all promises, request will be published immediately and it shouldn't trigger saving of (restored) state
-    subscriptionStates = subscriptionsOffered.foldLeft(withRegistered.withNextState(_ => Unit))(_.withPublishedRequestFor(_))
+    subscriptionStates = subscriptionsOffered.foldLeft(withRegistered.withNextState(_ => ()))(_.withPublishedRequestFor(_))
   }
 
   override def subscriptionPromiseRegistered(sub: SubscriptionOnResponse): Unit = {

@@ -17,9 +17,10 @@ package rhttpc.transport.amqpjdbc.slick.helpers
 
 import com.typesafe.config.ConfigFactory
 import org.scalatest._
+import org.scalatest.flatspec.FixtureAnyFlatSpec
 import slick.jdbc.{HsqldbProfile, JdbcBackend, JdbcProfile}
 
-trait SlickJdbcSpec extends fixture.FlatSpec {
+trait SlickJdbcSpec extends FixtureAnyFlatSpec {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   private val _profile = HsqldbProfile

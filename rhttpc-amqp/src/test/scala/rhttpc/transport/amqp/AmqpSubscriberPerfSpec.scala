@@ -23,7 +23,8 @@ import akka.pattern._
 import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import dispatch.url
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Ignore}
+import org.scalatest.{BeforeAndAfterAll, Ignore}
+import org.scalatest.flatspec.AnyFlatSpecLike
 import rhttpc.transport.{Deserializer, InboundQueueData, OutboundQueueData, Serializer}
 
 import scala.concurrent.duration._
@@ -31,7 +32,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.{Random, Try}
 
 @Ignore
-class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec")) with FlatSpecLike with BeforeAndAfterAll {
+class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec")) with AnyFlatSpecLike with BeforeAndAfterAll {
   import system.dispatcher
 
   implicit val materializer = ActorMaterializer()
@@ -64,7 +65,7 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
       ),
       5.seconds
     )
-    val http = dispatch.Http()
+    val http = dispatch.Http.default
 //      .configure(_.setMaxConnections(count)
 //        .setExecutorService(Executors.newFixedThreadPool(count)))
 

@@ -18,7 +18,7 @@ package rhttpc.akkapersistence
 import akka.actor.{ActorSystem, FSM, PoisonPill}
 import akka.persistence._
 import akka.testkit._
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
 import rhttpc.akkapersistence.impl._
 import rhttpc.client.ReliableClientBaseSpec
 
@@ -63,7 +63,7 @@ class ReliableFSMSpec
     actor ! SendMsg("foo")
     Thread.sleep(500)
     actor.underlyingActor.savedSnapshots shouldBe empty
-    fixture.transport.publicationPromise.success(Unit)
+    fixture.transport.publicationPromise.success(())
     awaitCond(actor.underlyingActor.savedSnapshots.size == 1)
     expectMsg(StateSaved)
     actor

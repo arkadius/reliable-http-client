@@ -19,12 +19,13 @@ import java.util.UUID
 
 import akka.http.scaladsl.model._
 import org.json4s.native.Serialization
-import org.scalatest._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import rhttpc.client.protocol.{Correlated, Exchange, FailureExchange, SuccessExchange}
 import rhttpc.client.proxy.{ExhaustedRetry, NonSuccessResponse}
 
-class Json4sHttpRequestResponseFormatsSpec extends FlatSpec with TableDrivenPropertyChecks with Matchers {
+class Json4sHttpRequestResponseFormatsSpec extends AnyFlatSpec with TableDrivenPropertyChecks with Matchers {
   implicit val formats = Json4sHttpRequestResponseFormats.formats
 
   val requestsData = Table[Correlated[HttpRequest]](

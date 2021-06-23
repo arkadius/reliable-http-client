@@ -37,8 +37,8 @@ class FooBarActor(protected val id: String, client: InOutReliableClient[String])
   }
   
   when(WaitingForResponseState) {
-    case Event("foo", _) => goto(FooState) acknowledgingAfterSave()
-    case Event("bar", _) => goto(BarState) acknowledgingAfterSave()
+    case Event("foo", _) => goto(FooState).acknowledgingAfterSave()
+    case Event("bar", _) => goto(BarState).acknowledgingAfterSave()
   }
 
   when(FooState, stateTimeout = 5 minutes) {

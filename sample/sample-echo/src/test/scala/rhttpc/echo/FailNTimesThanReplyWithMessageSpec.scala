@@ -15,9 +15,10 @@
  */
 package rhttpc.echo
 
-import org.scalatest.{Matchers, FlatSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class FailNTimesThanReplyWithMessageSpec extends FlatSpec with Matchers {
+class FailNTimesThanReplyWithMessageSpec extends AnyFlatSpec with Matchers {
 
   it should "recognize pattern" in {
     val FailNTimesThanReplyWithMessage(count, message) = "fail-3-times-than-reply-with-foo"

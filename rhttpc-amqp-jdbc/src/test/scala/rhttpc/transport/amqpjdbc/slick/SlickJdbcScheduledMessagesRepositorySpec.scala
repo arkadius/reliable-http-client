@@ -17,7 +17,7 @@ package rhttpc.transport.amqpjdbc.slick
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
 import rhttpc.transport.amqpjdbc.slick.helpers.SlickJdbcSpec
@@ -112,17 +112,17 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
                      (check: Seq[ScheduledMessage] => Unit): Unit = {
       val fetchResult = repo.fetchMessagesShouldByRun(queueName, batchSize) { msgs =>
         check(msgs)
-        Future.successful(Unit)
+        Future.unit
       }
-      whenReady(fetchResult) { _ => Unit }
+      whenReady(fetchResult) { _ => () }
     }
 
     def save(message: MessageToSchedule): Unit = {
-      whenReady(repo.save(message)){ _ => Unit }
+      whenReady(repo.save(message)){ _ => () }
     }
 
     def save(queueName: String): Unit = {
-      whenReady(repo.save(MessageToSchedule(queueName, "some message", Map.empty, 5 second))){ _ => Unit }
+      whenReady(repo.save(MessageToSchedule(queueName, "some message", Map.empty, 5 second))){ _ => () }
     }
 
     def queuesStatsCheck(queueNames: Set[String])

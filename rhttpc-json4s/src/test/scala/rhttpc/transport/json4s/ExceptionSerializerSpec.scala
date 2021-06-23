@@ -16,9 +16,11 @@
 package rhttpc.transport.json4s
 
 import org.json4s.{DefaultFormats, TypeHints}
-import org.scalatest.{FlatSpec, Matchers, TryValues}
+import org.scalatest.TryValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class ExceptionSerializerSpec extends FlatSpec with Matchers with TryValues {
+class ExceptionSerializerSpec extends AnyFlatSpec with Matchers with TryValues {
 
   it should "round-trip serialize case class exception" in {
     roundTrip(CaseClassException(123))

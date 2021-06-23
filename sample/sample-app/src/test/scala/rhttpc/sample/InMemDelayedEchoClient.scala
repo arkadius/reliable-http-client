@@ -42,7 +42,7 @@ class InMemDelayedEchoClient(delay: FiniteDuration)(implicit system: ActorSystem
 
       override def start(): Unit = {}
 
-      override def stop(): Future[Unit] = Future.successful(Unit)
+      override def stop(): Future[Unit] = Future.unit
     }
 
   override def requestResponse(msg: String): ReplyFuture = {

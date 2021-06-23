@@ -15,74 +15,82 @@
  */
 package rhttpc.test
 
+import better.files._
+import com.dimafeng.testcontainers.{ForEachTestContainer, GenericContainer, MultipleContainers}
+import org.apache.commons.io.FileUtils
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.slf4j.{Logger, LoggerFactory}
+import org.testcontainers.containers.output.Slf4jLogConsumer
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy
+import org.testcontainers.containers.{BindMode, Network}
+
+import java.nio.file.attribute.PosixFilePermission._
 import java.util.Properties
-
-import com.github.dockerjava.api.DockerClient
-import com.github.dockerjava.api.model._
-import com.github.dockerjava.core.{DockerClientBuilder, DockerClientConfig}
-import com.github.dockerjava.core.DockerClientConfig.DockerClientConfigBuilder
-import org.scalatest._
-import org.slf4j.LoggerFactory
-import rhttpc.test.DockerEnrichments._
-
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.util.Random
-import scala.util.control.NonFatal
+import scala.util.{Random, Try}
 
-class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with Matchers with BeforeAndAfter {
-  lazy val logger = LoggerFactory.getLogger(getClass)
+class DeliveryResponseAfterRestartWithDockerSpec
+  extends AnyFlatSpec
+    with Matchers
+    with BeforeAndAfterEach
+    with ForEachTestContainer {
 
-  it should "handle response during application unavailable" in { fixture =>
+  lazy val logger: Logger = LoggerFactory.getLogger(getClass)
+  lazy val logConsumer = new Slf4jLogConsumer(logger)
+
+  it should "handle response during application unavailable" in {
     val id = "123"
-    await(fixture.fooBarClient.foo(id))
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitAfterStart = 10)
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
+    await(fooBarClient.foo(id))
+    await(fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
+    restartApp(waitAfterStart = 10)
+    await(fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
-  it should "handle response during application unavailable for many actors" in { fixture =>
+  it should "handle response during application unavailable for many actors" in {
     val random = new Random()
     val max = 9
     val foos = await((0 to max).map { id =>
       val sendFoo = random.nextBoolean()
       for {
-      _ <-if (sendFoo)
-          fixture.fooBarClient.foo(id.toString)
+        _ <- if (sendFoo)
+          fooBarClient.foo(id.toString)
         else
-          fixture.fooBarClient.bar(id.toString)
+          fooBarClient.bar(id.toString)
       } yield sendFoo
     })
     await((0 to max).map { id =>
-      fixture.fooBarClient.currentState(id.toString)
+      fooBarClient.currentState(id.toString)
     }) shouldEqual (0 to max).map(_ => "WaitingForResponseState")
 
-    fixture.restartApp(waitAfterStart = 10)
+    restartApp(waitAfterStart = 10)
 
     await((0 to max).map { id =>
-      fixture.fooBarClient.currentState(id.toString)
+      fooBarClient.currentState(id.toString)
     }) shouldEqual (0 to max).map { id =>
       val prefix = if (foos(id)) "Foo" else "Bar"
       prefix + "State"
     }
   }
 
-  it should "retry message if fail" in { fixture =>
+  it should "retry message if fail" in {
     val id = "123"
-    await(fixture.fooBarClient.retriedFoo(id, failCount = 3))
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
-    fixture.restartApp(waitAfterStart = 3*5 + 2)
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
+    await(fooBarClient.retriedFoo(id, failCount = 3))
+    await(fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
+    restartApp(waitAfterStart = 3 * 5 + 2)
+    await(fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
-  it should "fallback to in memory transport when rabbitmq became unavailable" in { fixture =>
+  it should "fallback to in memory transport when rabbitmq became unavailable" in {
     val id = "123"
-    fixture.stopRabbitMq()
-    await(fixture.fooBarClient.foo(id))
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
+    stopRabbitMq()
+    await(fooBarClient.foo(id))
+    await(fooBarClient.currentState(id)) shouldEqual "WaitingForResponseState"
     Thread.sleep(10 * 1000)
-    await(fixture.fooBarClient.currentState(id)) shouldEqual "FooState"
+    await(fooBarClient.currentState(id)) shouldEqual "FooState"
   }
 
   def await[T](future: Future[T]): T =
@@ -91,94 +99,87 @@ class DeliveryResponseAfterRestartWithDockerSpec extends fixture.FlatSpec with M
   def await[T](futures: Seq[Future[T]]): Seq[T] =
     Await.result(Future.sequence(futures), 60 seconds)
 
-  class FixtureParam(val fooBarClient: FooBarClient)
-                    (docker: DockerClient, appContainerId: String, rabbitmqContainerId: String) {
-    def restartApp(waitAfterStart: Long) = {
-      docker.stopContainerCmd(appContainerId).exec()
-      docker.startContainerCmd(appContainerId).exec()
-      docker.attachLogging(appContainerId)
-      HttpProbe(appHealthCheckUrl).await()
-      Thread.sleep(waitAfterStart * 1000)
-      logger.info("App restarted")
-    }
-
-    def stopRabbitMq() = {
-      docker.stopContainerCmd(rabbitmqContainerId).exec()
-      logger.info("RabbitMQ stopped")
-    }
-  }
-
   val repo = "arkadius"
-  val rabbitMqName = "rabbitmq_1"
-  val echoName = "test_sampleecho_1"
-  val appPort = 8081
-  val appHealthCheckUrl = s"http://localhost:$appPort/healthcheck"
 
-  override protected def withFixture(test: OneArgTest): Outcome = {
-    val config =
-      DockerClientConfig.createDefaultConfigBuilder()
-        .withMaxTotalConnections(200)
-        .withMaxPerRouteConnections(200)
-    implicit val docker: DockerClient = DockerClientBuilder.getInstance(config).build()
+  val tmpDirForAkkaPersistence: File =
+    File.newTemporaryDirectory(".rhttpc-test-tmp-")
+      .addPermission(OTHERS_WRITE)
+      .addPermission(OTHERS_READ)
+      .addPermission(OTHERS_EXECUTE)
+      .deleteOnExit()
 
-    val rabbitmqContainerId = startRabbitMq()
+  val dockerNetwork: Network = Network.builder().driver("bridge").build()
 
-    val (echoContainerId, appContainerId) = startServices()
+  val rabbitMqContainer: GenericContainer =
+    GenericContainer(dockerImage = "glopart/rabbitmq:latest")
+      .configure(_.withNetwork(dockerNetwork))
+      .configure(_.withNetworkAliases("rabbitmq"))
+      .configure(_.withLogConsumer(logConsumer))
 
-    val fooBarClient = new FooBarClient(dispatch.url("http://localhost:8081"))
-    val result = test(new FixtureParam(fooBarClient)(docker, appContainerId, rabbitmqContainerId))
-    stopAndRemoveContainers(rabbitmqContainerId, echoContainerId, appContainerId)
-    result
+  val echoContainer: GenericContainer =
+    GenericContainer(dockerImage = s"$repo/sampleecho:$appVersion")
+      .configure(_.withNetwork(dockerNetwork))
+      .configure(_.withNetworkAliases("sampleecho"))
+      .configure(_.withLogConsumer(logConsumer))
+
+  val appContainer: GenericContainer = GenericContainer(
+    dockerImage = s"$repo/sampleapp:$appVersion",
+    exposedPorts = Seq(8081),
+    waitStrategy =
+      new HttpWaitStrategy()
+        .forPort(8081)
+        .forPath("/healthcheck")
+        .withReadTimeout(java.time.Duration.ofMillis(60 * 1000)))
+    .configure(_.withNetwork(dockerNetwork))
+    .configure(_.withLogConsumer(logConsumer))
+    .configure(_.withFileSystemBind(tmpDirForAkkaPersistence.canonicalPath, "/akka-persistence", BindMode.READ_WRITE))
+
+  def appIp: String = Try(appContainer.containerIpAddress).getOrElse(throw new Exception("App container not started yet"))
+
+  def appPort: Int = Try(appContainer.mappedPort(8081)).getOrElse(throw new Exception("App container not started yet"))
+
+  def appAddress = s"http://$appIp:$appPort"
+
+  override val container: MultipleContainers = MultipleContainers(rabbitMqContainer, echoContainer, appContainer)
+
+  private var maybeFooBarClient: Option[FooBarClient] = None
+
+  def fooBarClient: FooBarClient = maybeFooBarClient.getOrElse(throw new Exception("FooBarClient not started yet"))
+
+  def restartApp(waitAfterStart: Long): Unit = {
+    appContainer.stop()
+    appContainer.start()
+
+    Thread.sleep(waitAfterStart * 1000)
+    logger.info("App restarted")
   }
 
-  private def startRabbitMq()(implicit docker: DockerClient): String = {
-    val mgmtPort = 15674
-    // rabbitmq with rabbitmq_delayed_message_exchange
-    val rabbitmqContainerId = docker.containerStartFromScratch(rabbitMqName, "glopart/rabbitmq", "latest") { cmd =>
-      val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(15672), Ports.Binding(mgmtPort)) // management
-      cmd.withPortBindings(portBindings)
-    }
-    HttpProbe(s"http://localhost:$mgmtPort").await()
-    logger.info("RabbitMQ started")
-    rabbitmqContainerId
+  def stopRabbitMq(): Unit = {
+    rabbitMqContainer.stop()
+    logger.info("RabbitMQ stopped")
   }
 
-  private def startServices()(implicit docker: DockerClient): (String, String) = {
-    val echoContainerId = docker.containerStartFromScratch(echoName, s"$repo/sampleecho", appVersion)(identity)
-    val appContainerId = docker.containerStartFromScratch("test_sampleapp_1", s"$repo/sampleapp", appVersion) { cmd =>
-      val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(appPort), Ports.Binding(appPort))
-      cmd.withPortBindings(portBindings).withLinks(
-        new Link(echoName, "sampleecho"),
-        new Link(rabbitMqName, "rabbitmq")
-      )
-    }
-    HttpProbe(appHealthCheckUrl).await()
+  override def afterStart(): Unit = {
+    maybeFooBarClient = Some(new FooBarClient(dispatch.url(appAddress)))
+
+    Thread.sleep(10 * 1000)
     logger.info("App started")
-    (echoContainerId, appContainerId)
+    super.afterStart()
+  }
+
+  override def afterEach(): Unit = {
+    FileUtils.cleanDirectory(tmpDirForAkkaPersistence.toJava)
+    super.afterEach()
+  }
+
+  override def beforeStop(): Unit = {
+    super.beforeStop()
+    maybeFooBarClient.foreach(_.shutdown())
   }
 
   private lazy val appVersion: String = {
     val props = new Properties()
     props.load(getClass.getResourceAsStream("/project.properties"))
     props.getProperty("app.version")
-  }
-
-  private def stopAndRemoveContainers(constainerIds: String*)
-                                     (implicit docker: DockerClient): Unit = {
-
-    constainerIds.toList.reverse.foreach { containerId =>
-      try {
-        docker.stopAndRemoveContainer(containerId)
-      } catch {
-        case NonFatal(ex) => logger.warn(s"Exception during cleanup after container with id: $containerId", ex)
-      }
-    }
-    try {
-      docker.close()
-    } catch {
-      case NonFatal(ex) => logger.warn("Exception during closing docker", ex)
-    }
   }
 }

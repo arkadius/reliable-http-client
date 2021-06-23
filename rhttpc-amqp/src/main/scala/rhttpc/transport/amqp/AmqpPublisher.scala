@@ -16,8 +16,8 @@
 package rhttpc.transport.amqp
 
 import java.io._
-
 import akka.agent.Agent
+import com.github.ghik.silencer.silent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory
 import rhttpc.transport.SerializingPublisher.SerializedMessage
@@ -36,7 +36,7 @@ private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
 
-  private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
+  @silent private val seqNoOnAckPromiseAgent = Agent[Map[Long, Promise[Unit]]](Map.empty)
 
   override private[rhttpc] def publishSerialized(msg: SerializedMessage): Future[Unit] = {
     val properties = prepareProperties.applyOrElse(
@@ -57,7 +57,7 @@ private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
 
   override def handleAck(deliveryTag: Long, multiple: Boolean): Unit = {
     logger.debug(s"ACK: $deliveryTag, multiple = $multiple")
-    confirm(deliveryTag, multiple)(_.success(Unit))
+    confirm(deliveryTag, multiple)(_.success(()))
   }
 
   override def handleNack(deliveryTag: Long, multiple: Boolean): Unit = {
@@ -89,7 +89,7 @@ private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
   private def currentPublishingFuturesComplete: Future[Unit] =
     seqNoOnAckPromiseAgent.future()
       .flatMap(map => Future.sequence(map.values.map(_.future)))
-      .map(_ => Unit)
+      .map(_ => ())
 }
 
 case object NoPubMsgAckException extends Exception(s"No acknowledgement for published message")

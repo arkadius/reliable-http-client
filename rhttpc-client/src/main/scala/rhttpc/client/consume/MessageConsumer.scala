@@ -50,14 +50,14 @@ class MessageConsumer[Request, Response](subscriberForConsumer: ActorRef => Subs
 
   private val subscriber = subscriberForConsumer(consumingActor)
 
-  def start() {
+  def start(): Unit = {
     subscriber.start()
   }
 
   def stop(): Future[Unit] = {
     import actorSystem.dispatcher
     recoveredFuture("stopping message subscriber", subscriber.stop())
-      .flatMap(_ => recoveredFuture("stopping message consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => Unit)))
+      .flatMap(_ => recoveredFuture("stopping message consumer actor", gracefulStop(consumingActor, 30 seconds).map(_ => ())))
   }
 
 }

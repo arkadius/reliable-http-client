@@ -15,20 +15,19 @@
  */
 package rhttpc.test
 
-import com.ning.http.client.{AsyncHttpClient, AsyncHttpClientConfig}
 import dispatch._
 import dispatch.Defaults.timer
+import org.asynchttpclient.DefaultAsyncHttpClientConfig
 
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 case class HttpProbe(urlStr: String) {
-  private val httpClient = new Http(new AsyncHttpClient(
-    new AsyncHttpClientConfig.Builder()
+  private val httpClient = new Http(
+    new DefaultAsyncHttpClientConfig.Builder()
       .setConnectTimeout(500)
-      .setRequestTimeout(500)
-      .build()))
+      .setRequestTimeout(500))
 
   def await(atMostSeconds: Int = 15)(implicit ec: ExecutionContext) = {
     val future = retry.Pause(max = atMostSeconds * 2) { () => // default delay is 0,5 sec

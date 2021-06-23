@@ -48,7 +48,7 @@ private class RecoverableActorsManager(persistenceCategory: String, childPropsCr
           }
         } else {
           log.info("Empty registry - nothing to recover")
-          Future.successful(Unit)
+          Future.unit
         }
       recoveryFinishedFuture.foreach { _ =>
         self ! BecomeRecovered
