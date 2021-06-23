@@ -25,5 +25,7 @@ object AllTypeHints extends TypeHints {
 
   override def hintFor(clazz: Class[_]): String = clazz.getName
 
+  override def shouldExtractHints(clazz: Class[_]): Boolean = true
+
   override val hints: List[Class[_]] = Nil
 }

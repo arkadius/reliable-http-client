@@ -2,7 +2,7 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import sbt.Keys._
 import ReleaseTransformations._
 
-val defaultScalaVersion = "2.12.8"
+val defaultScalaVersion = "2.12.13"
 val scalaVersions = Seq("2.11.12", defaultScalaVersion)
 
 val commonSettings =
@@ -42,8 +42,8 @@ val commonSettings =
       Resolver.jcenterRepo
     ),
     ThisBuild / libraryDependencies ++= Seq(
-      compilerPlugin("com.github.ghik" % "silencer-plugin" % "1.4.4" cross CrossVersion.full),
-      "com.github.ghik" % "silencer-lib" % "1.4.4" % Provided cross CrossVersion.full
+      compilerPlugin("com.github.ghik" % "silencer-plugin" % "1.7.5" cross CrossVersion.full),
+      "com.github.ghik" % "silencer-lib" % "1.7.5" % Provided cross CrossVersion.full
     )
   )
 
@@ -83,7 +83,7 @@ val dispatchV         = "1.2.0"
 val ficusV            = "1.4.7"
 val flywayV           = "6.2.4"
 val hsqldbV           = "2.3.6"
-val json4sV           = "3.4.2"
+val json4sV           = "3.6.11"
 val jaxbV             = "2.3.1"
 val logbackV          = "1.1.11"
 val scalaTestV        = "3.2.9"
