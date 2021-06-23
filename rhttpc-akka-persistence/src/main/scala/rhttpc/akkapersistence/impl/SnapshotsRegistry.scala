@@ -28,7 +28,7 @@ private[akkapersistence] class SnapshotsRegistry(persistenceCategory: String) ex
   override def receive: Receive = {
     case GetIdsWithStoredSnapshots =>
       val ids = Option(snapshotDir.list()).toSeq.flatten.collect {
-        case FilenamePattern(id, _, _) ⇒ id
+        case FilenamePattern(id, _, _) => id
       }.toSet
       sender() ! IdsWithStoredSnapshots(ids)
   }

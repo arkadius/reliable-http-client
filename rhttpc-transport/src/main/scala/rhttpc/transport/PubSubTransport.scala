@@ -68,7 +68,7 @@ class SubscriberAggregate[SubMsg](subscribers: Seq[Subscriber[SubMsg]])
   }
 
   override def stop(): Future[Unit] = {
-    Future.sequence(subscribers.map(_.stop())).map(_ => Unit)
+    Future.sequence(subscribers.map(_.stop())).map(_ => ())
   }
 }
 

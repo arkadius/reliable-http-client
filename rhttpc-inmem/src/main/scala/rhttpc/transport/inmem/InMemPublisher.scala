@@ -32,12 +32,12 @@ private[inmem] class InMemPublisher[Msg](queueActor: ActorRef)
       case _ =>
         queueActor ! msg
     }
-    Future.successful(Unit)
+    Future.unit
   }
 
   override def start(): Unit = {}
 
   override def stop(): Future[Unit] =
-    Future.successful(Unit)
+    Future.unit
 
 }

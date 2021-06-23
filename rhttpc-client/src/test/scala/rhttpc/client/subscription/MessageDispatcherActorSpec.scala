@@ -30,7 +30,7 @@ class MessageDispatcherActorSpec
   with Matchers {
 
   it should "ack after promise -> confirm -> reply -> consumed" in {
-    val actor = system.actorOf(Props[MessageDispatcherActor])
+    val actor = system.actorOf(Props[MessageDispatcherActor]())
     val sub = SubscriptionOnResponse(UUID.randomUUID().toString)
 
     actor ! RegisterSubscriptionPromise(sub)
@@ -50,7 +50,7 @@ class MessageDispatcherActorSpec
   }
 
   it should "ack after promise -> reply -> confirm -> consumed" in {
-    val actor = system.actorOf(Props[MessageDispatcherActor])
+    val actor = system.actorOf(Props[MessageDispatcherActor]())
     val sub = SubscriptionOnResponse(UUID.randomUUID().toString)
 
     actor ! RegisterSubscriptionPromise(sub)

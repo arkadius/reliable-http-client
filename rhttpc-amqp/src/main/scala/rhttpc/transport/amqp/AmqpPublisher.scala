@@ -57,7 +57,7 @@ private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
 
   override def handleAck(deliveryTag: Long, multiple: Boolean): Unit = {
     logger.debug(s"ACK: $deliveryTag, multiple = $multiple")
-    confirm(deliveryTag, multiple)(_.success(Unit))
+    confirm(deliveryTag, multiple)(_.success(()))
   }
 
   override def handleNack(deliveryTag: Long, multiple: Boolean): Unit = {
@@ -89,7 +89,7 @@ private[amqp] class AmqpPublisher[PubMsg](channel: Channel,
   private def currentPublishingFuturesComplete: Future[Unit] =
     seqNoOnAckPromiseAgent.future()
       .flatMap(map => Future.sequence(map.values.map(_.future)))
-      .map(_ => Unit)
+      .map(_ => ())
 }
 
 case object NoPubMsgAckException extends Exception(s"No acknowledgement for published message")

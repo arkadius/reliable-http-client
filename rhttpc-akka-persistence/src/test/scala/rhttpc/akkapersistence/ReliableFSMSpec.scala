@@ -63,7 +63,7 @@ class ReliableFSMSpec
     actor ! SendMsg("foo")
     Thread.sleep(500)
     actor.underlyingActor.savedSnapshots shouldBe empty
-    fixture.transport.publicationPromise.success(Unit)
+    fixture.transport.publicationPromise.success(())
     awaitCond(actor.underlyingActor.savedSnapshots.size == 1)
     expectMsg(StateSaved)
     actor

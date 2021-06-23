@@ -75,7 +75,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                                         queuesPrefix: String = config.queuesPrefix,
                                         retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                         additionalStartAction: => Unit = {},
-                                        additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                        additionalStopAction: => Future[Unit] = Future.unit)
                                        (implicit transport: PubSubTransport,
                                         reqSerializer: Serializer[Correlated[Req]],
                                         reqDeserializer: Deserializer[Correlated[Req]],
@@ -121,7 +121,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                        queuesPrefix: String = config.queuesPrefix,
                        retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                        additionalStartAction: => Unit = {},
-                       additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                       additionalStopAction: => Future[Unit] = Future.unit)
                       (implicit transport: PubSubTransport,
                        reqSerializer: Serializer[Correlated[Req]],
                        reqDeserializer: Deserializer[Correlated[Req]],
@@ -165,7 +165,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                                            queuesPrefix: String = config.queuesPrefix,
                                            retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                                            additionalStartAction: => Unit = {},
-                                           additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                           additionalStopAction: => Future[Unit] = Future.unit)
                                           (implicit transport: PubSubTransport,
                                            serializer: Serializer[Correlated[Req]],
                                            deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] = {
@@ -199,7 +199,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                   queuesPrefix: String = config.queuesPrefix,
                   retryStrategy: FailureResponseHandleStrategyChooser = config.retryStrategy,
                   additionalStartAction: => Unit = {},
-                  additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                  additionalStopAction: => Future[Unit] = Future.unit)
                  (implicit transport: PubSubTransport,
                   serializer: Serializer[Correlated[Req]],
                   deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] = {
@@ -229,7 +229,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
   def create[Request, SendResult](publicationHandler: PublicationHandler[SendResult],
                                   queuesPrefix: String = config.queuesPrefix,
                                   additionalStartAction: => Unit = {},
-                                  additionalStopAction: => Future[Unit] = Future.successful(Unit))
+                                  additionalStopAction: => Future[Unit] = Future.unit)
                                  (implicit transport: PubSubTransport,
                                   serializer: Serializer[Correlated[Request]]): ReliableClient[Request, SendResult] = {
     val requestPublisher = transport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix))

@@ -2,8 +2,8 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import sbt.Keys._
 import ReleaseTransformations._
 
-val defaultScalaVersion = "2.12.13"
-val scalaVersions = Seq("2.11.12", defaultScalaVersion)
+val defaultScalaVersion = "2.13.6"
+val scalaVersions = Seq("2.12.13", defaultScalaVersion)
 
 val commonSettings =
   Seq(
@@ -86,6 +86,7 @@ val hsqldbV           = "2.3.6"
 val json4sV           = "3.6.11"
 val jaxbV             = "2.3.1"
 val logbackV          = "1.1.11"
+val scalaCompatV      = "2.4.4"
 val scalaTestV        = "3.2.9"
 val slf4jV            = "1.7.26"
 val slickV            = "3.3.2"
@@ -132,6 +133,7 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
         "com.typesafe.akka"        %% "akka-stream"                   % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
+        "org.scala-lang.modules"   %% "scala-collection-compat"       % scalaCompatV,
         "org.scala-lang"            % "scala-reflect"                 % scalaVersion.value,
         "com.typesafe.akka"        %% "akka-testkit"                  % akkaV         % "test",
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test",
@@ -217,6 +219,7 @@ lazy val akkaHttpClient = (project in file("rhttpc-akka-http")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
+        "org.scala-lang.modules"   %% "scala-collection-compat"       % scalaCompatV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }

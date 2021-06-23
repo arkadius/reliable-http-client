@@ -20,5 +20,5 @@ import rhttpc.client.protocol.{Correlated, Exchange}
 import scala.concurrent.Future
 
 object SkipMsg extends (Correlated[Exchange[Any, Any]] => Future[Unit]) {
-  def apply(msg: Correlated[Exchange[Any, Any]]): Future[Unit] = Future.successful(Unit)
+  def apply(msg: Correlated[Exchange[Any, Any]]): Future[Unit] = Future.unit
 }

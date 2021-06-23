@@ -41,7 +41,7 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     val publisher = transport.publisher[String](someQueueName)
     publisher.publish(someMessage)
     probe.expectMsg(someMessage)
-    probe.reply(Unit)
+    probe.reply(())
   }
 
   it should "delivery message to consumer subscribed after publishing" in { transport =>
@@ -51,7 +51,7 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     subscriber.start()
     publisher.publish(someMessage)
     probe.expectMsg(someMessage)
-    probe.reply(Unit)
+    probe.reply(())
   }
 
   it should "delivery message to consumer started after publishing" in { transport =>
@@ -61,7 +61,7 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     publisher.publish(someMessage)
     subscriber.start()
     probe.expectMsg(someMessage)
-    probe.reply(Unit)
+    probe.reply(())
   }
 
   it should "delivery message to multiple consumers" in { transport =>
@@ -78,9 +78,9 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     publisher.publish(someMessage2)
 
     probe1.expectMsg(someMessage)
-    probe1.reply(Unit)
+    probe1.reply(())
     probe2.expectMsg(someMessage2)
-    probe2.reply(Unit)
+    probe2.reply(())
   }
 
   it should "retry message if failure" in { transport =>
@@ -92,7 +92,7 @@ class InMemTransportSpec extends TestKit(ActorSystem("InMemTransportSpec"))
     probe.expectMsg(someMessage)
     probe.reply(Status.Failure(new Exception("failure")))
     probe.expectMsg(someMessage)
-    probe.reply(Unit)
+    probe.reply(())
   }
 
   override type FixtureParam = PubSubTransport

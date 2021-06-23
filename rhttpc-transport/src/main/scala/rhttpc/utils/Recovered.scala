@@ -44,7 +44,7 @@ object Recovered {
     } catch {
       case NonFatal(ex) => // while preparing future
         logger.error(s"Exception while $action", ex)
-        Future.successful(Unit)
+        Future.successful(())
     }
   }
 

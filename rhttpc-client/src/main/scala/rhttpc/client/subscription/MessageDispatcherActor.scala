@@ -78,12 +78,12 @@ private[subscription] class MessageDispatcherActor extends Actor with ActorLoggi
         case (None, None) =>
           log.error(s"No subscription (promise) registered for $correlationId. Will be skipped.")
           // TODO: DLQ
-          sender() ! Unit //  ack
+          sender().!(())
       }
   }
 
   class PendingMessage private (val msg: Any, val sender: ActorRef) {
-    def ack() = sender ! Unit
+    def ack() = sender.!(())
   }
 
   object PendingMessage {

@@ -60,7 +60,8 @@ object ReliableHttpProxyFactory {
   private def send(httpFlow: Flow[(HttpRequest, String), HttpResponse, Any], successRecognizer: SuccessHttpResponseRecognizer)
                   (corr: Correlated[HttpRequest])
                   (implicit ec: ExecutionContext, materialize: Materializer): Future[HttpResponse] = {
-    import collection.JavaConverters._
+    import scala.collection.compat._
+    import scala.jdk.CollectionConverters._
     logger.debug(
       s"""Sending request for ${corr.correlationId} to ${corr.msg.getUri()}. Headers:
          |${corr.msg.getHeaders().asScala.toSeq.map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}
@@ -90,7 +91,8 @@ object ReliableHttpProxyFactory {
 
   private def logResponse(corr: Correlated[HttpRequest])
                          (response: HttpResponse, additionalInfo: String): Unit = {
-    import collection.JavaConverters._
+    import scala.collection.compat._
+import scala.jdk.CollectionConverters._
     logger.debug(
       s"""Got $additionalInfo for ${corr.correlationId} to ${corr.msg.getUri()}. Status: ${response.status.value}. Headers:
          |${response.getHeaders().asScala.toSeq.map(h => "  " + h.name() + ": " + h.value()).mkString("\n")}

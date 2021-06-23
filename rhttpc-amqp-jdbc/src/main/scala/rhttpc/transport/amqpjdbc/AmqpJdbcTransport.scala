@@ -54,7 +54,7 @@ private[amqpjdbc] class AmqpJdbcTransportImpl(underlying: AmqpTransport,
       val scheduler = schedulerByQueueAndPublisher(queueData.name, underlyingPublisher)
       def removeFromCache(): Future[Unit] = {
         schedulersCache.remove(queueData.name)
-        Future.successful(Unit)
+        Future.unit
       }
       new AmqpJdbcPublisher[PubMsg](underlyingPublisher, queueData.name, scheduler, removeFromCache())
     } else {

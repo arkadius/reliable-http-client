@@ -30,7 +30,7 @@ class ReliableClientFutureSpec extends TestKit(ActorSystem("ReliableClientFuture
 
   it should "send request and reply after subscription registration" in { fixture =>
     val sendFuture = fixture.client.send("foo").toFuture
-    fixture.transport.publicationPromise.success(Unit)
+    fixture.transport.publicationPromise.success(())
     fixture.transport.replySubscriptionPromise.completeWith(Future {
       Thread.sleep(1000) // wait for registration of promise of subscription
       "bar"

@@ -48,7 +48,7 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
 
   override def start(): Unit = {
     val queueConsumer = new DefaultConsumer(channel) {
-      override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]) {
+      override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
         val deliveryTag = envelope.getDeliveryTag
         val stringMsg = new String(body, "UTF-8")
         val tryDeserializedMessage = deserializer.deserialize(stringMsg)
@@ -72,14 +72,14 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
     val consumePromise = Promise[Unit]()
     def complete() = {
       pendingConsumePromises.send { current =>
-        consumePromise.success(Unit)
+        consumePromise.success(())
         current - consumePromise
       }
     }
     val replyFuture = for {
       _ <- pendingConsumePromises.alter(_ + consumePromise)
       _ <- consumer ? msgObj
-    } yield Unit
+    } yield ()
     replyFuture onComplete handleConsumerResponse(deliveryTag, () => complete())
   }
 
@@ -114,7 +114,7 @@ private[amqp] abstract class AmqpSubscriber[Sub](channel: Channel,
   private def currentConsumingFuturesComplete: Future[Unit] =
     pendingConsumePromises.future()
       .flatMap(set => Future.sequence(set.map(_.future)))
-      .map(_ => Unit)
+      .map(_ => ())
 }
 
 trait SendingSimpleMessage[Sub] { self: AmqpSubscriber[Sub] =>
@@ -134,7 +134,8 @@ trait SendingFullMessage[Sub] { self: AmqpSubscriber[Sub] =>
   // that is why if you ever add a new string property here use _.toString instead of casting (we do not Cast to LongString to avoid weird dependencies
   // between modules, and casting to String would result in ClassCastException)
   override protected def prepareMessage(deserializedMessage: Sub, properties: AMQP.BasicProperties): Any = {
-    import collection.JavaConverters._
+    import scala.collection.compat._
+    import scala.jdk.CollectionConverters._
     Message(deserializedMessage, Option(properties.getHeaders).map(_.asInstanceOf[java.util.Map[String, Any]].asScala.toMap).getOrElse(Map.empty))
   }
 

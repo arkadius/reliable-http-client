@@ -112,17 +112,17 @@ class SlickJdbcScheduledMessagesRepositorySpec extends SlickJdbcSpec with ScalaF
                      (check: Seq[ScheduledMessage] => Unit): Unit = {
       val fetchResult = repo.fetchMessagesShouldByRun(queueName, batchSize) { msgs =>
         check(msgs)
-        Future.successful(Unit)
+        Future.unit
       }
-      whenReady(fetchResult) { _ => Unit }
+      whenReady(fetchResult) { _ => () }
     }
 
     def save(message: MessageToSchedule): Unit = {
-      whenReady(repo.save(message)){ _ => Unit }
+      whenReady(repo.save(message)){ _ => () }
     }
 
     def save(queueName: String): Unit = {
-      whenReady(repo.save(MessageToSchedule(queueName, "some message", Map.empty, 5 second))){ _ => Unit }
+      whenReady(repo.save(MessageToSchedule(queueName, "some message", Map.empty, 5 second))){ _ => () }
     }
 
     def queuesStatsCheck(queueNames: Set[String])
