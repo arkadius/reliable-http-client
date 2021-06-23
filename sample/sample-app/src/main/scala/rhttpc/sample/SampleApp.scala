@@ -35,7 +35,7 @@ object SampleApp extends App with Directives {
   implicit val materializer = ActorMaterializer()
   import system.dispatcher
 
-  val rhttpc = Await.result(ReliableHttpClientFactory().withOwnAmqpConnection.inOutWithSubscriptions(), 10 seconds)
+  val rhttpc = Await.result(ReliableHttpClientFactory().withOwnAmqpConnection.inOutWithSubscriptions(), 20 seconds)
 
   val client = new DelayedEchoClient {
     override def requestResponse(msg: String): ReplyFuture = {

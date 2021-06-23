@@ -128,8 +128,7 @@ class DeliveryResponseAfterRestartWithDockerSpec
     waitStrategy =
       new HttpWaitStrategy()
         .forPort(8081)
-        .forPath("/healthcheck")
-        .withReadTimeout(java.time.Duration.ofMillis(60 * 1000)))
+        .forPath("/healthcheck"))
     .configure(_.withNetwork(dockerNetwork))
     .configure(_.withLogConsumer(logConsumer))
     .configure(_.withFileSystemBind(tmpDirForAkkaPersistence.canonicalPath, "/akka-persistence", BindMode.READ_WRITE))
