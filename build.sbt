@@ -17,6 +17,7 @@ val commonSettings =
       "-feature",
       "-Xfatal-warnings",
       "-language:postfixOps"),
+    licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html")),
     headerLicense := Some(HeaderLicense.Custom(
       """|Copyright 2015 the original author or authors.
          |
