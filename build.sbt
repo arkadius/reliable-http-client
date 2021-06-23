@@ -339,7 +339,7 @@ lazy val root = (project in file("."))
       releaseStepCommandAndRemaining("+publishSigned"),
       setNextVersion,
       commitNextVersion,
-      releaseStepCommand("sonatypeBundleRelease"),
+      ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
       pushChanges
     )
   )
