@@ -5,7 +5,6 @@ package rhttpc.utils
 
 import scala.concurrent.stm._
 import scala.concurrent.{ ExecutionContext, Future, Promise }
-import akka.util.SerializedSuspendableExecutionContext
 
 object Agent {
 
