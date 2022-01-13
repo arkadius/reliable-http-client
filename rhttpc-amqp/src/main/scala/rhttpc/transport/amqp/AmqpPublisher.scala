@@ -16,7 +16,7 @@
 package rhttpc.transport.amqp
 
 import java.io._
-import akka.agent.Agent
+import rhttpc.utils.Agent
 import com.github.ghik.silencer.silent
 import com.rabbitmq.client._
 import org.slf4j.LoggerFactory

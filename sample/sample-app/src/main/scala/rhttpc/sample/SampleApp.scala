@@ -20,7 +20,6 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server._
 import akka.pattern._
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import rhttpc.akkahttp.ReliableHttpClientFactory
 import rhttpc.akkapersistence.{RecoverAllActors, RecoverableActorsManager, SendMsgToChild}
@@ -32,7 +31,7 @@ import scala.language.reflectiveCalls
 
 object SampleApp extends App with Directives {
   implicit val system = ActorSystem("rhttpc-sample")
-  implicit val materializer = ActorMaterializer()
+  implicit val materializer = akka.stream.Materializer.matFromSystem
   import system.dispatcher
 
   val rhttpc = Await.result(ReliableHttpClientFactory().withOwnAmqpConnection.inOutWithSubscriptions(), 20 seconds)
@@ -73,7 +72,7 @@ object SampleApp extends App with Directives {
       }
     }
 
-  Http().bindAndHandle(route, interface = "0.0.0.0", port = 8081).map { binding =>
+  Http().newServerAt(interface = "0.0.0.0", port = 8081).bind(route).map { binding =>
     Runtime.getRuntime.addShutdownHook(new Thread {
       override def run(): Unit = {
         Await.result(rhttpc.stop(), 10 seconds)

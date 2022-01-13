@@ -20,7 +20,6 @@ import akka.actor.{Actor, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse}
 import akka.pattern._
-import akka.stream.ActorMaterializer
 import akka.testkit.{TestKit, TestProbe}
 import dispatch.url
 import org.scalatest.{BeforeAndAfterAll, Ignore}
@@ -35,7 +34,7 @@ import scala.util.{Random, Try}
 class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec")) with AnyFlatSpecLike with BeforeAndAfterAll {
   import system.dispatcher
 
-  implicit val materializer = ActorMaterializer()
+  implicit val materializer = akka.stream.Materializer.matFromSystem
 
   implicit def serializer[Msg] = new Serializer[Msg] {
     override def serialize(obj: Msg): String = obj.toString
@@ -60,9 +59,7 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
 
   it should "have a good throughput" in {
     val bound = Await.result(
-      Http().bindAndHandleAsync(
-        handle, interface, port
-      ),
+      Http().newServerAt(interface, port).bind(handle),
       5.seconds
     )
     val http = dispatch.Http.default

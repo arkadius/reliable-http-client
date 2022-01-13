@@ -16,11 +16,10 @@
 package rhttpc.echo
 
 import akka.actor.ActorSystem
-import akka.agent.Agent
+import rhttpc.utils.Agent
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server._
 import akka.pattern._
-import akka.stream.ActorMaterializer
 import com.github.ghik.silencer.silent
 
 import scala.concurrent.Future
@@ -29,7 +28,7 @@ import scala.concurrent.duration._
 object EchoApp extends App with Directives {
 
   implicit val system = ActorSystem("rhttpc-echo")
-  implicit val materializer = ActorMaterializer()
+  implicit val materializer = akka.stream.Materializer.matFromSystem
   import system.dispatcher
 
   @silent val retryAgent = Agent(Map.empty[String, Int])
@@ -62,7 +61,7 @@ object EchoApp extends App with Directives {
       }
   }
 
-  Http().bindAndHandle(route, interface = "0.0.0.0", port = 8082)
+  Http().newServerAt(interface = "0.0.0.0", port = 8082).bind(route)
 }
 
 

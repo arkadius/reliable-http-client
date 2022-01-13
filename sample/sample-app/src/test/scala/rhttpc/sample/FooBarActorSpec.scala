@@ -42,7 +42,7 @@ class FooBarActorSpec extends TestKit(ActorSystem()) with ImplicitSender with An
 
   ignore should "go into foo state after echo response" in withNextFooBar { fooBarActor =>
     TestProbe().send(fooBarActor, SendMsg("foo"))
-    val scheduled = system.scheduler.schedule(0.millis, 100.millis, fooBarActor, CurrentState)
+    val scheduled = system.scheduler.scheduleAtFixedRate(0.millis, 100.millis, fooBarActor, CurrentState)
     fishForMessage(10 seconds) {
       case WaitingForResponseState => false
       case FooState => true
