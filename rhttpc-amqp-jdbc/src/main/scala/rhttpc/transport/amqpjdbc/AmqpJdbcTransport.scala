@@ -17,7 +17,7 @@ package rhttpc.transport.amqpjdbc
 
 import _root_.slick.jdbc.{JdbcBackend, JdbcProfile}
 import akka.actor.{ActorRef, ActorSystem}
-import akka.agent.Agent
+import rhttpc.utils.Agent
 import com.github.ghik.silencer.silent
 import com.rabbitmq.client.AMQP.Queue.DeclareOk
 import com.rabbitmq.client.{AMQP, Connection}

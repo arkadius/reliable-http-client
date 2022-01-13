@@ -16,7 +16,7 @@
 package rhttpc.transport.amqp
 
 import akka.actor._
-import akka.agent.Agent
+import rhttpc.utils.Agent
 import akka.pattern._
 import akka.util.Timeout
 import com.github.ghik.silencer.silent

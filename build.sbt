@@ -74,8 +74,8 @@ val publishSettings = Seq(
   }
 )
 
-val akkaV             = "2.5.32"
-val akkaHttpV         = "10.1.13"
+val akkaV             = "2.6.18"
+val akkaHttpV         = "10.2.6"
 val amqpcV            = "3.6.6"
 val argonaut62MinorV  = ".3"
 val betterFilesV      = "3.9.1"
@@ -91,6 +91,7 @@ val scalaCompatV      = "2.4.4"
 val scalaTestV        = "3.2.9"
 val slf4jV            = "1.7.26"
 val slickV            = "3.3.2"
+val scalaStmV         = "0.11.1"
 val testContainersV   = "0.39.5"
 
 lazy val transport = (project in file("rhttpc-transport")).
@@ -102,6 +103,7 @@ lazy val transport = (project in file("rhttpc-transport")).
       Seq(
         "com.typesafe.akka"        %% "akka-actor"                    % akkaV,
         "org.slf4j"                 % "slf4j-api"                     % slf4jV,
+        "org.scala-stm"            %% "scala-stm"                     % scalaStmV,
         "org.scalatest"            %% "scalatest"                     % scalaTestV    % "test"
       )
     }
@@ -130,7 +132,6 @@ lazy val amqpTransport = (project in file("rhttpc-amqp")).
     name := "rhttpc-amqp",
     libraryDependencies ++= {
       Seq(
-        "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"        %% "akka-stream"                   % akkaV,
         "com.rabbitmq"              % "amqp-client"                   % amqpcV,
         "com.iheart"               %% "ficus"                         % ficusV,
@@ -252,7 +253,6 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
     libraryDependencies ++= {
       Seq(
         "com.typesafe.akka"        %% "akka-http"                     % akkaHttpV,
-        "com.typesafe.akka"        %% "akka-agent"                    % akkaV,
         "com.typesafe.akka"        %% "akka-slf4j"                    % akkaV,
         "com.typesafe.akka"        %% "akka-stream"                   % akkaV,
         "ch.qos.logback"            % "logback-classic"               % logbackV,
@@ -262,6 +262,7 @@ lazy val sampleEcho = (project in file("sample/sample-echo")).
     dockerExposedPorts := Seq(8082),
     publish / skip := true
   )
+  .dependsOn(transport)
 
 lazy val sampleApp = (project in file("sample/sample-app")).
   settings(commonSettings).
