@@ -16,7 +16,6 @@
 package rhttpc.client.subscription
 
 import java.util.concurrent.TimeoutException
-
 import akka.actor._
 import akka.pattern._
 import akka.util.Timeout
@@ -25,7 +24,7 @@ import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
-import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, QueueType, Subscriber}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -128,12 +127,13 @@ case class SubscriptionManagerFactory()(implicit actorSystem: ActorSystem) {
   
   def create[Msg](batchSize: Int = config.batchSize,
                   parallelConsumers: Int = config.parallelConsumers,
-                  queuesPrefix: String = config.queuesPrefix)
+                  queuesPrefix: String = config.queuesPrefix,
+                  queueType: QueueType = config.queueType)
                  (implicit transport: PubSubTransport,
                   deserializer: Deserializer[Correlated[Msg]]):
   SubscriptionManager with PublicationHandler[ReplyFuture] = {
 
-    create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers))
+    create(InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers, queueType = queueType))
   }
 
   private[client] def create[Msg](queueData: InboundQueueData)

@@ -80,6 +80,21 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                                         reqSerializer: Serializer[Correlated[Req]],
                                         reqDeserializer: Deserializer[Correlated[Req]],
                                         exSerializer: Serializer[Correlated[Exchange[Req, Resp]]],
+                                        exDeserializer: Deserializer[Correlated[Exchange[Req, Resp]]]): InOutReliableClient[Req] =
+    inOutWithSubscriptions(send, batchSize, parallelConsumers, queuesPrefix, retryStrategy, additionalStartAction, additionalStopAction, config.queueType)
+
+  def inOutWithSubscriptions[Req, Resp](send: Request[Req] => Future[Resp],
+                                        batchSize: Int,
+                                        parallelConsumers: Int,
+                                        queuesPrefix: String,
+                                        retryStrategy: FailureResponseHandleStrategyChooser,
+                                        additionalStartAction: => Unit,
+                                        additionalStopAction: => Future[Unit],
+                                        queueType: QueueType)
+                                       (implicit transport: PubSubTransport,
+                                        reqSerializer: Serializer[Correlated[Req]],
+                                        reqDeserializer: Deserializer[Correlated[Req]],
+                                        exSerializer: Serializer[Correlated[Exchange[Req, Resp]]],
                                         exDeserializer: Deserializer[Correlated[Exchange[Req, Resp]]]): InOutReliableClient[Req] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
@@ -93,7 +108,7 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix
     )
-    val requestPublisher = transport.publisher[Correlated[Req]](prepareRequestPublisherQueueData(queuesPrefix))
+    val requestPublisher = transport.publisher[Correlated[Req]](prepareRequestPublisherQueueData(queuesPrefix, queueType))
     def startAdditional() = {
       additionalStartAction
       subMgr.start()
@@ -126,6 +141,22 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                        reqSerializer: Serializer[Correlated[Req]],
                        reqDeserializer: Deserializer[Correlated[Req]],
                        exDeserializer: Deserializer[Correlated[Exchange[Req, Resp]]],
+                       exSerializer: Serializer[Correlated[Exchange[Req, Resp]]]): InOnlyReliableClient[Req] =
+    inOut(send, handleResponse, batchSize, parallelConsumers, queuesPrefix, retryStrategy, additionalStartAction, additionalStopAction, config.queueType)
+
+  def inOut[Req, Resp](send: Request[Req] => Future[Resp],
+                       handleResponse: Exchange[Req, Resp] => Future[Unit],
+                       batchSize: Int,
+                       parallelConsumers: Int,
+                       queuesPrefix: String,
+                       retryStrategy: FailureResponseHandleStrategyChooser,
+                       additionalStartAction: => Unit,
+                       additionalStopAction: => Future[Unit],
+                       queueType: QueueType)
+                      (implicit transport: PubSubTransport,
+                       reqSerializer: Serializer[Correlated[Req]],
+                       reqDeserializer: Deserializer[Correlated[Req]],
+                       exDeserializer: Deserializer[Correlated[Exchange[Req, Resp]]],
                        exSerializer: Serializer[Correlated[Exchange[Req, Resp]]]): InOnlyReliableClient[Req] = {
     val proxy = ReliableProxyFactory().publishingResponses(
       send = send,
@@ -138,7 +169,8 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       handleMessage = handleResponse,
       batchSize = batchSize,
       parallelConsumers = parallelConsumers,
-      queuesPrefix = queuesPrefix
+      queuesPrefix = queuesPrefix,
+      queueType = queueType
     )
     def startAdditional() = {
       additionalStartAction
@@ -157,7 +189,6 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       additionalStopAction = stopAdditional
     )
   }
-
   def inOutWithRequestQueueOnly[Req, Resp](send: Request[Req] => Future[Resp],
                                            handleResponse: Exchange[Req, Resp] => Future[Unit],
                                            batchSize: Int = config.batchSize,
@@ -168,6 +199,20 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                                            additionalStopAction: => Future[Unit] = Future.unit)
                                           (implicit transport: PubSubTransport,
                                            serializer: Serializer[Correlated[Req]],
+                                           deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] =
+    inOutWithRequestQueueOnly(send, handleResponse, batchSize, parallelConsumers, queuesPrefix, retryStrategy, additionalStartAction, additionalStopAction, config.queueType)
+
+  def inOutWithRequestQueueOnly[Req, Resp](send: Request[Req] => Future[Resp],
+                                           handleResponse: Exchange[Req, Resp] => Future[Unit],
+                                           batchSize: Int,
+                                           parallelConsumers: Int,
+                                           queuesPrefix: String,
+                                           retryStrategy: FailureResponseHandleStrategyChooser,
+                                           additionalStartAction: => Unit,
+                                           additionalStopAction: => Future[Unit],
+                                           queueType: QueueType)
+                                          (implicit transport: PubSubTransport,
+                                           serializer: Serializer[Correlated[Req]],
                                            deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] = {
     val proxy = ReliableProxyFactory().create(
       send = send,
@@ -175,7 +220,8 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       batchSize = batchSize,
       parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
-      retryStrategy = retryStrategy
+      retryStrategy = retryStrategy,
+      queueType = queueType
     )
     def startAdditional() = {
       additionalStartAction
@@ -189,10 +235,10 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       publicationHandler = StraightforwardPublicationHandler,
       queuesPrefix = queuesPrefix,
       additionalStartAction = startAdditional(),
-      additionalStopAction = stopAdditional
+      additionalStopAction = stopAdditional,
+      queueType = queueType
     )
   }
-
   def inOnly[Req](send: Request[Req] => Future[Unit],
                   batchSize: Int = config.batchSize,
                   parallelConsumers: Int = config.parallelConsumers,
@@ -202,13 +248,27 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
                   additionalStopAction: => Future[Unit] = Future.unit)
                  (implicit transport: PubSubTransport,
                   serializer: Serializer[Correlated[Req]],
+                  deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] =
+    inOnly(send, batchSize, parallelConsumers, queuesPrefix, retryStrategy, additionalStartAction, additionalStopAction, config.queueType)
+
+  def inOnly[Req](send: Request[Req] => Future[Unit],
+                  batchSize: Int,
+                  parallelConsumers: Int,
+                  queuesPrefix: String,
+                  retryStrategy: FailureResponseHandleStrategyChooser,
+                  additionalStartAction: => Unit,
+                  additionalStopAction: => Future[Unit],
+                  queueType: QueueType)
+                 (implicit transport: PubSubTransport,
+                  serializer: Serializer[Correlated[Req]],
                   deserializer: Deserializer[Correlated[Req]]): InOnlyReliableClient[Req] = {
     val proxy = ReliableProxyFactory().skippingResponses(
       send = send,
       batchSize = batchSize,
       parallelConsumers = parallelConsumers,
       queuesPrefix = queuesPrefix,
-      retryStrategy = retryStrategy
+      retryStrategy = retryStrategy,
+      queueType = queueType
     )
     def startAdditional() = {
       additionalStartAction
@@ -222,17 +282,19 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
       publicationHandler = StraightforwardPublicationHandler,
       queuesPrefix = queuesPrefix,
       additionalStartAction = startAdditional(),
-      additionalStopAction = stopAdditional
+      additionalStopAction = stopAdditional,
+      queueType = queueType
     )
   }
 
   def create[Request, SendResult](publicationHandler: PublicationHandler[SendResult],
                                   queuesPrefix: String = config.queuesPrefix,
                                   additionalStartAction: => Unit = {},
-                                  additionalStopAction: => Future[Unit] = Future.unit)
+                                  additionalStopAction: => Future[Unit] = Future.unit,
+                                  queueType: QueueType = config.queueType)
                                  (implicit transport: PubSubTransport,
                                   serializer: Serializer[Correlated[Request]]): ReliableClient[Request, SendResult] = {
-    val requestPublisher = transport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix))
+    val requestPublisher = transport.publisher[Correlated[Request]](prepareRequestPublisherQueueData(queuesPrefix, queueType))
     new ReliableClient(
       publisher = requestPublisher,
       publicationHandler = publicationHandler,

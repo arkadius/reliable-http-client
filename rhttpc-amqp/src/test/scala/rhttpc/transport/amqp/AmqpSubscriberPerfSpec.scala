@@ -24,7 +24,7 @@ import akka.testkit.{TestKit, TestProbe}
 import dispatch.url
 import org.scalatest.{BeforeAndAfterAll, Ignore}
 import org.scalatest.flatspec.AnyFlatSpecLike
-import rhttpc.transport.{Deserializer, InboundQueueData, OutboundQueueData, Serializer}
+import rhttpc.transport.{Deserializer, InboundQueueData, OutboundQueueData, QueueType, Serializer}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -45,8 +45,8 @@ class AmqpSubscriberPerfSpec extends TestKit(ActorSystem("AmqpSubscriberPerfSpec
   }
 
   val queueName = "request"
-  val outboundQueueData = OutboundQueueData(queueName, autoDelete = true, durability = false)
-  val inboundQueueData = InboundQueueData(queueName, batchSize = 10, parallelConsumers = 10, autoDelete = true, durability = false)
+  val outboundQueueData = OutboundQueueData(queueName, autoDelete = true, durability = false, queueType = QueueType.ClassicQueue)
+  val inboundQueueData = InboundQueueData(queueName, batchSize = 10, parallelConsumers = 10, autoDelete = true, durability = false, queueType = QueueType.ClassicQueue)
   val count = 100
 
   private val interface = "localhost"

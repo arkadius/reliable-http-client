@@ -16,8 +16,8 @@
 package rhttpc
 
 import org.slf4j.LoggerFactory
-import rhttpc.client.subscription.{WithSubscriptionManager, ReplyFuture}
-import rhttpc.transport.OutboundQueueData
+import rhttpc.client.subscription.{ReplyFuture, WithSubscriptionManager}
+import rhttpc.transport.{OutboundQueueData, QueueType}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -26,11 +26,11 @@ package object client {
   type InOutReliableClient[Request] = ReliableClient[Request, ReplyFuture] with WithSubscriptionManager
   type InOnlyReliableClient[Request] = ReliableClient[Request, Future[Unit]]
 
-  private[rhttpc] def prepareRequestPublisherQueueData(queuesPrefix: String) =
-    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix))
+  private[rhttpc] def prepareRequestPublisherQueueData(queuesPrefix: String, queueType: QueueType) =
+    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), queueType = queueType)
 
-  private[rhttpc] def prepareDelayedRequestPublisherQueueData(queuesPrefix: String) =
-    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), delayed = true)
+  private[rhttpc] def prepareDelayedRequestPublisherQueueData(queuesPrefix: String, queueType: QueueType) =
+    OutboundQueueData(QueuesNaming.prepareRequestQueueName(queuesPrefix), delayed = true, queueType = queueType)
 
 
 }

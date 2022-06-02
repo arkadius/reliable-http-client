@@ -17,7 +17,7 @@ package rhttpc.transport.amqp
 
 import com.rabbitmq.client.AMQP
 import rhttpc.transport.SerializingPublisher.SerializedMessage
-import rhttpc.transport.OutboundQueueData
+import rhttpc.transport.{OutboundQueueData, QueueType}
 
 import scala.concurrent.duration._
 
@@ -67,10 +67,9 @@ trait AmqpDefaults
   }
 
   private[rhttpc] def declareDlqAndBindToExchange(data: AmqpDeclareOutboundQueueData) = {
-    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(prepareDlqQueueName(data.queueData.name)), dlqExchangeName, data.channel)
+    val dlqData = AmqpDeclareOutboundQueueData(OutboundQueueData(prepareDlqQueueName(data.queueData.name), queueType = data.queueData.queueType), dlqExchangeName, data.channel)
     declareQueueAndBindToExchange(dlqData, "direct", Map.empty)
   }
-
 
   private[rhttpc] def declareQueueAndBindToExchange(data: AmqpDeclareOutboundQueueData, exchangeType: String, args: Map[String, AnyRef]) = {
     import data._
@@ -82,19 +81,25 @@ trait AmqpDefaults
 
   private[rhttpc] def declarePublisherQueue(data: AmqpDeclareOutboundQueueData) = {
     import data._
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name).asJava)
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareQueueArgs(queueData.name, queueData.queueType).asJava)
   }
 
   private[rhttpc] def declareSubscriberQueue(data: AmqpDeclareInboundQueueData) = {
     import data._
     channel.basicQos(queueData.batchSize)
-    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareDlqArgs(queueData.name).asJava)
+    channel.queueDeclare(queueData.name, queueData.durability, false, queueData.autoDelete, prepareQueueArgs(queueData.name, queueData.queueType).asJava)
   }
 
-  private def prepareDlqArgs(queueName: String) =
-    Map[String, AnyRef](
-      "x-dead-letter-exchange" -> dlqExchangeName,
-      "x-dead-letter-routing-key" -> prepareDlqQueueName(queueName)
-    )
-
+  private def prepareQueueArgs(queueName: String, queueType: QueueType): Map[String, Object] = {
+    val dlqArgs = Map(
+        "x-dead-letter-exchange" -> dlqExchangeName,
+        "x-dead-letter-routing-key" -> prepareDlqQueueName(queueName)
+      )
+    val queueTypeArgs =
+      queueType match {
+        case QueueType.ClassicQueue => Map.empty
+        case QueueType.QuorumQueue => Map("x-queue-type" -> "quorum")
+      }
+    dlqArgs ++ queueTypeArgs
+  }
 }

@@ -22,10 +22,10 @@ import scala.util.Try
 
 trait PubSubTransport {
   def publisher[PubMsg: Serializer](queueName: String): Publisher[PubMsg] =
-    publisher(OutboundQueueData(queueName))
+    publisher(OutboundQueueData(queueName, queueType = QueueType.ClassicQueue))
 
   def subscriber[SubMsg: Deserializer](queueName: String, consumer: ActorRef): Subscriber[SubMsg] =
-    subscriber(InboundQueueData(queueName, batchSize = 10), consumer)
+    subscriber(InboundQueueData(queueName, batchSize = 10, queueType = QueueType.ClassicQueue), consumer)
 
   def publisher[PubMsg: Serializer](queueData: OutboundQueueData): Publisher[PubMsg]
 
@@ -36,9 +36,15 @@ trait PubSubTransport {
   def stop(): Future[Unit]
 }
 
-case class InboundQueueData(name: String, batchSize: Int, parallelConsumers: Int = 1, durability: Boolean = true, autoDelete: Boolean = false)
+sealed trait QueueType
+object QueueType {
+  case object ClassicQueue extends QueueType
+  case object QuorumQueue extends QueueType
+}
 
-case class OutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false)
+case class InboundQueueData(name: String, batchSize: Int, parallelConsumers: Int = 1, durability: Boolean = true, autoDelete: Boolean = false, queueType: QueueType)
+
+case class OutboundQueueData(name: String, durability: Boolean = true, autoDelete: Boolean = false, delayed: Boolean = false, queueType: QueueType)
 
 trait Publisher[-Msg] {
 
