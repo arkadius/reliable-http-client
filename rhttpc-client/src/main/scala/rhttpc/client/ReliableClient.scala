@@ -92,7 +92,8 @@ case class ReliableClientFactory()(implicit actorSystem: ActorSystem) {
     val subMgr = SubscriptionManagerFactory().create[Req](
       batchSize = batchSize,
       parallelConsumers = parallelConsumers,
-      queuesPrefix = queuesPrefix
+      queuesPrefix = queuesPrefix,
+      queueType = queueType
     )
     val requestPublisher = transport.publisher[Correlated[Req]](prepareRequestPublisherQueueData(queuesPrefix, queueType))
     def startAdditional() = {
