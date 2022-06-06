@@ -18,7 +18,7 @@ package rhttpc.test
 import better.files._
 import com.dimafeng.testcontainers.{ForEachTestContainer, GenericContainer, MultipleContainers}
 import org.apache.commons.io.FileUtils
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterEach, Ignore}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.slf4j.{Logger, LoggerFactory}
@@ -33,6 +33,7 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.{Random, Try}
 
+@Ignore
 class DeliveryResponseAfterRestartWithDockerSpec
   extends AnyFlatSpec
     with Matchers

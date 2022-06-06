@@ -21,6 +21,8 @@ import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
 import rhttpc.client.proxy.{BackoffRetry, FailureResponseHandleStrategyChooser, HandleAll, SkipAll}
+import rhttpc.transport.QueueType
+
 import scala.util.{Success, Try}
 
 object ConfigParser {
@@ -33,6 +35,7 @@ object ConfigParser {
   }
 
   private implicit def failureResponseHandleStrategyChooserReader: ValueReader[FailureResponseHandleStrategyChooser] = RetryStrategyValueReader
+  private implicit def queueTypeReader: ValueReader[QueueType] = QueueTypeValueReader
 }
 
 object RetryStrategyValueReader extends ValueReader[FailureResponseHandleStrategyChooser] {
@@ -45,7 +48,20 @@ object RetryStrategyValueReader extends ValueReader[FailureResponseHandleStrateg
   }
 }
 
+object QueueTypeValueReader extends ValueReader[QueueType] {
+  override def read(config: Config, path: String): QueueType = {
+    config.getAs[String](path).fold[QueueType](QueueType.ClassicQueue) {
+      case "classic" => QueueType.ClassicQueue
+      case "quorum" => QueueType.QuorumQueue
+      case other => throw InvalidConfigValueException(s"Invalid value as QueueType=[$other]. Should be one of: classic, quorum.")
+    }
+  }
+}
+
 case class RhttpcConfig(queuesPrefix: String,
                         batchSize: Int,
                         parallelConsumers: Int,
-                        retryStrategy: FailureResponseHandleStrategyChooser)
+                        retryStrategy: FailureResponseHandleStrategyChooser,
+                        queueType: QueueType)
+
+final case class InvalidConfigValueException(message: String) extends Exception(message)

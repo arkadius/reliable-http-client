@@ -22,7 +22,7 @@ import Recovered._
 import rhttpc.client._
 import rhttpc.client.config.ConfigParser
 import rhttpc.client.protocol.{Correlated, Exchange}
-import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, Subscriber}
+import rhttpc.transport.{Deserializer, InboundQueueData, PubSubTransport, QueueType, Subscriber}
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -69,20 +69,22 @@ case class MessageConsumerFactory()(implicit actorSystem: ActorSystem) {
   def create[Request, Response](handleMessage: Exchange[Request, Response] => Future[Unit],
                                 batchSize: Int = config.batchSize,
                                 parallelConsumers: Int = config.parallelConsumers,
-                                queuesPrefix: String = config.queuesPrefix)
+                                queuesPrefix: String = config.queuesPrefix,
+                                queueType: QueueType = config.queueType)
                                (implicit transport: PubSubTransport,
                                 deserializer: Deserializer[Correlated[Exchange[Request, Response]]]): MessageConsumer[Request, Response] = {
-    new MessageConsumer(prepareSubscriber(transport, batchSize, parallelConsumers, queuesPrefix), handleMessage)
+    new MessageConsumer(prepareSubscriber(transport, batchSize, parallelConsumers, queuesPrefix, queueType), handleMessage)
   }
 
   private def prepareSubscriber[Request, Response](transport: PubSubTransport,
                                                    batchSize: Int,
                                                    parallelConsumers: Int,
-                                                   queuesPrefix: String)
+                                                   queuesPrefix: String,
+                                                   queueType: QueueType)
                                                   (implicit actorSystem: ActorSystem,
                                                    deserializer: Deserializer[Correlated[Exchange[Request, Response]]]):
   (ActorRef) => Subscriber[Correlated[Exchange[Request, Response]]] =
-    transport.subscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers), _)
+    transport.subscriber[Correlated[_]](InboundQueueData(QueuesNaming.prepareResponseQueueName(queuesPrefix), batchSize, parallelConsumers, queueType = queueType), _)
       .asInstanceOf[Subscriber[Correlated[Exchange[Request, Response]]]]
 
 }

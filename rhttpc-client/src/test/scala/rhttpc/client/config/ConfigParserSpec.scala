@@ -19,6 +19,7 @@ import com._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import rhttpc.client.proxy.{BackoffRetry, HandleAll}
+import rhttpc.transport.QueueType
 
 import scala.concurrent.duration._
 
@@ -38,7 +39,21 @@ class ConfigParserSpec extends AnyFlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3, None))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5.seconds, 1.2, 3, None), QueueType.ClassicQueue)
+  }
+
+  it should "parse config with publish all strategy and queue type set to quorum" in {
+    val config = typesafe.config.ConfigFactory.parseString(
+      """x {
+        |  queuesPrefix = "rhttpc"
+        |  batchSize = 10
+        |  parallelConsumers = 1
+        |  retryStrategy = handle-all
+        |  queueType = "quorum"
+        |}
+      """.stripMargin)
+
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll, QueueType.QuorumQueue)
   }
 
   it should "parse config with publish all strategy" in {
@@ -51,7 +66,21 @@ class ConfigParserSpec extends AnyFlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll)
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, HandleAll, QueueType.ClassicQueue)
+  }
+
+  it should "parse config with publish all strategy and queue type set to invalid value" in {
+    val config = typesafe.config.ConfigFactory.parseString(
+      """x {
+        |  queuesPrefix = "rhttpc"
+        |  batchSize = 10
+        |  parallelConsumers = 1
+        |  retryStrategy = handle-all
+        |  queueType = "someInvalidQueueType"
+        |}
+      """.stripMargin)
+
+    an [InvalidConfigValueException] should be thrownBy ConfigParser.parse(config, "x")
   }
 
   it should "parse config with backoff with deadline strategy" in {
@@ -69,6 +98,6 @@ class ConfigParserSpec extends AnyFlatSpec with Matchers {
         |}
       """.stripMargin)
 
-    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3, Some(5 seconds)))
+    ConfigParser.parse(config, "x") shouldEqual RhttpcConfig("rhttpc", 10, 1, BackoffRetry(5 seconds, 1.2, 3, Some(5 seconds)), QueueType.ClassicQueue)
   }
 }

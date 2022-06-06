@@ -7,6 +7,7 @@ jobs:
     environment:
       SBT_VERSION: 1.5.1
       DOCKER_VERSION: 18.06.3-ce
+      TESTCONTAINERS_RYUK_DISABLED: "true"
     steps:
       - run:
           name: Get sbt binary
@@ -16,7 +17,7 @@ jobs:
             dpkg -i sbt-$SBT_VERSION.deb
             rm sbt-$SBT_VERSION.deb
             apt-get update
-            apt-get install -y sbt python-pip git
+            apt-get install -y sbt python3-pip git
             pip install awscli
             apt-get clean && apt-get autoclean
       - checkout
